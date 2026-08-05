@@ -1,0 +1,6 @@
+[
+  { "id": "doc-1", "name": "Dr. Anjali Rao", "specialty": "General Physician", "qualification": "MBBS, MD", "experience": "14 yrs experience", "image": "https://picsum.photos/seed/doc-1/300/300" },
+  { "id": "doc-2", "name": "Dr. Suresh Menon", "specialty": "Cardiologist", "qualification": "MBBS, DM Cardiology", "experience": "19 yrs experience", "image": "https://picsum.photos/seed/doc-2/300/300" },
+  { "id": "doc-3", "name": "Dr. Neha Kulkarni", "specialty": "Pediatrician", "qualification": "MBBS, MD Pediatrics", "experience": "11 yrs experience", "image": "https://picsum.photos/seed/doc-3/300/300" },
+  { "id": "doc-4", "name": "Dr. Farhan Ali", "specialty": "Dermatologist", "qualification": "MBBS, MD Dermatology", "experience": "9 yrs experience", "image": "https://picsum.photos/seed/doc-4/300/300" }
+]

@@ -1,0 +1,6 @@
+[
+  { "id": "t-1", "name": "Meera Joshi", "role": "Verified Buyer", "quote": "Ordering my mother's monthly medicines used to be a hassle. Now it takes two minutes and arrives the next day.", "rating": 5, "avatar": "https://picsum.photos/seed/t-1/120/120" },
+  { "id": "t-2", "name": "Arjun Nair", "role": "Verified Buyer", "quote": "The prescription upload was so simple, and their pharmacist called to confirm dosage before shipping.", "rating": 5, "avatar": "https://picsum.photos/seed/t-2/120/120" },
+  { "id": "t-3", "name": "Kavita Desai", "role": "Verified Buyer", "quote": "Prices are noticeably lower than my neighbourhood pharmacy, and genuine products every time.", "rating": 4, "avatar": "https://picsum.photos/seed/t-3/120/120" },
+  { "id": "t-4", "name": "Rahul Bhatt", "role": "Verified Buyer", "quote": "Set up auto-refill for my diabetes medication and never worry about running out anymore.", "rating": 5, "avatar": "https://picsum.photos/seed/t-4/120/120" }
+]
