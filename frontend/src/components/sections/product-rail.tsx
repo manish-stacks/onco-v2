@@ -45,7 +45,7 @@ export function ProductRail({
           className="flex snap-x gap-4 overflow-x-auto scroll-smooth pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {medicines.map((m) => (
-            <div key={m.id} className="w-[220px] shrink-0 snap-start sm:w-[240px]">
+            <div key={m.product_id} className="w-[220px] shrink-0 snap-start sm:w-[240px]">
               <ProductCard medicine={m} />
             </div>
           ))}

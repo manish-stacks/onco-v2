@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { StoreProvider } from "@/hooks/use-store";
+import { AuthProvider } from "@/hooks/use-auth";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { ToastHost } from "@/components/ui/toast-host";
@@ -54,12 +55,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
-        <StoreProvider>
-          <Navbar />
-          <main className="flex-1 bg-white">{children}</main>
-          <Footer />
-          <ToastHost />
-        </StoreProvider>
+        <AuthProvider>
+          <StoreProvider>
+            <Navbar />
+            <main className="flex-1 bg-white">{children}</main>
+            <Footer />
+            <ToastHost />
+          </StoreProvider>
+        </AuthProvider>
       </body>
     </html>
   );

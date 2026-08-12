@@ -1,35 +1,45 @@
 {
   "name": "oncohealthmart-backend",
-  "version": "1.0.0",
-  "main": "src/index.js",
+  "version": "2.0.0",
+  "description": "oncohealthmart — unified Node.js/Express backend (web + app), MySQL2 + Redis",
+  "main": "server.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:generate": "prisma generate",
-    "seed": "node prisma/seed.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "migrate": "node src/migrations/run-migration.js",
+    "migrate:002": "node src/migrations/run-sql.js 002_integrations.sql",
+    "seed": "node src/migrations/seed.js",
+    "trim": "node src/migrations/trim-local-data.js",
+    "db:locks": "node src/migrations/db-locks.js",
+    "migrate:003": "node src/migrations/run-sql.js 003_media_storage.sql",
+    "doctor": "node src/migrations/doctor.js",
+    "migrate:004": "node src/migrations/run-sql.js 004_fix_media_dedup.sql",
+    "migrate:005": "node src/migrations/run-sql.js 005_product_brands.sql",
+    "map-brands": "node src/migrations/map-brands.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@aws-sdk/client-s3": "^3.670.0",
+    "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "express": "^4.21.0",
     "express-rate-limit": "^7.4.0",
+    "firebase-admin": "^12.7.0",
     "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.14",
-    "prisma": "^6.19.3",
-    "razorpay": "^2.9.4",
-    "uuid": "^9.0.1",
-    "zod": "^3.23.8"
+    "mysql2": "^3.11.3",
+    "razorpay": "^2.9.4"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
+    "nodemon": "^3.1.7"
   }
 }

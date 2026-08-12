@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { categories } from "@/lib/data";
 import { useStore } from "@/hooks/use-store";
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { FaFacebookF, FaXTwitter, FaInstagram, FaLinkedinIn } from "react-icons/fa6";
 
@@ -33,7 +34,10 @@ const NAV_LINKS = [
 ];
 
 export function Navbar() {
-  const { cartCount, cartSubtotal, wishlist } = useStore();
+  const { cartCount, cartSubtotal, wishlist , cart } = useStore();
+  console.log("cartCount", cart);
+
+  const { user, isLoggedIn, logout } = useAuth();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [megaOpen, setMegaOpen] = useState(false);
@@ -105,12 +109,34 @@ export function Navbar() {
         </form>
 
         <div className="ml-auto flex items-center gap-5">
-          <Link href="/profile" className="hidden items-center gap-2 sm:flex">
-            <User size={22} className="text-blue-600" />
-            <span className="text-xs leading-tight text-ink-soft">
-              Sign In<br /><span className="font-semibold text-ink">Account</span>
-            </span>
-          </Link>
+          {isLoggedIn ? (
+            <div className="hidden items-center gap-2 sm:flex">
+              <Link href="/profile" className="flex items-center gap-2">
+                <User size={22} className="text-blue-600" />
+                <span className="text-xs leading-tight text-ink-soft">
+                  Hi, {(user?.customer_name as string) || "there"}
+                  <br />
+                  <span className="font-semibold text-ink">My Account</span>
+                </span>
+              </Link>
+              <button
+                onClick={() => {
+                  logout();
+                  router.push("/");
+                }}
+                className="ml-1 text-xs font-medium text-ink-soft hover:text-blue-600"
+              >
+                Log out
+              </button>
+            </div>
+          ) : (
+            <Link href="/login" className="hidden items-center gap-2 sm:flex">
+              <User size={22} className="text-blue-600" />
+              <span className="text-xs leading-tight text-ink-soft">
+                Sign In<br /><span className="font-semibold text-ink">Account</span>
+              </span>
+            </Link>
+          )}
           <Link href="/wishlist" className="hidden items-center gap-2 sm:flex">
             <span className="relative">
               <Heart size={22} className="text-blue-600" />

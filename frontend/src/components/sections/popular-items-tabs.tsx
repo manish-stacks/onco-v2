@@ -63,7 +63,7 @@ export function PopularItemsTabs({
       {/* Products */}
       <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-4">
         {shown.map((medicine) => (
-          <ProductCard key={medicine.id} medicine={medicine} />
+          <ProductCard key={medicine.productId} medicine={medicine} />
         ))}
       </div>
 

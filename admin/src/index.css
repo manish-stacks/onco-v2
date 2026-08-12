@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+    font-feature-settings: 'cv05' 1, 'ss02' 1;
+  }
+  /* Tables me numbers align rahein — pharmacy panel me ye zaroori hai */
+  table,
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  *:focus-visible {
+    @apply outline-none ring-2 ring-teal ring-offset-1 ring-offset-paper;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-line-strong rounded;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+@layer components {
+  /*
+   * Signature: har identifier — order ref, SKU, batch, AWB, HSN — mono me.
+   * 50 rows scan karte waqt code turant nazar aa jaata hai.
+   */
+  .code {
+    @apply font-mono text-[0.8125rem] tracking-tight text-ink-700;
+  }
+  .code-chip {
+    @apply font-mono text-2xs bg-paper-sunk text-ink-700 px-1.5 py-0.5 rounded border border-line;
+  }
+
+  .label {
+    @apply block text-2xs font-semibold uppercase tracking-wider text-ink-500 mb-1.5;
+  }
+
+  .field {
+    @apply w-full bg-white border border-line rounded px-3 py-2 text-sm text-ink
+      placeholder:text-ink-300 transition-colors
+      focus:border-teal focus:ring-1 focus:ring-teal
+      disabled:bg-paper-sunk disabled:text-ink-500 disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-paper-card border border-line rounded-lg;
+  }
+
+  /* Table row ka left status rail — status text padhe bina hi pata chal jaaye */
+  .rail {
+    box-shadow: inset 3px 0 0 0 var(--rail, transparent);
+  }
+
+  /* Rich text editor ka content area — jo type karo wahi site pe dikhega */
+  .prose-editor:empty::before {
+    content: attr(data-placeholder);
+    @apply text-ink-300;
+  }
+  .prose-editor h2 {
+    @apply text-base font-semibold text-ink mt-4 mb-1.5 first:mt-0;
+  }
+  .prose-editor h3 {
+    @apply text-sm font-semibold text-ink mt-3 mb-1 first:mt-0;
+  }
+  .prose-editor p {
+    @apply mb-2 leading-relaxed;
+  }
+  .prose-editor ul {
+    @apply list-disc pl-5 mb-2 space-y-0.5;
+  }
+  .prose-editor ol {
+    @apply list-decimal pl-5 mb-2 space-y-0.5;
+  }
+  .prose-editor blockquote {
+    @apply border-l-2 border-teal pl-3 italic text-ink-700 my-2;
+  }
+  .prose-editor a {
+    @apply text-teal underline;
+  }
+  .prose-editor strong {
+    @apply font-semibold;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Print — invoice ke liye. Screen ka chrome hata do, A4 pe fit karo.
+ * ------------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  body {
+    background: #fff;
+  }
+  .no-print,
+  aside,
+  header.sticky {
+    display: none !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .print-break {
+    break-inside: avoid;
+  }
+  main {
+    padding: 0 !important;
+  }
+  a[href]::after {
+    content: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

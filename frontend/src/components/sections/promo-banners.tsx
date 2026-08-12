@@ -3,68 +3,136 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Reveal } from "@/components/ui/reveal";
+import { useEffect, useState } from "react";
+import api from "@/lib/api";
+import { Deals } from "@/types";
 
-const promos = [
-  {
-    tag: "SANITIZER",
-    title: "Hand Sanitizer Collections",
-    cta: "Shop Now",
-    href: "/category/personal-care",
-    bg: "from-[#FFF4E4] to-[#FFF9EF]",
-    image: "/images/banner/mini-banner-1.webp"
-  },
-  {
-    tag: "HOT SALE",
-    title: "Face Wash Sale Collections",
-    cta: "Discover Now",
-    href: "/category/skin-care",
-    bg: "from-[var(--blue-50)] to-[#F3F9FF]",
-    image: "/images/banner/mini-banner-2.webp"
-  },
-  {
-    tag: "FACIAL MASK",
-    title: "Facial Mask Sale Up To 50% Off",
-    cta: "Discover Now",
-    href: "/category/health-essentials",
-    bg: "from-[#FFEDF0] to-[#FFF6F7]",
-    image: "/images/banner/mini-banner-3.webp"
-  },
-];
+
 
 export function PromoBanners() {
+  const [dealsBanner, setDealsBanner] = useState<Deals[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchDeals = async () => {
+      try {
+        setLoading(true);
+
+        const response = await api.get("/home");
+        let deals: Deals[] = [];
+        if (response?.data?.deals) {
+          deals = response?.data?.deals || [];
+        }
+
+
+        if (mounted) {
+          const activeDeals = deals
+            .filter((deal: Deals) => deal.active_status === 1)
+            .sort(
+              (a: Deals, b: Deals) => a.position - b.position
+            );
+
+          setDealsBanner(activeDeals);
+        }
+      } catch (error) {
+        console.error("Error fetching deals:", error);
+
+        if (mounted) {
+          setDealsBanner([]);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchDeals();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          {[1, 2, 3].map((item) => (
+            <div
+              key={item}
+              className="h-62 animate-pulse rounded-sm bg-gray-100"
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (!dealsBanner.length) {
+    return null;
+  }
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        {promos.map((p, i) => (
-          <Reveal key={p.tag} delay={i * 0.05}>
+        {dealsBanner.map((deal, i) => (
+          <Reveal key={deal.id} delay={i * 0.05}>
             <Link
-              href={p.href}
+              href={deal.link || "#"}
               className="group relative flex h-62 flex-col justify-center overflow-hidden rounded-sm px-7"
+              style={{
+                backgroundColor:  "#f5f5f5",
+              }}
             >
-
               {/* Background Image */}
               <div
                 className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
                 style={{
-                  backgroundImage: `url(${p.image})`,
+                  backgroundImage: `url(${deal.image})`,
                 }}
               />
 
+              {/* Optional overlay for readability */}
+              <div className="absolute inset-0 bg-black/5 transition-colors group-hover:bg-black/10" />
+
               {/* Content */}
               <div className="relative z-10">
-                <span className="mb-3 inline-block w-fit rounded-full bg-blue-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                  {p.tag}
-                </span>
+                {deal.cta && (
+                  <span
+                    className="mb-3 inline-block w-fit rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide"
+                    style={{
+                      backgroundColor:"#003873",
+                      color:  "#ffffff",
+                    }}
+                  >
+                    {deal.cta}
+                  </span>
+                )}
 
-                <h3 className="max-w-[65%] font-display text-xl font-bold leading-snug text-ink">
-                  {p.title}
+                <h3
+                  className="max-w-[65%] font-display text-xl font-bold leading-snug"
+                  style={{
+                    color: deal.textColor || "#111827",
+                  }}
+                >
+                  {deal.title}
                 </h3>
 
-                <span className="mt-3 inline-block w-fit border-b-2 border-ink pb-0.5 text-xs font-bold uppercase tracking-wide text-ink transition-colors group-hover:border-blue-500 group-hover:text-blue-600">
-                  {p.cta}
+                <span
+                  className="mt-3 inline-block border-b-2 pb-0.5 text-xs font-bold uppercase tracking-wide transition-colors"
+                  style={{
+                    color: deal.textColor || "#111827",
+                    borderColor: deal.textColor || "#111827",
+                  }}
+                >
+                  {deal.cta || "Discover Now"}
                 </span>
               </div>
 
+              {/* Glow */}
               <motion.span
                 className="pointer-events-none absolute -right-6 bottom-0 h-40 w-40 rounded-full bg-white/40 blur-2xl"
                 aria-hidden
