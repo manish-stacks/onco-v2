@@ -1,0 +1,5 @@
+[
+  { "id": "off-1", "title": "Flat 25% off", "subtitle": "On your first prescription order", "code": "FIRST25", "color": "blue" },
+  { "id": "off-2", "title": "Buy 2 Get 1 Free", "subtitle": "On select vitamins & supplements", "code": "VITAMIN3", "color": "mint" },
+  { "id": "off-3", "title": "₹150 off", "subtitle": "On healthcare devices above ₹999", "code": "DEVICE150", "color": "coral" }
+]

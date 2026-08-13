@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Phone, MapPin, Clock3, Send, CheckCircle2 } from "lucide-react";
+import { Mail, Phone, MapPin, Clock3, Send, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { contentApi, ApiError } from "@/lib/api";
 
 const contactInfo = [
   {
@@ -29,15 +30,31 @@ const contactInfo = [
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
   }
 
-  function handleSubmit(e: React.MouseEvent) {
+  async function handleSubmit(e: React.MouseEvent) {
     e.preventDefault();
-    setSent(true);
+    setError(null);
+    setSending(true);
+    try {
+      await contentApi.submitEnquiry({
+        name: form.name,
+        email: form.email,
+        issue: form.subject,
+        message: form.message,
+      });
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not send your message. Please try again.");
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -155,12 +172,16 @@ export default function ContactPage() {
                       className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--blue-500)] focus:ring-2 focus:ring-[var(--blue-500)]/20"
                     />
                   </div>
+                  {error && (
+                    <p className="text-sm text-[var(--coral-500)]">{error}</p>
+                  )}
                   <button
                     onClick={handleSubmit}
-                    className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--blue-500)] px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_-8px_rgba(46,159,227,0.55)] transition hover:bg-[var(--blue-600)] active:scale-[0.98]"
+                    disabled={sending}
+                    className="flex w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--blue-500)] px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_-8px_rgba(46,159,227,0.55)] transition hover:bg-[var(--blue-600)] active:scale-[0.98] disabled:opacity-60"
                   >
-                    <Send size={15} />
-                    Send Message
+                    {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                    {sending ? "Sending…" : "Send Message"}
                   </button>
                 </div>
               </>

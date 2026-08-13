@@ -1,25 +1,27 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Phone, MapPin, Mail, Clock3 } from "lucide-react";
-import { categories } from "@/lib/data";
+import { useCategories } from "@/hooks/use-categories";
 import { BackToTop } from "@/components/ui/back-to-top";
 import { FaFacebookF, FaXTwitter, FaLinkedinIn, FaYoutube } from "react-icons/fa6";
 
 const quickLinks = [
-  { label: "About Us", href: "/#" },
+  { label: "About Us", href: "/about" },
   { label: "Delivery Info", href: "/#" },
-  { label: "Contact Us", href: "/#" },
+  { label: "Contact Us", href: "/contact" },
   { label: "Update News", href: "/blog" },
   { label: "Our Testimonials", href: "/#" },
-  { label: "Terms Of Service", href: "/#" },
-  { label: "Privacy policy", href: "/#" },
+  { label: "Terms Of Service", href: "/pages/terms-of-service" },
+  { label: "Privacy policy", href: "/pages/privacy-policy" },
 ];
 
 const supportLinks = [
   { label: "FAQ's", href: "/#faq" },
   { label: "How To Buy", href: "/#" },
-  { label: "Support Center", href: "/#" },
-  { label: "Track Your Order", href: "/profile" },
+  { label: "Support Center", href: "/contact" },
+  { label: "Track Your Order", href: "/track" },
   { label: "Returns Policy", href: "/#" },
   { label: "Our Affiliates", href: "/#" },
   { label: "Sitemap", href: "/#" },
@@ -40,6 +42,8 @@ const socials = [
 ];
 
 export function Footer() {
+  const { categories } = useCategories();
+
   return (
     <footer className="relative overflow-hidden bg-gradient-to-br from-[#241C4D] via-[#1B2A4A] to-[var(--ink)]">
       <div

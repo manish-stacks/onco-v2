@@ -8,15 +8,22 @@ import { LayoutGrid, List, SlidersHorizontal, ShoppingCart, FileWarning, X } fro
 import { ProductCard } from "@/components/product/product-card";
 import { Badge } from "@/components/ui/badge";
 import { Rating } from "@/components/ui/rating";
-import { brands as allBrands } from "@/lib/data";
 import { formatINR, cn } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
-import type { Category, Medicine } from "@/types";
+import type { CategoryTag, BrandTag, Medicine } from "@/types";
 
 const PAGE_SIZE = 8;
 type SortKey = "popular" | "price-low" | "price-high" | "rating";
 
-export function CategoryListing({ category, medicines }: { category: Category; medicines: Medicine[] }) {
+export function CategoryListing({
+  category,
+  medicines,
+  brands: allBrands = [],
+}: {
+  category: CategoryTag;
+  medicines: Medicine[];
+  brands?: BrandTag[];
+}) {
   const [view, setView] = useState<"grid" | "list">("grid");
   const [sort, setSort] = useState<SortKey>("popular");
   const [page, setPage] = useState(1);

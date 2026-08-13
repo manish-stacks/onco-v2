@@ -100,7 +100,7 @@ const home = asyncHandler(async (req, res) => {
     return {
       banners,
       categories,
-      brands,
+      brands:brands.rows,
       deals,
       offers,
       testimonials,

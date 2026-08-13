@@ -1,0 +1,7 @@
+[
+  { "id": "faq-1", "question": "Do I need a prescription to order medicines?", "answer": "Prescription medicines require a valid doctor's prescription, which you can upload during checkout. Over-the-counter products don't need one." },
+  { "id": "faq-2", "question": "How long does delivery take?", "answer": "Most orders are delivered within 24–48 hours depending on your pincode. Express delivery is available in select cities." },
+  { "id": "faq-3", "question": "Are the medicines genuine?", "answer": "Yes, we source directly from licensed distributors and manufacturers, and every batch is quality checked before dispatch." },
+  { "id": "faq-4", "question": "Can I return medicines if I ordered by mistake?", "answer": "Unopened, sealed medicines can be returned within 7 days as per our return policy. Prescription drugs are non-returnable once dispatched." },
+  { "id": "faq-5", "question": "Is Cash on Delivery available?", "answer": "Yes, COD is available on most orders below ₹5000, alongside cards, UPI and net banking." }
+]
