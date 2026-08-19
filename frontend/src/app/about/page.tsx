@@ -1,11 +1,27 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 import { Reveal } from "@/components/ui/reveal";
 import { Button } from "@/components/ui/button";
+import { absoluteUrl, SITE_NAME } from "@/lib/seo";
 import {
   Truck, RefreshCw, Wallet, Headphones,
   ShieldCheck, HeartPulse, FlaskConical, Users,
   ArrowRight, Quote,
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: `About Us | ${SITE_NAME}`,
+  description:
+    `Learn about ${SITE_NAME} — India's trusted online pharmacy for genuine medicines, fast delivery, and verified prescriptions.`,
+  alternates: { canonical: absoluteUrl("/about") },
+  openGraph: {
+    title: `About Us | ${SITE_NAME}`,
+    description: `Learn about ${SITE_NAME} — India's trusted online pharmacy for genuine medicines, fast delivery, and verified prescriptions.`,
+    url: absoluteUrl("/about"),
+    siteName: SITE_NAME,
+    type: "website",
+  },
+};
 
 const stats = [
   { value: "15K+", label: "Happy Customers" },

@@ -67,7 +67,7 @@ export function ProductCard({ medicine }: { medicine: Medicine }) {
           )}
         </div>
         <button
-          onClick={() => addToCart(medicine.id)}
+          onClick={() => addToCart(medicine)}
           disabled={!medicine.inStock}
           aria-label="Add to cart"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500 text-white shadow-sm transition-colors hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-50"

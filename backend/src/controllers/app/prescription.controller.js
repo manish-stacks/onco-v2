@@ -15,7 +15,7 @@ const upload = asyncHandler(async (req, res) => {
   if (!files.length) return fail(res, 'Kam se kam ek prescription image chahiye', 422);
 
   const images = await storeFiles(files, 'prescriptions');
-
+  console.log('Uploaded prescription images:', images.length, images);
   const result = await prescriptionModel.create({
     customer_id: req.customer.customer_id,
     images,

@@ -13,8 +13,17 @@ import { FAQSection } from "@/components/sections/FAQSection";
 import { MegaSaleBanner } from "@/components/sections/mega-sale-banner";
 import { getHomeData } from "@/lib/home";
 import { productToMedicine, categoryToTag, brandToTag, testimonialToTag } from "@/lib/adapters";
+import { SITE_URL } from "@/lib/seo";
+import type { Metadata } from "next";
 
 export const revalidate = 300;
+
+// Root layout ke title/description homepage ke liye hi likhe gaye hain,
+// isliye yahan sirf canonical URL explicit karte hain — duplicate-content
+// signals (trailing slash, query params) se bachne ke liye.
+export const metadata: Metadata = {
+  alternates: { canonical: SITE_URL },
+};
 
 export default async function Home() {
   const home = await getHomeData();

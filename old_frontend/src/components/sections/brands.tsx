@@ -4,9 +4,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { ChevronsRight } from "lucide-react";
 import { Reveal } from "@/components/ui/reveal";
-import { brands } from "@/lib/data";
+import type { BrandTag } from "@/types";
 
-export function Brands() {
+export function Brands({ brands }: { brands: BrandTag[] }) {
+  if (!brands.length) return null;
+
   return (
     <section className="mx-auto w-full max-w-[1320px] px-4 py-16 sm:px-6 lg:px-8">
       {/* Heading */}
@@ -37,6 +39,7 @@ export function Brands() {
                 alt={brand.name}
                 width={150}
                 height={70}
+                unoptimized
                 className="h-14 w-auto object-contain transition duration-300 hover:scale-110"
               />
             </div>

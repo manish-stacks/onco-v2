@@ -11,6 +11,7 @@ const notify = require('./notification.service');
 const events = require('./events.service');
 const cache = require('../utils/cache');
 const { genRef, genInvoiceNumber, money } = require('../utils/helpers');
+const { isProductCodEligible } = require('../utils/cod-eligibility');
 const {
   ORDER_STATUS, PAYMENT_STATUS, PAYMENT_MODE, CANCELLABLE_STATUSES, INVENTORY_CHANGE_TYPE,
 } = require('../config/constants');
@@ -45,7 +46,7 @@ async function priceItems(conn, items) {
     }
 
     if (product.presciption_required === 'Yes') requiresPrescription = true;
-    if (!product.isCOD) codAllowed = false;
+    if (!isProductCodEligible(product)) codAllowed = false;
 
     const unitPrice = product.product_sp;
     const lineSubtotal = money(unitPrice * quantity);

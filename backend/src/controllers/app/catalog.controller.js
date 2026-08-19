@@ -15,6 +15,7 @@ const listProducts = asyncHandler(async (req, res) => {
   const filters = {
     status: 'Active',
     category_id: req.query.category_id,
+    brand_id: req.query.brand_id,
     search: req.query.search,
     min_price: req.query.min_price,
     max_price: req.query.max_price,
@@ -22,6 +23,7 @@ const listProducts = asyncHandler(async (req, res) => {
     latest_product: req.query.latest,
     deal_of_the_day: req.query.deals,
     prescription_required: req.query.prescription_required,
+    in_stock: req.query.in_stock === 'true',
   };
 
   const key = cache.buildKey('products:list', { ...filters, page, limit, sort: `${sort.column}:${sort.direction}` });

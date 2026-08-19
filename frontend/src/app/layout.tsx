@@ -4,9 +4,15 @@ import { AuthProvider } from "@/context/auth-context";
 import { StoreProvider } from "@/hooks/use-store";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { ToastHost } from "@/components/ui/toast-host";
+import { SITE_URL } from "@/lib/seo";
 
 export const metadata: Metadata = {
+  // Har page ke relative OG/twitter image URLs isi se resolve hote hain —
+  // bina iske Next.js build-time warning deta hai aur social preview me
+  // kabhi-kabhi image nahi dikhti.
+  metadataBase: new URL(SITE_URL),
   title: "Onco Healthmart: Online Medicine Supplier in Delhi, India",
   description:
     "Buy online medicines from the best emergency & anti-cancer medicine supplier in Delhi, India. ✓70% OFF ✓Free-Fast-Delivery ✓100% Original Medicines.",
@@ -58,8 +64,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <StoreProvider>
             <Navbar />
-            <main className="flex-1 bg-white">{children}</main>
+            {/* pb-16: mobile bottom nav ke peeche content na chhupe */}
+            <main className="flex-1 bg-white pb-16 lg:pb-0">{children}</main>
             <Footer />
+            <MobileBottomNav />
             <ToastHost />
           </StoreProvider>
         </AuthProvider>

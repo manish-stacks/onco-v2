@@ -1,7 +1,22 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { blogs } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
+import { absoluteUrl, SITE_NAME } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: `Health Blog | ${SITE_NAME}`,
+  description: "Health tips, disease information and medicine guides from real doctors.",
+  alternates: { canonical: absoluteUrl("/blog") },
+  openGraph: {
+    title: `Health Blog | ${SITE_NAME}`,
+    description: "Health tips, disease information and medicine guides from real doctors.",
+    url: absoluteUrl("/blog"),
+    siteName: SITE_NAME,
+    type: "website",
+  },
+};
 
 export default function BlogListPage() {
   const [featured, ...rest] = blogs;

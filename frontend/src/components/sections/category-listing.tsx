@@ -4,16 +4,57 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { LayoutGrid, List, SlidersHorizontal, ShoppingCart, FileWarning, X } from "lucide-react";
+import {
+  LayoutGrid, List, SlidersHorizontal, ShoppingCart, FileWarning, X,
+  ChevronRight, Package,
+} from "lucide-react";
 import { ProductCard } from "@/components/product/product-card";
 import { Badge } from "@/components/ui/badge";
 import { Rating } from "@/components/ui/rating";
 import { formatINR, cn } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
+import { stripInlineFormatting, htmlTextLength } from "@/lib/html";
 import type { CategoryTag, BrandTag, Medicine } from "@/types";
 
 const PAGE_SIZE = 8;
 type SortKey = "popular" | "price-low" | "price-high" | "rating";
+
+/**
+ * CMS ka rich-text editor se aata hai — kabhi Word/Google Docs se paste kiya
+ * hua content hota hai jisme har paragraph pe inline `style="color:...;
+ * font-family:..."` chipka hota hai. Wo hamare design se clash karta hai
+ * (rangeen text, ajeeb fonts). Sirf structure (p/br/strong/ul/li) rakhte
+ * hain, presentation attributes hata dete hain — content wahi rehta hai,
+ * bas hamari typography apply hoti hai.
+ */
+
+function CategoryDescription({ html, slug }: { html: string; slug: string }) {
+  const clean = useMemo(() => stripInlineFormatting(html), [html]);
+  const needsMore = useMemo(() => htmlTextLength(clean) > 220, [clean]);
+
+  if (!clean) return null;
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "prose prose-sm max-w-2xl text-[var(--ink-soft)] [&_p]:mb-2 [&_a]:text-[var(--blue-600)] [&_strong]:text-[var(--ink)]",
+          needsMore && "line-clamp-3"
+        )}
+        dangerouslySetInnerHTML={{ __html: clean }}
+      />
+      {needsMore && (
+        <Link
+          href={`/category/${slug}/about`}
+          className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[var(--blue-600)]"
+        >
+          Read more
+          <ChevronRight size={13} />
+        </Link>
+      )}
+    </div>
+  );
+}
 
 export function CategoryListing({
   category,
@@ -84,22 +125,24 @@ export function CategoryListing({
         <p className="mt-1 text-xs text-[var(--ink-soft)]">Up to {formatINR(maxPrice)}</p>
       </div>
 
-      <div>
-        <p className="mb-3 text-sm font-semibold text-[var(--ink)]">Brand</p>
-        <div className="space-y-2">
-          {brandsInCategory.map((b) => (
-            <label key={b.id} className="flex items-center gap-2 text-sm text-[var(--ink-soft)]">
-              <input
-                type="checkbox"
-                checked={selectedBrands.includes(b.id)}
-                onChange={() => toggleBrand(b.id)}
-                className="h-4 w-4 rounded accent-[var(--blue-500)]"
-              />
-              {b.name}
-            </label>
-          ))}
+      {brandsInCategory.length > 0 && (
+        <div>
+          <p className="mb-3 text-sm font-semibold text-[var(--ink)]">Brand</p>
+          <div className="space-y-2">
+            {brandsInCategory.map((b) => (
+              <label key={b.id} className="flex items-center gap-2 text-sm text-[var(--ink-soft)]">
+                <input
+                  type="checkbox"
+                  checked={selectedBrands.includes(b.id)}
+                  onChange={() => toggleBrand(b.id)}
+                  className="h-4 w-4 rounded accent-[var(--blue-500)]"
+                />
+                {b.name}
+              </label>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
         <p className="mb-3 text-sm font-semibold text-[var(--ink)]">Availability</p>
@@ -137,12 +180,41 @@ export function CategoryListing({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <p className="text-xs font-medium text-[var(--ink-soft)]">
-          <Link href="/">Home</Link> / <span className="text-[var(--ink)]">{category.name}</span>
-        </p>
-        <h1 className="mt-2 font-display text-3xl font-bold text-[var(--ink)]">{category.name}</h1>
-        <p className="mt-2 max-w-xl text-[var(--ink-soft)]">{category.description}</p>
+      {/* Breadcrumb */}
+      <p className="mb-4 flex items-center gap-1.5 text-xs font-medium text-[var(--ink-soft)]">
+        <Link href="/" className="hover:text-[var(--blue-600)]">Home</Link>
+        <ChevronRight size={12} />
+        <Link href="/shop" className="hover:text-[var(--blue-600)]">Shop</Link>
+        <ChevronRight size={12} />
+        <span className="text-[var(--ink)]">{category.name}</span>
+      </p>
+
+      {/* Category hero banner */}
+      <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line)] bg-white">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px]">
+          <div className="flex flex-col justify-center p-6 sm:p-8">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-3xl">{category.name}</h1>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--blue-50)] px-3 py-1 text-xs font-semibold text-[var(--blue-600)]">
+                <Package size={12} /> {category.productCount ?? filtered.length} products
+              </span>
+            </div>
+            {category.description && <CategoryDescription html={category.description} slug={category.slug} />}
+          </div>
+
+          {category.image && (
+            <div className="relative h-40 sm:h-auto">
+              <Image
+                src={category.image}
+                alt={category.name}
+                fill
+                sizes="220px"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent sm:bg-gradient-to-l" />
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[240px_1fr]">
@@ -275,7 +347,7 @@ function ListRow({ medicine }: { medicine: Medicine }) {
           {medicine.mrp > medicine.price && <p className="text-xs text-[var(--ink-soft)] line-through">{formatINR(medicine.mrp)}</p>}
         </div>
         <button
-          onClick={() => addToCart(medicine.id)}
+          onClick={() => addToCart(medicine)}
           className="flex items-center gap-1.5 rounded-full bg-[var(--blue-50)] px-4 py-2 text-xs font-semibold text-[var(--blue-600)] hover:bg-[var(--blue-500)] hover:text-white"
         >
           <ShoppingCart size={13} /> Add

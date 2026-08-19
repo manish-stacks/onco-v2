@@ -47,6 +47,7 @@ function buildFilters(filters = {}) {
 
   if (filters.low_stock) qb.raw('p.`stock_quantity` <= p.`low_stock_alert`');
   if (filters.out_of_stock) qb.raw('p.`stock_quantity` <= 0');
+  if (filters.in_stock) qb.raw("(p.`stock_quantity` > 0 OR p.`allow_backorder` = '1')");
   if (filters.expiring_soon) qb.raw('p.`expiry_date` IS NOT NULL AND p.`expiry_date` <= DATE_ADD(CURDATE(), INTERVAL ? DAY)', parseInt(filters.expiring_soon, 10) || 90);
 
   return qb;
@@ -173,7 +174,7 @@ async function findBySlug(slug) {
 async function getPricingInfo(productId, conn = db) {
   const [[row]] = await conn.query(
     `SELECT product_id, product_name, sku, hsn_code, image_1, product_sp, product_mrp, product_gst,
-            stock, stock_quantity, allow_backorder, presciption_required, isCOD, status
+            stock, stock_quantity, allow_backorder, presciption_required, isCOD, storage, status
      FROM products WHERE product_id = ?`,
     [productId]
   );

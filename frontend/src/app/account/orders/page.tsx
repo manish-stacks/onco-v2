@@ -9,13 +9,22 @@ import { formatINR, cn } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import type { Order } from "@/types";
 
-const STATUS_FILTERS = ["all", "pending", "processing", "shipped", "delivered", "cancelled"];
+// Backend ke asli order.status values — "delivered" jaisa kuch nahi hota,
+// "Completed" hi final state hai. Galat filter = hamesha 0 results.
+const STATUS_FILTERS = [
+  { label: "All", value: "all" },
+  { label: "Pending", value: "Pending" },
+  { label: "Processing", value: "Processing" },
+  { label: "Shipped", value: "Shipped" },
+  { label: "Completed", value: "Completed" },
+  { label: "Cancelled", value: "Cancelled" },
+];
 
 export default function OrdersListPage() {
   const router = useRouter();
   const { isLoggedIn, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,16 +46,16 @@ export default function OrdersListPage() {
       <h1 className="mb-6 font-display text-3xl font-bold text-[var(--ink)]">My Orders</h1>
 
       <div className="mb-6 flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((s) => (
+        {STATUS_FILTERS.map((f) => (
           <button
-            key={s}
-            onClick={() => setStatus(s)}
+            key={f.value}
+            onClick={() => setStatus(f.value)}
             className={cn(
-              "rounded-full px-4 py-2 text-xs font-semibold capitalize",
-              status === s ? "bg-[var(--ink)] text-white" : "bg-black/[0.04] text-[var(--ink-soft)]"
+              "rounded-full px-4 py-2 text-xs font-semibold",
+              status === f.value ? "bg-[var(--ink)] text-white" : "bg-black/[0.04] text-[var(--ink-soft)]"
             )}
           >
-            {s}
+            {f.label}
           </button>
         ))}
       </div>
@@ -73,7 +82,7 @@ export default function OrdersListPage() {
               <span
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-semibold capitalize",
-                  o.status?.toLowerCase() === "delivered" ? "bg-[var(--mint-50)] text-[var(--mint-600)]" : o.status?.toLowerCase() === "cancelled" ? "bg-[#FFEDEA] text-[var(--coral-500)]" : "bg-[var(--blue-50)] text-[var(--blue-600)]"
+                  o.status?.toLowerCase() === "completed" ? "bg-[var(--mint-50)] text-[var(--mint-600)]" : o.status?.toLowerCase() === "cancelled" || o.status?.toLowerCase() === "delivery failed" ? "bg-[#FFEDEA] text-[var(--coral-500)]" : "bg-[var(--blue-50)] text-[var(--blue-600)]"
                 )}
               >
                 {o.status}

@@ -21,7 +21,7 @@ export function Brands({ brands }: { brands: BrandTag[] }) {
         </div>
 
         <Link
-          href="/search"
+          href="/shop"
           className="flex items-center gap-1 font-semibold text-[#063b67]"
         >
           All Brands
@@ -33,7 +33,10 @@ export function Brands({ brands }: { brands: BrandTag[] }) {
       <div className="grid grid-cols-2 items-center gap-8 sm:grid-cols-3 lg:grid-cols-6">
         {brands.slice(0, 6).map((brand, index) => (
           <Reveal key={brand.id} delay={index * 0.05}>
-            <div className="flex h-24 items-center justify-center rounded-2xl border border-[#e0e0e0] bg-white p-4 transition hover:scale-105 hover:shadow-lg">
+            <Link
+              href={`/shop?brand_id=${brand.id}`}
+              className="flex h-24 items-center justify-center rounded-2xl border border-[#e0e0e0] bg-white p-4 transition hover:scale-105 hover:shadow-lg"
+            >
               <Image
                 src={brand.logo}
                 alt={brand.name}
@@ -42,7 +45,7 @@ export function Brands({ brands }: { brands: BrandTag[] }) {
                 unoptimized
                 className="h-14 w-auto object-contain transition duration-300 hover:scale-110"
               />
-            </div>
+            </Link>
           </Reveal>
         ))}
       </div>

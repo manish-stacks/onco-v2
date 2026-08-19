@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { UploadCloud, FileText, CheckCircle2, X, ShieldCheck, Clock, Stethoscope, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,8 +16,14 @@ const GUIDELINES = [
   "Prescriptions older than 6 months may not be accepted for certain medicines.",
 ];
 
-export default function PrescriptionUploadPage() {
+function PrescriptionUploadInner() {
   const { isLoggedIn } = useAuth();
+  const router = useRouter();
+  const params = useSearchParams();
+  // Checkout se aaya ho to yahan "/checkout" hota hai — upload ke baad
+  // wapas usi page pe, naye prescription_id ke saath bhej dete hain.
+  const redirectTo = params.get("redirect");
+
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
@@ -47,7 +54,16 @@ export default function PrescriptionUploadPage() {
     }
   }
 
+  function continueToRedirect() {
+    if (!redirectTo || !result?.prescription_id) return;
+    const separator = redirectTo.includes("?") ? "&" : "?";
+    router.push(`${redirectTo}${separator}prescription_id=${result.prescription_id}`);
+  }
+
   if (!isLoggedIn) {
+    const loginRedirect = redirectTo
+      ? `/login?redirect=${encodeURIComponent(`/prescription-upload?redirect=${redirectTo}`)}`
+      : "/login?redirect=/prescription-upload";
     return (
       <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-24 text-center sm:px-6">
         <span className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)]">
@@ -55,7 +71,7 @@ export default function PrescriptionUploadPage() {
         </span>
         <h1 className="mb-2 font-display text-2xl font-bold text-[var(--ink)]">Login to upload a prescription</h1>
         <p className="mb-6 max-w-sm text-[var(--ink-soft)]">We keep your prescriptions linked to your account so our pharmacists can verify them.</p>
-        <Button href="/login?redirect=/prescription-upload" icon={<ArrowRight size={16} />}>Login</Button>
+        <Button href={loginRedirect} icon={<ArrowRight size={16} />}>Login</Button>
       </div>
     );
   }
@@ -95,13 +111,31 @@ export default function PrescriptionUploadPage() {
             {result?.reference_code && (
               <p className="mb-6 text-xs font-mono-nums text-[var(--ink-soft)]">Reference: {result.reference_code}</p>
             )}
-            <div className="flex gap-3">
-              <Button href="/account/prescriptions" variant="outline">View My Prescriptions</Button>
-              <Button href="/search">Continue Shopping</Button>
-            </div>
+
+            {redirectTo ? (
+              <div className="flex flex-col items-center gap-3">
+                <Button size="lg" onClick={continueToRedirect} icon={<ArrowRight size={16} />}>
+                  Continue to Checkout
+                </Button>
+                <p className="max-w-xs text-xs text-[var(--ink-soft)]">
+                  Ye prescription pharmacist verify karega — verification hone tak bhi is order ko place kiya ja sakta
+                  hai, status &quot;Prescription Pending&quot; rahega jab tak approve na ho.
+                </p>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <Button href="/account?tab=prescriptions" variant="outline">View My Prescriptions</Button>
+                <Button href="/shop">Continue Shopping</Button>
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.div key="form" exit={{ opacity: 0 }}>
+            {redirectTo && (
+              <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 px-4 py-3 text-sm text-[var(--blue-600)]">
+                Upload karne ke baad hum aapko seedha checkout par wapas le jaayenge.
+              </div>
+            )}
             {errorMsg && (
               <div className="mb-4 rounded-[var(--radius-sm)] border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3 text-sm text-[var(--coral-500)]">
                 {errorMsg}
@@ -193,5 +227,13 @@ export default function PrescriptionUploadPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function PrescriptionUploadPage() {
+  return (
+    <Suspense>
+      <PrescriptionUploadInner />
+    </Suspense>
   );
 }

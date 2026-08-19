@@ -141,7 +141,7 @@ export function CategoryGrid() {
             <ChevronRight size={16} />
           </button>
           <Link
-            href="/categories"
+            href="/category"
             className="flex items-center gap-1 text-sm font-semibold text-[var(--blue-600)]"
           >
             View More

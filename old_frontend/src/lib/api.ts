@@ -1,4 +1,18 @@
-import axios, { AxiosError, AxiosRequestConfig, AxiosInstance } from 'axios';
+/**
+ * Storefront API client.
+ *
+ * Backend ke `/api/app/*` endpoints ke liye. Admin panel wale client se alag
+ * hai kyunki:
+ *   • SSR-safe hona chahiye — Next.js server pe `window`/`localStorage` nahi hote
+ *   • `X-Client-Platform: web` header bhejta hai (backend isse orderFrom set karta hai)
+ *   • Server components me token manually pass karna padta hai
+ *
+ * .env:
+ *   NEXT_PUBLIC_API_BASE=https://api.oncohealthmart.com
+ *   (khaali chhodo to same-origin /api use hoga)
+ */
+
+import type { Order } from '@/types';
 
 const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000').replace(/\/$/, '');
 const TOKEN_KEY = 'ohm_token';
@@ -36,7 +50,7 @@ export interface RequestOptions {
   isForm?: boolean;
   /** Server component me manually pass karo */
   token?: string | null;
-  /** Next.js fetch cache — axios me sirf revalidate ka use hota hai (next fetch cache tag) */
+  /** Next.js fetch cache */
   cache?: RequestCache;
   /** Next.js ISR seconds */
   revalidate?: number;
@@ -133,111 +147,97 @@ export class ApiError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Axios instance
-// ---------------------------------------------------------------------------
-
-const axiosClient: AxiosInstance = axios.create({
-  baseURL: `${BASE}/api/app`,
-  withCredentials: true,
-  headers: {
-    'X-Client-Platform': PLATFORM,
-  },
-});
-
-axiosClient.interceptors.request.use((config) => {
-  const authToken = (config as AxiosRequestConfig & { __token?: string | null }).__token;
-  const token = authToken !== undefined ? authToken : tokenStore.get();
-  if (token) {
-    config.headers = config.headers || {};
-    (config.headers as Record<string, string>).Authorization = `Bearer ${token}`;
-  }
-
-  const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
-  const qs = config.params ? new URLSearchParams(config.params as Record<string, string>).toString() : '';
-  console.log(
-    `[API] ${config.method?.toUpperCase()} ${fullUrl}${qs ? `?${qs}` : ''} — ${token ? 'WITH TOKEN' : 'NO TOKEN'}`
-  );
-
-  return config;
-});
-
-axiosClient.interceptors.response.use(
-  (res) => res,
-  (err: AxiosError<ApiEnvelope>) => {
-    if (err.response?.status === 401) {
-      tokenStore.clear();
-      unauthorizedHandlers.forEach((fn) => {
-        try {
-          fn();
-        } catch {
-          /* handler ki galti se request na tootey */
-        }
-      });
-      return Promise.reject(new ApiError('Session khatam ho gaya. Dobara login karo.', 401));
-    }
-
-    if (!err.response) {
-      if (err.code === 'ERR_CANCELED') return Promise.reject(err);
-      return Promise.reject(new ApiError('Server se connect nahi ho paaya. Internet check karo.', 0));
-    }
-
-    const json = err.response.data as ApiEnvelope | undefined;
-    return Promise.reject(
-      new ApiError(
-        json?.message || `Request fail hui (${err.response.status})`,
-        err.response.status,
-        (json as { errors?: Record<string, string[]> } | undefined)?.errors,
-        json?.data
-      )
-    );
-  }
-);
-
-// ---------------------------------------------------------------------------
 // Request
 // ---------------------------------------------------------------------------
 
-function buildParams(params?: QueryParams): Record<string, string | string[]> | undefined {
-  if (!params) return undefined;
-  const out: Record<string, string | string[]> = {};
+function buildUrl(path: string, params?: QueryParams): string {
+  const url = `${BASE}/api/app${path}`;
+  if (!params) return url;
+
+  const qs = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
     if (v === undefined || v === null || v === '') return;
-    out[k] = Array.isArray(v) ? v.map(String) : String(v);
+    if (Array.isArray(v)) v.forEach((item) => qs.append(k, String(item)));
+    else qs.append(k, String(v));
   });
-  return out;
+
+  const s = qs.toString();
+  return s ? `${url}?${s}` : url;
 }
 
 async function request<T = unknown>(path: string, opts: RequestOptions = {}): Promise<ApiEnvelope<T>> {
-  const { method = 'GET', body, params, isForm, token, revalidate, signal, headers: extraHeaders } = opts;
-
-  const headers: Record<string, string> = { ...extraHeaders };
-  if (!isForm && body) headers['Content-Type'] = 'application/json';
-
-  const config: AxiosRequestConfig & { __token?: string | null } = {
-    url: path,
-    method,
-    headers,
-    params: buildParams(params),
-    data: isForm ? (body as FormData) : body,
+  const {
+    method = 'GET',
+    body,
+    params,
+    isForm,
+    token,
+    cache,
+    revalidate,
     signal,
-    __token: token,
+    headers: extraHeaders,
+  } = opts;
+
+  const headers: Record<string, string> = {
+    'X-Client-Platform': PLATFORM,
+    ...extraHeaders,
   };
 
-  // Next.js fetch cache tags axios ke through pass nahi hote (axios uses XHR/http, not fetch),
-  // isliye revalidate sirf app router server-fetch wrappers me matter karta hai. Yahan no-op.
-  void revalidate;
+  const authToken = token ?? tokenStore.get();
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  if (!isForm && body) headers['Content-Type'] = 'application/json';
 
+  const init: RequestInit & { next?: { revalidate?: number } } = {
+    method,
+    headers,
+    body: isForm ? (body as BodyInit) : body ? JSON.stringify(body) : undefined,
+    signal,
+  };
+
+  // Next.js fetch options — sirf tab lagao jab diye gaye hon
+  if (cache) init.cache = cache;
+  if (revalidate !== undefined) init.next = { revalidate };
+
+  let res: Response;
   try {
-    const res = await axiosClient.request<ApiEnvelope<T>>(config);
-    if (res.status === 204 || res.data === undefined || res.data === null) {
-      return { success: true, data: null as T };
-    }
-    return res.data;
+    res = await fetch(buildUrl(path, params), init);
   } catch (err) {
-    if (err instanceof ApiError) throw err;
-    if (err instanceof Error && err.name === 'CanceledError') throw err;
-    throw new ApiError('Kuch galat ho gaya.', 0);
+    if (err instanceof Error && err.name === 'AbortError') throw err;
+    throw new ApiError('Server se connect nahi ho paaya. Internet check karo.', 0);
   }
+
+  if (res.status === 401) {
+    tokenStore.clear();
+    unauthorizedHandlers.forEach((fn) => {
+      try {
+        fn();
+      } catch {
+        /* handler ki galti se request na tootey */
+      }
+    });
+    throw new ApiError('Session khatam ho gaya. Dobara login karo.', 401);
+  }
+
+  // 204 ya khaali body
+  if (res.status === 204) return { success: true, data: null as T };
+
+  let json: ApiEnvelope<T> | null = null;
+  try {
+    json = await res.json();
+  } catch {
+    if (res.ok) return { success: true, data: null as T };
+  }
+
+  if (!res.ok) {
+    throw new ApiError(
+      json?.message || `Request fail hui (${res.status})`,
+      res.status,
+      (json as { errors?: Record<string, string[]> } | null)?.errors,
+      json?.data
+    );
+  }
+
+  return json as ApiEnvelope<T>;
 }
 
 // ---------------------------------------------------------------------------
@@ -382,11 +382,7 @@ export const authApi = {
   /** Password se login */
   async login({ mobile, password }: LoginPayload): Promise<AuthTokenPayload | null> {
     const res = await api.post<AuthTokenPayload>('/auth/login', { mobile, password });
-    if (res?.data?.token) {
-      tokenStore.set(res.data.token);
-      document.cookie = `ohm_token=${res.data.token}; path=/; max-age=2592000`;
-    }
-
+    if (res?.data?.token) tokenStore.set(res.data.token);
     return res.data;
   },
 
@@ -405,10 +401,7 @@ export const authApi = {
   /** OTP verify — yahi login complete karta hai */
   async verifyOtp({ customer_id, otp }: VerifyOtpPayload): Promise<AuthTokenPayload | null> {
     const res = await api.post<AuthTokenPayload>('/auth/otp/verify', { customer_id, otp });
-    if (res?.data?.token) {
-      document.cookie = `ohm_token=${res.data.token}; path=/; max-age=2592000`;
-      tokenStore.set(res.data.token);
-    }
+    if (res?.data?.token) tokenStore.set(res.data.token);
     return res.data;
   },
 
@@ -431,14 +424,6 @@ export const authApi = {
   isLoggedIn: (): boolean => tokenStore.has(),
 };
 
-
-// =============================================================================
-// PUBLIC API
-// =============================================================================
-
-export const publicApi = {
-  settings: <T = unknown>(opts?: RequestOptions) => api.data<T>('/settings', undefined, { revalidate: 600, ...opts }),
-}
 // =============================================================================
 // CATALOG API
 // =============================================================================
@@ -465,9 +450,8 @@ export interface ProductFilters {
  * Ye saare public hain — token optional hai. Login ho to product detail me
  * `in_wishlist` flag bhi aata hai.
  *
- * `revalidate` yahan sirf marker hai — axios fetch cache tags support nahi
- * karta, isliye Next.js ISR chahiye to server component me native `fetch`
- * use karo ya route handler cache lagao.
+ * Next.js me `revalidate` pass karke ISR use kar sakte ho:
+ *   catalogApi.product(slug, { revalidate: 300 })
  */
 export const catalogApi = {
   /**
@@ -505,7 +489,8 @@ export const catalogApi = {
     api.data<T>(`/categories/${slug}`, undefined, { revalidate: 600, ...opts }),
 
   /** Search box ka autocomplete — products + categories dono */
-  search: <T = unknown>(q: string, opts?: RequestOptions) => api.data<T>('/search', { q }, { ...opts }),
+  search: <T = unknown>(q: string, opts?: RequestOptions) =>
+    api.data<T>('/search', { q }, { cache: 'no-store', ...opts }),
 
   /** Checkout se pehle — is city me delivery hoti hai ya nahi */
   checkServiceability: <T = unknown>(city: string) => api.data<T>('/serviceable-city', { city }),
@@ -516,15 +501,20 @@ export const catalogApi = {
 // =============================================================================
 
 export interface Address {
-  id?: string | number;
-  name: string;
-  mobile: string;
-  line1: string;
-  line2?: string;
+  ad_id?: string | number;
+  user_id?: string | number;
+  full_name: string;
+  phone: string;
   city: string;
   state: string;
   pincode: string;
-  is_default?: boolean;
+  house_no?: string;
+  type?: string;
+  stree_address: string;
+  landmark?: string;
+  is_default?: number | boolean;
+  createdAt?: string;
+  updatedAt?: string;
   [key: string]: unknown;
 }
 
@@ -584,137 +574,6 @@ export const cartApi = {
     api.data<T>('/coupons', undefined, { revalidate: 300, ...opts }),
 };
 
-
-// =============================================================================
-// ORDERS API — add this block to lib/api.ts (after cartApi/wishlistApi/addressApi)
-// =============================================================================
-
-export interface OrderQuotePayload {
-  items?: Array<{ product_id: string | number; unit_quantity: number }>;
-  coupon_code?: string;
-  payment_mode?: 'cod' | 'online';
-}
-
-export interface OrderQuoteResult {
-  subtotal: number;
-  discount?: number;
-  tax_amount?: number;
-  delivery_fee?: number;
-  total: number;
-  [key: string]: unknown;
-}
-
-export interface CheckoutPayload {
-  customer_name: string;
-  customer_phone: string;
-  customer_address: string;
-  payment_mode: 'cod' | 'online';
-  coupon_code?: string;
-  items?: Array<{ product_id: string | number; unit_quantity: number }>;
-  [key: string]: unknown;
-}
-
-export interface RazorpayOrderInfo {
-  key_id: string;
-  order_id: string;
-  amount: number;
-  currency: string;
-}
-
-export interface CheckoutResult {
-  order_id: number | string;
-  databaseOrderID?: string;
-  amount?: number;
-  payment_status?: string;
-  status?: string;
-  razorpay?: RazorpayOrderInfo;
-  [key: string]: unknown;
-}
-
-export interface VerifyPaymentPayload {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-}
-
-export interface Order {
-  order_id: number | string;
-  databaseOrderID?: string;
-  status: string;
-  payment_status: string;
-  amount: number;
-  awb_number?: string;
-  courier_name?: string;
-  tracking_status?: string;
-  tracking_location?: string;
-  tracking_datetime?: string;
-  delivered_at?: string;
-  history?: unknown[];
-  items?: unknown[];
-  [key: string]: unknown;
-}
-
-/**
- * Order lifecycle — quote (cart page totals), checkout (place order),
- * payment verify (Razorpay), tracking, cancel, review.
- */
-export const orderApi = {
-  /** Cart page pe totals dikhane ke liye — cart bhi khud fetch kar leta hai agar items na diye */
-  quote: (payload: OrderQuotePayload = {}) => api.data<OrderQuoteResult>('/orders/quote', undefined, {
-    method: 'POST',
-    body: payload,
-  }),
-
-  /** Order place karo. payment_mode 'online' ho to response.razorpay se checkout modal kholo */
-  checkout: (payload: CheckoutPayload) => api.data<CheckoutResult>('/orders/checkout', undefined, {
-    method: 'POST',
-    body: payload,
-  }),
-
-  /** Razorpay checkout modal success ke baad */
-  verifyPayment: (payload: VerifyPaymentPayload) =>
-    api.data<Order>('/orders/verify-payment', undefined, { method: 'POST', body: payload }),
-
-  /** Payment fail hua tha — dobara Razorpay order banao */
-  retryPayment: (orderId: string | number) =>
-    api.data<{ razorpay: RazorpayOrderInfo }>(`/orders/${orderId}/retry-payment`, undefined, { method: 'POST' }),
-
-  list: (
-    { page = 1, limit = 10, status }: { page?: number; limit?: number; status?: string } = {}
-  ) => api.get<Order[]>('/orders', { page, limit, status }),
-
-  detail: (orderId: string | number) => api.data<Order>(`/orders/${orderId}`),
-
-  track: (orderId: string | number) => api.data<Order>(`/orders/${orderId}/track`),
-
-  cancel: (orderId: string | number, reason?: string) =>
-    api.data<Order>(`/orders/${orderId}/cancel`, undefined, { method: 'POST', body: { reason } }),
-
-  submitReview: (
-    orderId: string | number,
-    payload: { product_id: string | number; rating: number; title?: string; review?: string }
-  ) => api.post(`/orders/${orderId}/review`, payload),
-};
-
-// =============================================================================
-// PAYMENTS API
-// =============================================================================
-
-export interface PaymentGateway {
-  id: string;
-  name: string;
-  enabled: boolean;
-  [key: string]: unknown;
-}
-
-export const paymentApi = {
-  gateways: () => api.data<PaymentGateway[]>('/payments/gateways'),
-
-  /** Mobile app ke liye — browser redirect nahi hota, seedha verify */
-  payuVerify: (payload: Record<string, unknown>) =>
-    api.data<Order>('/payments/payu/verify', undefined, { method: 'POST', body: payload }),
-};
-
 export const wishlistApi = {
   list: <T = unknown>() => api.data<T>('/wishlist'),
 
@@ -733,12 +592,180 @@ export const addressApi = {
 
   create: <T = Address>(payload: Address) => api.data<T>('/addresses', undefined, { method: 'POST', body: payload }),
 
-  update: <T = Address>(addressId: string | number, payload: Partial<Address>) =>
-    api.patch<T>(`/addresses/${addressId}`, payload),
+  update: <T = Address>(adId: string | number, payload: Partial<Address>) =>
+    api.patch<T>(`/addresses/${adId}`, payload),
 
-  setDefault: <T = Address>(addressId: string | number) => api.patch<T>(`/addresses/${addressId}/default`),
+  setDefault: <T = Address>(adId: string | number) => api.patch<T>(`/addresses/${adId}/default`),
 
-  remove: <T = unknown>(addressId: string | number) => api.del<T>(`/addresses/${addressId}`),
+  remove: <T = unknown>(adId: string | number) => api.del<T>(`/addresses/${adId}`),
+};
+
+// =============================================================================
+// ORDER / CHECKOUT / PAYMENT API
+// =============================================================================
+
+export interface QuotePayload {
+  items?: Array<{ product_id: string | number; quantity: number }>;
+  coupon_code?: string;
+  payment_mode?: 'cod' | 'online';
+}
+
+export interface CheckoutPayload {
+  items?: Array<{ product_id: string | number; quantity: number }>;
+  customer_name: string;
+  customer_phone: string;
+  customer_email?: string;
+  customer_address: string;
+  customer_city: string;
+  customer_state: string;
+  customer_pincode: string;
+  customer_country?: string;
+  shipping_same_as_billing?: boolean;
+  customer_shipping_name?: string;
+  customer_shipping_phone?: string;
+  customer_shipping_address?: string;
+  customer_shipping_city?: string;
+  customer_shipping_state?: string;
+  customer_shipping_pincode?: string;
+  customer_shipping_country?: string;
+  payment_mode: 'cod' | 'online';
+  payment_gateway?: 'razorpay' | 'payu';
+  coupon_code?: string;
+  prescription_id?: string | number;
+  patient_name?: string;
+  doctor_name?: string;
+  hospital_name?: string;
+  comment?: string;
+}
+
+/** Response shape of orderApi.checkout() */
+export interface CheckoutResult {
+  order: Order;
+  payment: {
+    type: 'sdk' | 'redirect';
+    gateway: 'razorpay' | 'payu';
+    gateway_order_id?: string;
+    key?: string;
+    amount?: number;
+    currency?: string;
+    action_url?: string;
+    fields?: Record<string, string>;
+  } | null;
+  razorpay?: unknown;
+}
+
+/**
+ * Orders + checkout.
+ *
+ * Flow: quote() -> totals preview (no order created) -> checkout() -> order
+ * banta hai, online ho to payment session bhi milta hai.
+ */
+export const orderApi = {
+  quote: <T = unknown>(payload: QuotePayload = {}) =>
+    api.data<T>('/orders/quote', undefined, { method: 'POST', body: payload }),
+
+  checkout: <T = CheckoutResult>(payload: CheckoutPayload) =>
+    api.data<T>('/orders/checkout', undefined, { method: 'POST', body: payload }),
+
+  verifyPayment: <T = unknown>(payload: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => api.data<T>('/orders/verify-payment', undefined, { method: 'POST', body: payload }),
+
+  verifyPayu: <T = unknown>(txnid: string) =>
+    api.data<T>('/payments/payu/verify', undefined, { method: 'POST', body: { txnid } }),
+
+  retryPayment: <T = unknown>(orderId: string | number) =>
+    api.data<T>(`/orders/${orderId}/retry-payment`, undefined, { method: 'POST' }),
+
+  list: <T = unknown>({ page = 1, limit = 10, status }: { page?: number; limit?: number; status?: string } = {}) =>
+    api.get<T>('/orders', { page, limit, status }),
+
+  detail: <T = unknown>(orderId: string | number) => api.data<T>(`/orders/${orderId}`),
+
+  track: <T = unknown>(orderId: string | number) => api.data<T>(`/orders/${orderId}/track`),
+
+  cancel: <T = unknown>(orderId: string | number, reason: string) =>
+    api.data<T>(`/orders/${orderId}/cancel`, undefined, { method: 'POST', body: { reason } }),
+
+  review: <T = unknown>(
+    orderId: string | number,
+    payload: { product_id: string | number; rating: number; title?: string; review?: string }
+  ) => api.post<T>(`/orders/${orderId}/review`, payload),
+
+  gateways: <T = unknown>(opts?: RequestOptions) => api.data<T>('/payments/gateways', undefined, { revalidate: 300, ...opts }),
+};
+
+// =============================================================================
+// PRESCRIPTIONS API
+// =============================================================================
+
+export interface PrescriptionMeta {
+  title?: string;
+  patient_name?: string;
+  doctor_name?: string;
+  hospital_name?: string;
+  notes?: string;
+  contact_number?: string;
+  direct_upload?: string | boolean;
+}
+
+export const prescriptionApi = {
+  upload: async <T = unknown>(files: File[] = [], meta: PrescriptionMeta = {}): Promise<T | null> => {
+    const fd = new FormData();
+    files.forEach((f) => fd.append('images', f));
+    Object.entries(meta).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') fd.append(k, String(v));
+    });
+    const res = await api.form<T>('/prescriptions', fd);
+    return res?.data ?? null;
+  },
+
+  addImages: async <T = unknown>(id: string | number, files: File[] = []): Promise<T | null> => {
+    const fd = new FormData();
+    files.forEach((f) => fd.append('images', f));
+    const res = await api.form<T>(`/prescriptions/${id}/images`, fd);
+    return res?.data ?? null;
+  },
+
+  removeImage: <T = unknown>(id: string | number, image_path: string) =>
+    api.del<T>(`/prescriptions/${id}/images`, { image_path }),
+
+  list: <T = unknown>({ page = 1, limit = 10, status }: { page?: number; limit?: number; status?: string } = {}) =>
+    api.get<T>('/prescriptions', { page, limit, status }),
+
+  detail: <T = unknown>(id: string | number) => api.data<T>(`/prescriptions/${id}`),
+
+  cancel: <T = unknown>(id: string | number, reason: string) => api.del<T>(`/prescriptions/${id}`, { reason }),
+};
+
+// =============================================================================
+// CONTENT / CMS API
+// =============================================================================
+
+export const contentApi = {
+  settings: <T = unknown>(opts?: RequestOptions) => api.data<T>('/settings', undefined, { revalidate: 900, ...opts }),
+
+  pages: <T = unknown>(opts?: RequestOptions) => api.data<T>('/pages', undefined, { revalidate: 900, ...opts }),
+
+  page: <T = unknown>(slug: string, opts?: RequestOptions) => api.data<T>(`/pages/${slug}`, undefined, { revalidate: 900, ...opts }),
+
+  news: <T = unknown>(
+    { page = 1, limit = 10, category }: { page?: number; limit?: number; category?: string } = {},
+    opts?: RequestOptions
+  ) => api.get<T>('/news', { page, limit, category }, { revalidate: 600, ...opts }),
+
+  newsDetail: <T = unknown>(id: string | number, opts?: RequestOptions) =>
+    api.data<T>(`/news/${id}`, undefined, { revalidate: 600, ...opts }),
+
+  submitEnquiry: <T = unknown>(payload: { name: string; email: string; issue?: string; message: string; number?: string }) =>
+    api.post<T>('/contact', payload),
+
+  states: <T = unknown>(opts?: RequestOptions) => api.data<T>('/locations/states', undefined, { revalidate: 86400, ...opts }),
+  countries: <T = unknown>(opts?: RequestOptions) => api.data<T>('/locations/countries', undefined, { revalidate: 86400, ...opts }),
+  serviceableCities: <T = unknown>(opts?: RequestOptions) =>
+    api.data<T>('/locations/cities', undefined, { revalidate: 3600, ...opts }),
 };
 
 export default api;

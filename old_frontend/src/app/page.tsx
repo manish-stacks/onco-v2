@@ -11,61 +11,39 @@ import { BlogPreview } from "@/components/sections/blog-preview";
 import { Newsletter } from "@/components/sections/newsletter-faq";
 import { FAQSection } from "@/components/sections/FAQSection";
 import { MegaSaleBanner } from "@/components/sections/mega-sale-banner";
+import { getHomeData } from "@/lib/home";
+import { productToMedicine, categoryToTag, brandToTag, testimonialToTag } from "@/lib/adapters";
 
-import { getHomeProducts } from "@/lib/productapi";
+export const revalidate = 300;
 
 export default async function Home() {
-  const {
-    deal_of_the_day,
-    latest_products,
-    top_selling,
-  } = await getHomeProducts();
+  const home = await getHomeData();
 
-  console.log("Home page products:", {
-   
-    latest_products,
-    
-  });
+  const topSelling = home.top_selling.map(productToMedicine);
+  const latest = home.latest_products.map(productToMedicine);
+  const dealOfDay = home.deal_of_the_day.map(productToMedicine);
+  const categories = home.categories.map(categoryToTag);
+  const brands = home?.brands?.map(brandToTag);
+  const testimonials = home.testimonials.map(testimonialToTag);
+
+  const featured = latest.length ? latest : topSelling;
+  const flashDeals = dealOfDay.length ? dealOfDay : topSelling.slice(0, 4);
+
   return (
     <>
       <Hero />
-
       <CategoryGrid />
-
       <PromoBanners />
-
-      <ProductRail
-        title="Latest Products"
-        medicines={latest_products}
-        href="/shop"
-      />
-
+      <ProductRail title="Trending Items" medicines={featured.slice(0, 8)} href="/search" />
       <WhyChooseUs />
-
-      <PopularItemsTabs
-        medicines={top_selling}
-      />
-
-      <FlashSale
-        medicines={deal_of_the_day}
-      />
-
-      <Brands />
-
+      <PopularItemsTabs medicines={topSelling.length ? topSelling : latest} categories={categories} />
+      {flashDeals.length > 0 && <FlashSale medicines={flashDeals.slice(0, 4)} />}
+      <Brands brands={brands} />
       <MegaSaleBanner />
-
-      <ProductRail
-        title="Top Selling Products"
-        medicines={top_selling}
-        href="/shop"
-      />
-
-      <Testimonials />
-
+      <ProductRail title="Featured Items" medicines={topSelling.slice(0, 8)} href="/search" />
+      <Testimonials testimonials={testimonials} />
       <BlogPreview />
-
       <Newsletter />
-
       <FAQSection />
     </>
   );

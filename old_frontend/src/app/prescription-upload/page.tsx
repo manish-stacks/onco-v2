@@ -2,8 +2,11 @@
 
 import { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { UploadCloud, FileText, CheckCircle2, X, ShieldCheck, Clock, Stethoscope } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, X, ShieldCheck, Clock, Stethoscope, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { prescriptionApi, ApiError } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
+import type { Prescription } from "@/types";
 
 const GUIDELINES = [
   "Prescription must be issued by a registered medical practitioner.",
@@ -12,26 +15,49 @@ const GUIDELINES = [
   "Prescriptions older than 6 months may not be accepted for certain medicines.",
 ];
 
-type FakeFile = { name: string; size: string };
-
 export default function PrescriptionUploadPage() {
-  const [files, setFiles] = useState<FakeFile[]>([]);
+  const { isLoggedIn } = useAuth();
+  const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
-  const [status, setStatus] = useState<"idle" | "uploading" | "success">("idle");
+  const [status, setStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [patientName, setPatientName] = useState("");
+  const [doctorName, setDoctorName] = useState("");
+  const [result, setResult] = useState<Prescription | null>(null);
 
   const handleFiles = useCallback((list: FileList | null) => {
     if (!list || list.length === 0) return;
-    const next = Array.from(list).map((f) => ({
-      name: f.name,
-      size: `${(f.size / 1024).toFixed(0)} KB`,
-    }));
-    setFiles((prev) => [...prev, ...next]);
+    setFiles((prev) => [...prev, ...Array.from(list)]);
   }, []);
 
-  function submit() {
+  async function submit() {
     if (files.length === 0) return;
     setStatus("uploading");
-    setTimeout(() => setStatus("success"), 1600);
+    setErrorMsg(null);
+    try {
+      const data = await prescriptionApi.upload<Prescription>(files, {
+        patient_name: patientName || undefined,
+        doctor_name: doctorName || undefined,
+      });
+      setResult(data);
+      setStatus("success");
+    } catch (err) {
+      setErrorMsg(err instanceof ApiError ? err.message : "Could not upload prescription");
+      setStatus("error");
+    }
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-24 text-center sm:px-6">
+        <span className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)]">
+          <Stethoscope size={32} />
+        </span>
+        <h1 className="mb-2 font-display text-2xl font-bold text-[var(--ink)]">Login to upload a prescription</h1>
+        <p className="mb-6 max-w-sm text-[var(--ink-soft)]">We keep your prescriptions linked to your account so our pharmacists can verify them.</p>
+        <Button href="/login?redirect=/prescription-upload" icon={<ArrowRight size={16} />}>Login</Button>
+      </div>
+    );
   }
 
   return (
@@ -63,13 +89,24 @@ export default function PrescriptionUploadPage() {
               <CheckCircle2 size={32} />
             </motion.span>
             <h2 className="mb-2 font-display text-xl font-bold text-[var(--ink)]">Prescription Uploaded!</h2>
-            <p className="mb-6 max-w-sm text-sm text-[var(--ink-soft)]">
-              We&apos;ve received {files.length} file{files.length > 1 ? "s" : ""}. Our pharmacist team will verify it within 30 minutes and notify you.
+            <p className="mb-2 max-w-sm text-sm text-[var(--ink-soft)]">
+              We&apos;ve received {files.length} file{files.length > 1 ? "s" : ""}. Our pharmacist team will verify it and notify you.
             </p>
-            <Button href="/category/health-essentials">Continue Shopping</Button>
+            {result?.reference_code && (
+              <p className="mb-6 text-xs font-mono-nums text-[var(--ink-soft)]">Reference: {result.reference_code}</p>
+            )}
+            <div className="flex gap-3">
+              <Button href="/account/prescriptions" variant="outline">View My Prescriptions</Button>
+              <Button href="/search">Continue Shopping</Button>
+            </div>
           </motion.div>
         ) : (
           <motion.div key="form" exit={{ opacity: 0 }}>
+            {errorMsg && (
+              <div className="mb-4 rounded-[var(--radius-sm)] border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3 text-sm text-[var(--coral-500)]">
+                {errorMsg}
+              </div>
+            )}
             <div
               onDragOver={(e) => {
                 e.preventDefault();
@@ -104,13 +141,29 @@ export default function PrescriptionUploadPage() {
                     <FileText size={18} className="text-[var(--blue-500)]" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-[var(--ink)]">{f.name}</p>
-                      <p className="text-xs text-[var(--ink-soft)]">{f.size}</p>
+                      <p className="text-xs text-[var(--ink-soft)]">{(f.size / 1024).toFixed(0)} KB</p>
                     </div>
                     <button onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}>
                       <X size={16} className="text-[var(--ink-soft)]" />
                     </button>
                   </div>
                 ))}
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <input
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    placeholder="Patient name (optional)"
+                    className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none"
+                  />
+                  <input
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                    placeholder="Doctor name (optional)"
+                    className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none"
+                  />
+                </div>
+
                 <Button
                   size="lg"
                   className="w-full"

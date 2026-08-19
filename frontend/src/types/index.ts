@@ -53,11 +53,19 @@ export interface CategoryTag {
   description?: string;
 }
 
+/** `categoryTree` API se — nested parent/child structure, mega-menu ke liye */
+export interface CategoryTreeNode extends CategoryTag {
+  /** Meta description se short one-liner — mega-menu tiles ke liye */
+  blurb?: string;
+  children: CategoryTreeNode[];
+}
+
 export interface BrandTag {
   id: string;
   name: string;
   slug: string;
   logo: string;
+  productCount?: number;
 }
 
 export interface TestimonialTag {
@@ -208,6 +216,8 @@ export interface ApiCartItem {
   line_total: number;
   in_stock: boolean;
   available_quantity?: number;
+  /** false = ye specific item COD block kar raha hai (cold-chain ya isCOD=0) */
+  cod_eligible?: boolean;
 }
 
 export interface CartSummary {
@@ -226,11 +236,17 @@ export interface Customer {
   customer_id: number | string;
   customer_name?: string;
   mobile?: string;
-  email?: string;
+  // Backend DB column ka naam email_id hai, `email` nahi — response me
+  // yahi key aati hai.
+  email_id?: string;
   [key: string]: unknown;
 }
 
 export interface OrderItem {
+  item_id?: number;
+  // Backend `order_items` table se SELECT * aata hai — product_id hamesha
+  // hota hai, pehle type me missing tha (eligibility check ke liye chahiye).
+  product_id: string | number;
   product_name: string;
   product_image?: string;
   sku?: string;
@@ -356,7 +372,7 @@ export interface Medicine {
   inStock: boolean;
   packSize: string;
   composition: string;
-  benefits: string[];
+  benefits: string;
   uses: string[];
   dosage: string;
   sideEffects: string[];

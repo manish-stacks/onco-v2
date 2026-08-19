@@ -26,7 +26,7 @@ export function MegaSaleBanner() {
             at our outlet stores
           </p>
           <Link
-            href="/category/health-essentials"
+            href="/shop"
             className="inline-flex items-center gap-2 rounded-full bg-[var(--blue-500)] px-7 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_-8px_rgba(46,159,227,0.55)] transition hover:bg-[var(--blue-600)]"
           >
             Shop Now <ArrowRight size={15} />

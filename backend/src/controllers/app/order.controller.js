@@ -159,7 +159,23 @@ const submitReview = asyncHandler(async (req, res) => {
   return created(res, null, 'Review submit ho gaya — approve hone ke baad dikhega');
 });
 
+/**
+ * POST /orders/track-public — login ke bina bhi tracking dekh sakte ho.
+ * Rate-limit ki zaroorat hai production me (basic brute-force protection),
+ * abhi order_ref + phone dono match karne padte hain isliye guessing
+ * practically impossible hai.
+ */
+const trackPublic = asyncHandler(async (req, res) => {
+  const { order_ref: orderRef, phone } = req.body;
+  if (!orderRef || !phone) return fail(res, 'Order ID aur mobile number dono chahiye', 422);
+
+  const order = await orderModel.findByRefAndPhone(orderRef.trim(), phone);
+  if (!order) return fail(res, 'Order nahi mila — Order ID aur mobile number check karo', 404);
+
+  return ok(res, order);
+});
+
 module.exports = {
   quote, checkout, verifyPayment, retryPayment,
-  myOrders, orderDetail, trackOrder, cancelOrder, submitReview,
+  myOrders, orderDetail, trackOrder, cancelOrder, submitReview, trackPublic,
 };

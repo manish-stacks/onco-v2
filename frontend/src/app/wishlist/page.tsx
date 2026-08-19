@@ -47,7 +47,7 @@ export default function WishlistPage() {
   }
 
   async function handleMoveToCart(m: Medicine) {
-    await addToCart(m.id);
+    await addToCart(m);
     try {
       await wishlistApi.remove(m.id);
       setItems((prev) => prev.filter((x) => x.id !== m.id));

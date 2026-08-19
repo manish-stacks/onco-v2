@@ -5,10 +5,17 @@ import { cn } from "@/lib/utils";
 
 export function Tabs({
   tabs,
+  active: controlledActive,
+  onChange,
 }: {
   tabs: { label: string; content: ReactNode }[];
+  /** Diya to controlled ban jaata hai — "Be the first to review" jaisi jump-links ke liye */
+  active?: number;
+  onChange?: (i: number) => void;
 }) {
-  const [active, setActive] = useState(0);
+  const [internalActive, setInternalActive] = useState(0);
+  const active = controlledActive ?? internalActive;
+  const setActive = onChange ?? setInternalActive;
 
   return (
     <div>

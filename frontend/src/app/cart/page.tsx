@@ -4,22 +4,27 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Minus, Plus, Trash2, ShoppingBag, FileWarning, Tag, ArrowRight, AlertTriangle } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, FileWarning, Tag, ArrowRight, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mediaUrl, cartApi, ApiError } from "@/lib/api";
 import { formatINR } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
 import { useAuth } from "@/context/auth-context";
 
+
 export default function CartPage() {
   const { isLoggedIn } = useAuth();
-  const { cartItems, summary, cartLoading, updateQuantity, removeFromCart, refreshCart } = useStore();
+  const { cartItems, summary, cartLoading, isGuestCart, updateQuantity, removeFromCart, refreshCart } = useStore();
   const [coupon, setCoupon] = useState("");
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
 
   async function applyCoupon() {
     if (!coupon.trim()) return;
+    if (!isLoggedIn) {
+      setCouponMsg("Coupon apply karne ke liye checkout par mobile verify karo");
+      return;
+    }
     setApplying(true);
     setCouponMsg(null);
     try {
@@ -31,19 +36,6 @@ export default function CartPage() {
     } finally {
       setApplying(false);
     }
-  }
-
-  if (!isLoggedIn) {
-    return (
-      <div className="mx-auto flex max-w-7xl flex-col items-center px-4 py-24 text-center sm:px-6 lg:px-8">
-        <span className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)]">
-          <ShoppingBag size={32} />
-        </span>
-        <h1 className="mb-2 font-display text-2xl font-bold text-[var(--ink)]">Login to see your cart</h1>
-        <p className="mb-6 max-w-sm text-[var(--ink-soft)]">Your cart is saved to your account, so sign in to view and manage it.</p>
-        <Button href="/login" icon={<ArrowRight size={16} />}>Login</Button>
-      </div>
-    );
   }
 
   if (cartLoading && cartItems.length === 0) {
@@ -69,6 +61,14 @@ export default function CartPage() {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
+          {isGuestCart && cartItems.length > 0 && (
+            <div className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 p-4 text-sm text-[var(--blue-600)]">
+              <Info size={18} className="mt-0.5 shrink-0" />
+             <p>
+  This is only an estimated total. The exact GST, shipping charges, and coupon discount will be displayed at checkout after mobile verification. Your cart will remain safely saved on your phone.
+</p>
+            </div>
+          )}
           {summary?.requires_prescription && (
             <div className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[#FCE1B8] bg-[#FFF8EC] p-4 text-sm text-[#8A5A0C]">
               <FileWarning size={18} className="mt-0.5 shrink-0" />

@@ -134,6 +134,9 @@ router.delete('/prescriptions/:id', customerAuth, prescription.cancelPrescriptio
 // ===========================================================================
 // ORDERS — web + app dono ke liye same
 // ===========================================================================
+// Public — login ke bina order track karne ke liye (order_ref + phone match)
+router.post('/orders/track-public', order.trackPublic);
+
 router.post('/orders/quote', customerAuth, order.quote);
 router.post('/orders/checkout', customerAuth, order.checkout);
 router.post('/orders/verify-payment', customerAuth, validate({

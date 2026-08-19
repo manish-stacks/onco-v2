@@ -1,10 +1,12 @@
 import Image from "next/image";
-import { testimonials } from "@/lib/data";
 import { Rating } from "@/components/ui/rating";
 import { Reveal } from "@/components/ui/reveal";
 import { Quote } from "lucide-react";
+import type { TestimonialTag } from "@/types";
 
-export function Testimonials() {
+export function Testimonials({ testimonials }: { testimonials: TestimonialTag[] }) {
+  if (!testimonials.length) return null;
+
   return (
     <section className="bg-[var(--ink)] py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -15,12 +17,12 @@ export function Testimonials() {
           </h2>
         </Reveal>
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {testimonials.map((t, i) => (
+          {testimonials.slice(0, 4).map((t, i) => (
             <Reveal key={t.id} delay={i * 0.05}>
               <div className="relative flex h-full flex-col overflow-hidden rounded-[var(--radius-md)] bg-white p-6">
                 <Quote size={40} className="pointer-events-none absolute bottom-4 right-4 text-[var(--blue-50)]" />
                 <div className="mb-4 flex items-center gap-3">
-                  <Image src={t.avatar} alt={t.name} width={44} height={44} className="rounded-full" />
+                  <Image src={t.avatar} alt={t.name} width={44} height={44} unoptimized className="rounded-full" />
                   <div>
                     <p className="text-sm font-bold text-[var(--ink)]">{t.name}</p>
                     <p className="text-xs text-[var(--blue-600)]">{t.role}</p>

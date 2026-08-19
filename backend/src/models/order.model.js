@@ -260,9 +260,62 @@ async function stats(filters = {}) {
   return { ...totals, byStatus, bySource, byPayment };
 }
 
+/**
+ * Public tracking — login ke bina bhi order dhoond sakte hain, par sirf
+ * order reference + registered phone number match karne pe. Isse random
+ * order IDs enumerate karke kisi aur ka order dekhna possible nahi hai.
+ * Phone match dono billing aur shipping phone se try hota hai, kyunki
+ * customer confusion me kaunsa number diya tha bhool sakta hai.
+ */
+async function findByRefAndPhone(ref, phone) {
+  const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+  if (!ref || cleanPhone.length !== 10) return null;
+
+  const [[order]] = await db.query(
+    `SELECT * FROM orders
+     WHERE databaseOrderID = ?
+       AND (RIGHT(customer_phone, 10) = ? OR RIGHT(customer_shipping_phone, 10) = ?)
+     LIMIT 1`,
+    [ref, cleanPhone, cleanPhone]
+  );
+  if (!order) return null;
+
+  const [items] = await db.query(
+    `SELECT product_name, unit_quantity, unit_price, line_total FROM order_items
+     WHERE order_id = ? ORDER BY item_id ASC`,
+    [order.order_id]
+  );
+  const [history] = await db.query(
+    `SELECT old_status, new_status, note, created_at FROM order_status_logs
+     WHERE order_id = ? ORDER BY created_at ASC`,
+    [order.order_id]
+  );
+
+  // Sirf tracking ke liye zaroori fields — full address/email/payment
+  // details ek anonymous lookup me expose nahi karte.
+  return {
+    databaseOrderID: order.databaseOrderID,
+    order_date: order.order_date,
+    status: order.status,
+    payment_status: order.payment_status,
+    payment_mode: order.payment_mode,
+    amount: order.amount,
+    customer_city: order.customer_shipping_city || order.customer_city,
+    customer_state: order.customer_shipping_state || order.customer_state,
+    awb_number: order.awb_number,
+    courier_name: order.courier_name,
+    tracking_status: order.tracking_status,
+    tracking_location: order.tracking_location,
+    tracking_datetime: order.tracking_datetime,
+    delivered_at: order.delivered_at,
+    items,
+    history,
+  };
+}
+
 module.exports = {
   create, addItems, logStatus, findById, findByRazorpayOrderId,
   list, listForExport, updateStatus, updateTracking, updatePayment,
   setInvoiceNumber, updateFields, getItems, customerHasPurchased, stats,
-  buildFilters, SORTABLE,
+  buildFilters, SORTABLE, findByRefAndPhone,
 };

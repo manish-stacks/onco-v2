@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, Package, Truck, CheckCircle2, XCircle, RotateCcw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { orderApi, mediaUrl, ApiError } from "@/lib/api";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 import { formatINR, cn } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import type { Order } from "@/types";
@@ -18,6 +19,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,11 +55,34 @@ export default function OrderDetailPage() {
 
   async function handleRetryPayment() {
     if (!order) return;
+    setError(null);
+    setRetrying(true);
     try {
-      const data = await orderApi.retryPayment<{ payment_url?: string }>(order.order_id);
-      if (data?.payment_url) window.location.href = data.payment_url;
+      const data = await orderApi.retryPayment(order.order_id);
+      if (!data?.razorpay) {
+        // Order PayU se bana tha — abhi backend sirf Razorpay retry support
+        // karta hai. Customer ko support bhej do.
+        setError("Is order ka payment dobara try karne ke liye support se contact karo.");
+        return;
+      }
+      await openRazorpayCheckout({
+        session: data.razorpay,
+        description: `Order #${order.databaseOrderID || order.order_id}`,
+        onSuccess: async (response) => {
+          try {
+            await orderApi.verifyPayment(response);
+            const refreshed = await orderApi.detail<Order>(id);
+            setOrder(refreshed);
+          } catch {
+            setError("Payment verify nahi ho paya. Support se contact karo.");
+          }
+        },
+        onDismiss: () => setError("Payment cancel kar diya gaya."),
+      });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not retry payment");
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -74,8 +99,10 @@ export default function OrderDetailPage() {
     );
   }
 
-  const canCancel = !["delivered", "cancelled", "shipped"].includes(order.status?.toLowerCase());
-  const paymentFailed = order.payment_status?.toLowerCase() === "failed";
+  const CANCELLABLE = ["pending", "prescription pending", "new", "processing"];
+  const canCancel = CANCELLABLE.includes(order.status?.toLowerCase());
+  const paymentFailed = order.payment_status?.toLowerCase() === "failed" || order.payment_status?.toLowerCase() === "unpaid";
+  const canRetryPayment = order.payment_mode === "online" && paymentFailed && order.status?.toLowerCase() !== "cancelled";
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
@@ -92,15 +119,17 @@ export default function OrderDetailPage() {
           <p className="font-display text-xl font-bold text-[var(--ink)]">{order.invoice_number || `Order #${order.order_id}`}</p>
           <p className="text-sm text-[var(--ink-soft)]">Placed on {new Date(order.order_date).toLocaleDateString()}</p>
         </div>
-        <span className={cn("rounded-full px-4 py-1.5 text-sm font-semibold capitalize", order.status?.toLowerCase() === "delivered" ? "bg-[var(--mint-50)] text-[var(--mint-600)]" : order.status?.toLowerCase() === "cancelled" ? "bg-[#FFEDEA] text-[var(--coral-500)]" : "bg-[var(--blue-50)] text-[var(--blue-600)]")}>
+        <span className={cn("rounded-full px-4 py-1.5 text-sm font-semibold capitalize", order.status?.toLowerCase() === "completed" ? "bg-[var(--mint-50)] text-[var(--mint-600)]" : order.status?.toLowerCase() === "cancelled" || order.status?.toLowerCase() === "delivery failed" ? "bg-[#FFEDEA] text-[var(--coral-500)]" : "bg-[var(--blue-50)] text-[var(--blue-600)]")}>
           {order.status}
         </span>
       </div>
 
-      {paymentFailed && (
+      {canRetryPayment && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[#FCC7BE] bg-[#FFF1EE] p-4 text-sm text-[var(--coral-500)]">
           <span>Payment for this order failed or is incomplete.</span>
-          <Button size="sm" onClick={handleRetryPayment} icon={<RotateCcw size={14} />}>Retry Payment</Button>
+          <Button size="sm" onClick={handleRetryPayment} disabled={retrying} icon={retrying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}>
+            {retrying ? "Opening…" : "Retry Payment"}
+          </Button>
         </div>
       )}
 

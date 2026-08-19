@@ -437,7 +437,9 @@ export interface ProductFilters {
   top_selling?: boolean;
   latest?: boolean;
   deals?: boolean;
-  prescription_required?: boolean;
+  /** Backend enum values hain — boolean nahi. 'Yes' bhejo, na chahiye ho to omit karo. */
+  prescription_required?: 'Yes' | 'No';
+  in_stock?: boolean;
   sort_by?: string;
   sort_dir?: 'asc' | 'desc';
   page?: number;
@@ -638,20 +640,52 @@ export interface CheckoutPayload {
   comment?: string;
 }
 
-/** Response shape of orderApi.checkout() */
+export interface RazorpaySession {
+  key_id: string;
+  order_id: string;
+  amount: number;
+  currency: string;
+  prefill?: { name?: string; contact?: string; email?: string };
+}
+
+export interface PayuSession {
+  endpoint: string;
+  params: Record<string, string>;
+}
+
+/**
+ * Response shape of orderApi.checkout().
+ *
+ * ⚠ Backend `payment` object NEST karta hai gateway ke hisaab se —
+ * `payment.razorpay` ya `payment.payu`, kabhi bhi flat `payment.key` /
+ * `payment.action_url` nahi hota. Isko flat maan lena hi wo bug tha jispe
+ * dono gateways break ho rahe the.
+ */
 export interface CheckoutResult {
   order: Order;
   payment: {
     type: 'sdk' | 'redirect';
     gateway: 'razorpay' | 'payu';
-    gateway_order_id?: string;
-    key?: string;
-    amount?: number;
-    currency?: string;
-    action_url?: string;
-    fields?: Record<string, string>;
+    gateway_order_id: string;
+    razorpay?: RazorpaySession;
+    payu?: PayuSession;
   } | null;
-  razorpay?: unknown;
+}
+
+export interface PaymentGatewayOption {
+  id: 'razorpay' | 'payu';
+  label: string;
+  type: 'sdk' | 'redirect';
+}
+
+export interface PaymentGatewaysResult {
+  available: PaymentGatewayOption[];
+  default: 'razorpay' | 'payu';
+}
+
+/** `/orders/:id/retry-payment` — abhi sirf Razorpay support karta hai backend me */
+export interface RetryPaymentResult {
+  razorpay?: RazorpaySession;
 }
 
 /**
@@ -676,7 +710,7 @@ export const orderApi = {
   verifyPayu: <T = unknown>(txnid: string) =>
     api.data<T>('/payments/payu/verify', undefined, { method: 'POST', body: { txnid } }),
 
-  retryPayment: <T = unknown>(orderId: string | number) =>
+  retryPayment: <T = RetryPaymentResult>(orderId: string | number) =>
     api.data<T>(`/orders/${orderId}/retry-payment`, undefined, { method: 'POST' }),
 
   list: <T = unknown>({ page = 1, limit = 10, status }: { page?: number; limit?: number; status?: string } = {}) =>
@@ -694,8 +728,35 @@ export const orderApi = {
     payload: { product_id: string | number; rating: number; title?: string; review?: string }
   ) => api.post<T>(`/orders/${orderId}/review`, payload),
 
-  gateways: <T = unknown>(opts?: RequestOptions) => api.data<T>('/payments/gateways', undefined, { revalidate: 300, ...opts }),
+  gateways: () => api.data<PaymentGatewaysResult>('/payments/gateways', undefined, { revalidate: 300 }),
+
+  /**
+   * Login ke bina tracking — Order ID + registered mobile number dono match
+   * karne padte hain. Poora order object nahi, sirf tracking-safe fields
+   * (status, items, courier, city/state — koi full address/email nahi).
+   */
+  trackPublic: <T = PublicTrackResult>(order_ref: string, phone: string) =>
+    api.data<T>('/orders/track-public', undefined, { method: 'POST', body: { order_ref, phone } }),
 };
+
+export interface PublicTrackResult {
+  databaseOrderID: string;
+  order_date: string;
+  status: string;
+  payment_status: string;
+  payment_mode: string;
+  amount: number;
+  customer_city?: string;
+  customer_state?: string;
+  awb_number?: string | null;
+  courier_name?: string | null;
+  tracking_status?: string | null;
+  tracking_location?: string | null;
+  tracking_datetime?: string | null;
+  delivered_at?: string | null;
+  items: { product_name: string; unit_quantity: number; unit_price: number; line_total: number }[];
+  history: { old_status: string | null; new_status: string; note: string | null; created_at: string }[];
+}
 
 // =============================================================================
 // PRESCRIPTIONS API

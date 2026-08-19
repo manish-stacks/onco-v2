@@ -729,9 +729,19 @@ const me = asyncHandler(async (req, res) => {
 
 const updateProfile = asyncHandler(
   async (req, res) => {
+    // Customer khud sirf apna naam/email badal sake — customerModel ka
+    // WRITABLE list broader hai (mobile, status waghera bhi) kyunki admin
+    // side se bhi use hota hai. Yahan explicitly sirf safe fields pick karte
+    // hain, warna koi customer apna mobile ya account status khud PATCH
+    // karke badal sakta tha.
+    const { customer_name, email_id } = req.body;
+    const payload = {};
+    if (customer_name !== undefined) payload.customer_name = customer_name;
+    if (email_id !== undefined) payload.email_id = email_id;
+
     await customerModel.update(
       req.customer.customer_id,
-      req.body
+      payload
     );
 
     const customer =

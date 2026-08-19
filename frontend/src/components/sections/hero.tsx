@@ -375,7 +375,7 @@ export function Hero() {
                   </span>
 
                   <span className="text-xl font-bold">
-                    {slide.price}
+                   ₹{slide.price}
                   </span>
                 </div>
               )}

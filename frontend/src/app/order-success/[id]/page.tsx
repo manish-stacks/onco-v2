@@ -1,6 +1,14 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { CheckCircle2, Package, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// Private, order-specific page — Google ko index karne ki koi zaroorat nahi,
+// aur URL me order ID bhi hai isliye search results me nahi aana chahiye.
+export const metadata: Metadata = {
+  title: "Order Placed",
+  robots: { index: false, follow: false },
+};
 
 export default async function OrderSuccessPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

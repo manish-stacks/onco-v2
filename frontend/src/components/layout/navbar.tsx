@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -31,13 +31,16 @@ import {
 import { useCategories } from "@/hooks/use-categories";
 import { useStore } from "@/hooks/use-store";
 import { useAuth } from "@/context/auth-context";
+import { orderApi } from "@/lib/api";
 import { formatINR } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { MegaMenu } from "./MegaMenu";
 
 import { SearchSuggest } from "../sections/SearchSuggest";
 
 const NAV_LINKS = [
   { label: "Home", href: "/", icon: Home },
+  { label: "Shop", href: "/shop", icon: List },
   { label: "About Us", href: "/about", icon: Users },
   { label: "Blog", href: "/blog", icon: Newspaper },
   { label: "Contact", href: "/contact", icon: Phone },
@@ -59,10 +62,23 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [megaOpen, setMegaOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [orderCount, setOrderCount] = useState(0);
 
   function handleSearch() {
     if (query.trim()) router.push(`/search?q=${encodeURIComponent(query.trim())}`);
   }
+
+  // Header badge ke liye lightweight order count — poori list nahi, sirf total
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setOrderCount(0);
+      return;
+    }
+    orderApi
+      .list({ limit: 1 })
+      .then((res) => setOrderCount(res?.pagination?.total ?? 0))
+      .catch(() => setOrderCount(0));
+  }, [isLoggedIn]);
 
   return (
     <header className="relative z-50 bg-white">
@@ -158,12 +174,14 @@ export function Navbar() {
             </span>
           </Link>
 
-          <Link href="/orders" className="hidden items-center gap-2 sm:flex">
+          <Link href="/account/orders" className="hidden items-center gap-2 sm:flex">
             <span className="relative">
               <Package size={22} className="text-blue-600" />
-              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
-                0
-              </span>
+              {orderCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+                  {orderCount}
+                </span>
+              )}
             </span>
             <span className="text-xs leading-tight text-ink-soft">
               My
@@ -222,28 +240,9 @@ export function Navbar() {
               <List size={16} /> All Categories
             </button>
             <AnimatePresence>
-              {megaOpen && categories.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 8 }}
-                  transition={{ duration: 0.18 }}
-                  className="absolute left-0 top-full w-72 pt-2"
-                >
-                  <div className="rounded-xl bg-white p-2 shadow-2xl ring-1 ring-black/5">
-                    {categories.map((c) => (
-                      <Link
-                        key={c.id}
-                        href={`/category/${c.slug}`}
-                        className="block rounded-lg px-4 py-2.5 text-sm text-ink hover:bg-blue-50"
-                      >
-                        {c.name}
-                      </Link>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
+              {megaOpen && categories.length > 0 && <MegaMenu />}
             </AnimatePresence>
+         
           </div>
 
           <nav className="flex items-center gap-1">
@@ -340,7 +339,7 @@ export function Navbar() {
                   </span>
                   <span className="text-[11px] font-medium text-ink-soft">Wishlist</span>
                 </Link>
-                <Link href="/orders" onClick={() => setMobileOpen(false)} className="flex flex-col items-center gap-1 rounded-lg py-2 text-center hover:bg-black/5">
+                <Link href="/account/orders" onClick={() => setMobileOpen(false)} className="flex flex-col items-center gap-1 rounded-lg py-2 text-center hover:bg-black/5">
                   <Package size={20} className="text-blue-600" />
                   <span className="text-[11px] font-medium text-ink-soft">Orders</span>
                 </Link>

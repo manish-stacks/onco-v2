@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const { money } = require('../utils/helpers');
+const { isProductCodEligible } = require('../utils/cod-eligibility');
 
 /**
  * Cart hamesha server-side price se recalculate hota hai — jo price cart me
@@ -10,7 +11,7 @@ async function getItems(customerId) {
   const [rows] = await db.query(
     `SELECT ci.cart_id, ci.product_id, ci.product_quantity,
             p.product_name, p.slug, p.image_1, p.sku, p.product_sp, p.product_mrp, p.product_gst,
-            p.stock, p.stock_quantity, p.presciption_required, p.isCOD, p.status AS product_status
+            p.stock, p.stock_quantity, p.presciption_required, p.isCOD, p.storage, p.status AS product_status
      FROM cart_items ci
      INNER JOIN products p ON p.product_id = ci.product_id
      WHERE ci.customer_id = ?
@@ -36,7 +37,9 @@ async function getCartWithTotals(customerId) {
     subtotal += lineSubtotal;
     totalGst += taxAmount;
     if (it.presciption_required === 'Yes') requiresPrescription = true;
-    if (!it.isCOD) codAllowed = false;
+
+    const itemCodEligible = isProductCodEligible(it);
+    if (!itemCodEligible) codAllowed = false;
 
     return {
       ...it,
@@ -45,6 +48,9 @@ async function getCartWithTotals(customerId) {
       line_total: money(lineSubtotal + taxAmount),
       in_stock: it.stock_quantity >= it.product_quantity,
       available_quantity: it.stock_quantity,
+      // Frontend ko batane ke liye ki YE specific item COD block kar raha
+      // hai (jaise "Cold chain — prepaid only" badge dikhana ho to)
+      cod_eligible: itemCodEligible,
     };
   });
 
