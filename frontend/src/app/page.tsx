@@ -18,9 +18,6 @@ import type { Metadata } from "next";
 
 export const revalidate = 300;
 
-// Root layout ke title/description homepage ke liye hi likhe gaye hain,
-// isliye yahan sirf canonical URL explicit karte hain — duplicate-content
-// signals (trailing slash, query params) se bachne ke liye.
 export const metadata: Metadata = {
   alternates: { canonical: SITE_URL },
 };
@@ -40,9 +37,9 @@ export default async function Home() {
 
   return (
     <>
-      <Hero />
-      <CategoryGrid />
-      <PromoBanners />
+      <Hero banners={home.banners} />
+      <CategoryGrid categories={categories} />
+      <PromoBanners deals={home.deals} />
       <ProductRail title="Trending Items" medicines={featured.slice(0, 8)} href="/search" />
       <WhyChooseUs />
       <PopularItemsTabs medicines={topSelling.length ? topSelling : latest} categories={categories} />
