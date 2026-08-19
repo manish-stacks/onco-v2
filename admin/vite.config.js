@@ -23,7 +23,7 @@ export default defineConfig({
     proxy: {
       // dev me CORS ka jhanjhat na ho — /api seedha backend pe chala jaata hai
       '/api': {
-        target: process.env.VITE_API_PROXY || 'http://localhost:4000',
+        target: process.env.VITE_API_PROXY || 'https://www.betaapi.oncohealthmart.com',
         changeOrigin: true,
       },
     },

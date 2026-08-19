@@ -14,7 +14,7 @@
 
 import type { Order } from '@/types';
 
-const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000').replace(/\/$/, '');
+const BASE = (process.env.NEXT_PUBLIC_API_BASE || 'https://www.betaapi.oncohealthmart.com').replace(/\/$/, '');
 const TOKEN_KEY = 'ohm_token';
 const PLATFORM = 'web';
 
