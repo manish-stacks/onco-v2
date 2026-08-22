@@ -9,14 +9,14 @@ const push = require('./firebase.service');
 const events = require('./events.service');
 
 /**
- * Dashboard pe "kya chalu hai, kya nahi" dikhane ke liye.
+ * Used to show "what is running and what is not" on the dashboard.
  *
- * Do tarah ke checks hain:
+ * There are two kinds of checks:
  *   • CRITICAL — na chale to site down (DB, storage)
  *   • OPTIONAL — na chale to feature band, site chalti rahegi (WhatsApp, DTDC)
  *
- * Jo check network call karta hai (S3, DB) wo `deep=true` pe hi chalta hai —
- * dashboard har 60s poll karta hai, har baar S3 ping karna zaroori nahi.
+ * Checks that make a network call (S3, DB) only run when `deep=true` —
+ * the dashboard polls every 60s, and pinging S3 every time is unnecessary.
  */
 
 async function checkDatabase() {
@@ -51,7 +51,7 @@ async function checkRedis() {
       detail: keys !== null ? `${keys} keys cached` : 'connected',
     };
   } catch (err) {
-    // Redis down = slow site, but not broken — cache layer fail-open hai
+    // Redis down = slow site, but not broken — the cache layer is fail-open
     return { ok: false, error: err.message, degraded: true };
   }
 }
@@ -62,7 +62,7 @@ async function checkStorage(deep) {
     return {
       ok: false,
       configured: false,
-      detail: 'Local disk use ho rahi hai — S3 configure nahi hai',
+      detail: 'Using local disk — S3 is not configured',
     };
   }
   if (!deep) {
@@ -84,9 +84,9 @@ function checkRazorpay() {
     configured,
     detail: configured
       ? `${process.env.RAZORPAY_KEY_ID.startsWith('rzp_live') ? 'LIVE' : 'TEST'} mode${process.env.RAZORPAY_WEBHOOK_SECRET ? ' · webhook set' : ' · webhook secret missing'}`
-      : 'Keys .env me nahi hain',
+      : 'Keys are not set in .env',
     warning: configured && !process.env.RAZORPAY_WEBHOOK_SECRET
-      ? 'Webhook secret set nahi hai — payment confirmation miss ho sakta hai'
+      ? 'No webhook secret is set — payment confirmations may be missed'
       : undefined,
   };
 }
@@ -97,9 +97,9 @@ function checkPayu() {
   return {
     ok: configured,
     configured,
-    detail: configured ? `${c.mode.toUpperCase()} mode` : 'Merchant key/salt .env me nahi hain',
+    detail: configured ? `${c.mode.toUpperCase()} mode` : 'Merchant key/salt are not set in .env',
     warning: configured && (!c.successUrl || !c.failureUrl)
-      ? 'PAYU_SUCCESS_URL / PAYU_FAILURE_URL set nahi hain'
+      ? 'PAYU_SUCCESS_URL / PAYU_FAILURE_URL are not set'
       : undefined,
   };
 }
@@ -112,9 +112,9 @@ function checkDtdc() {
     configured,
     detail: configured
       ? `${c.mode.toUpperCase()} · ${c.customerCode}`
-      : 'API key / customer code .env me nahi hain',
+      : 'API key / customer code are not set in .env',
     warning: configured && !c.trackingToken
-      ? 'Tracking token nahi hai — live tracking kaam nahi karegi'
+      ? 'No tracking token — live tracking will not work'
       : undefined,
   };
 }
@@ -126,7 +126,7 @@ function checkSms() {
     configured,
     detail: configured
       ? `Fast2SMS · route=${process.env.FAST2SMS_ROUTE || 'otp'}`
-      : 'API key nahi hai — OTP console pe print ho raha hai',
+      : 'No API key — the OTP is being printed to the console',
   };
 }
 
@@ -136,9 +136,9 @@ function checkWhatsapp() {
   return {
     ok: configured,
     configured,
-    detail: configured ? `BuzWap · ${admins} admin alert number(s)` : 'WA_USER / WA_PASS nahi hain',
+    detail: configured ? `BuzWap · ${admins} admin alert number(s)` : 'WA_USER / WA_PASS are not set',
     warning: configured && admins === 0
-      ? 'WA_ADMIN_NUMBERS khaali hai — payment fail alerts kahin nahi jayenge'
+      ? 'WA_ADMIN_NUMBERS is empty — payment failure alerts will go nowhere'
       : undefined,
   };
 }
@@ -148,7 +148,7 @@ function checkPush() {
   return {
     ok: configured,
     configured,
-    detail: configured ? 'Firebase ready' : 'Service account JSON set nahi hai',
+    detail: configured ? 'Firebase ready' : 'Service account JSON is not set',
   };
 }
 
@@ -166,7 +166,7 @@ async function checkPushTokens() {
   }
 }
 
-/** Recent notification delivery — kaam kar raha hai ya silently fail ho raha hai */
+/** Recent notification delivery — is it working or failing silently */
 async function recentDelivery() {
   try {
     const [rows] = await db.query(
@@ -204,13 +204,13 @@ async function mediaStatus() {
       failed: Number(row.failed || 0),
     };
   } catch {
-    // table abhi bani nahi hai
+    // the table does not exist yet
     return null;
   }
 }
 
 /**
- * @param {boolean} deep — network calls bhi karo (S3 ping wagairah)
+ * @param {boolean} deep — also make network calls (S3 ping etc.)
  */
 async function fullHealth({ deep = false } = {}) {
   const [database, redisHealth, storageHealth, tokens, delivery, media] = await Promise.all([
@@ -257,7 +257,7 @@ async function fullHealth({ deep = false } = {}) {
     delivery_24h: delivery,
     media_migration: media,
     live_connections: events.clientCount(),
-    // At least one payment gateway zaroori hai — warna online order le hi nahi sakte
+    // At least one payment gateway is mandatory — otherwise online orders cannot be taken
     payments_usable: services.razorpay.ok || services.payu.ok,
   };
 }

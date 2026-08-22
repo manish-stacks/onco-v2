@@ -1,15 +1,16 @@
 "use client"
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  MapPin, Plus, CreditCard, Wallet, Truck, FileWarning, ArrowRight, Loader2, CheckCircle2, Stethoscope,
+  MapPin, Plus, CreditCard, Wallet, Truck, FileWarning, Loader2, CheckCircle2, Stethoscope,
+  Pencil, Trash2, UploadCloud, X, AlertCircle, Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InlineOtpVerify } from "@/components/auth/InlineOtpVerify";
 import {
-  addressApi, orderApi, prescriptionApi, authApi, mediaUrl, ApiError,
+  addressApi, orderApi, prescriptionApi, authApi, cartApi, mediaUrl, ApiError,
   type Address, type CheckoutPayload, type CheckoutResult, type PaymentGatewayOption,
 } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
@@ -17,57 +18,210 @@ import { submitToPayu } from "@/lib/payu";
 import { formatINR } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
 import { useAuth } from "@/context/auth-context";
+import { clearAppliedCoupon, getAppliedCoupon, saveAppliedCoupon } from "@/lib/coupon";
 import type { Prescription } from "@/types";
 
 const EMPTY_ADDRESS: Address = {
   full_name: "", phone: "", house_no: "", stree_address: "", landmark: "", city: "", state: "", pincode: "", type: "Home",
 };
 
+/** Turn the field-wise errors the server returns into a simple map */
+function toFieldErrors(err: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (err instanceof ApiError && err.errors) {
+    Object.entries(err.errors).forEach(([k, v]) => {
+      out[k] = Array.isArray(v) ? String(v[0]) : String(v);
+    });
+  }
+  return out;
+}
+
+/** Client-side check, so the user sees a clear error before we hit the server */
+function validateAddress(a: Address): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (!a.full_name?.trim() || a.full_name.trim().length < 3) e.full_name = "Please enter the full name (at least 3 characters)";
+  if (!/^[6-9]\d{9}$/.test(String(a.phone || "").replace(/\D/g, "").slice(-10))) e.phone = "Please enter a valid 10-digit mobile number";
+  if (!a.house_no?.trim()) e.house_no = "House / Flat number is required";
+  if (!a.stree_address?.trim() || a.stree_address.trim().length < 3) e.stree_address = "Please enter the street address";
+  if (!a.city?.trim()) e.city = "City is required";
+  if (!a.state?.trim()) e.state = "State is required";
+  if (!/^\d{6}$/.test(String(a.pincode || ""))) e.pincode = "Please enter a valid 6-digit PIN code";
+  return e;
+}
+
+const FIELD_CLASS = "h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none transition";
+
+function FieldInput({
+  label, value, onChange, error, placeholder, className = "", type = "text",
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  error?: string; placeholder?: string; className?: string; type?: string;
+}) {
+  return (
+    <div className={className}>
+      <label className="mb-1 block text-xs font-medium text-[var(--ink-soft)]">{label}</label>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder || label}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${FIELD_CLASS} ${error ? "border-[var(--coral-500)] bg-[#FFF7F5]" : "border-[var(--line)] focus:border-[var(--blue-500)]"}`}
+      />
+      {error && (
+        <p className="mt-1 flex items-start gap-1 text-xs text-[var(--coral-500)]">
+          <AlertCircle size={12} className="mt-0.5 shrink-0" /> {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CheckoutInner() {
   const router = useRouter();
   const params = useSearchParams();
   const { isLoggedIn, user, refresh } = useAuth();
 
-  // prescription-upload page se wapas aane par isi query param me naya
-  // prescription_id milta hai — usko auto-select karna hai.
   const prescriptionIdFromUrl = params.get("prescription_id");
   const { cartItems, summary, refreshCart } = useStore();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | number | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
-  const [newAddress, setNewAddress] = useState<Address>(EMPTY_ADDRESS);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
+  const [addressDraft, setAddressDraft] = useState<Address>(EMPTY_ADDRESS);
+  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
 
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [selectedPrescriptionId, setSelectedPrescriptionId] = useState<string | number | null>(null);
 
-  // Patient / doctor details for prescription orders
+  // New prescription upload, straight from the checkout page
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [prescErrors, setPrescErrors] = useState<Record<string, string>>({});
+
   const [patientName, setPatientName] = useState("");
   const [doctorName, setDoctorName] = useState("");
   const [hospitalName, setHospitalName] = useState("");
   const [comment, setComment] = useState("");
 
-  // Shipping address (if different from billing)
   const [shippingSame, setShippingSame] = useState(true);
   const [shippingAddress, setShippingAddress] = useState<Address>(EMPTY_ADDRESS);
+
+  // Coupon — the code applied on the cart page has to travel with the order,
+  // otherwise the backend creates the order without any discount.
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [discount, setDiscount] = useState(0);
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState(false);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   const [paymentMode, setPaymentMode] = useState<"cod" | "online">("cod");
   const [gateways, setGateways] = useState<PaymentGatewayOption[]>([]);
   const [gateway, setGateway] = useState<"razorpay" | "payu">("razorpay");
+  const [codEnabled, setCodEnabled] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Kaunse payment gateways abhi configure hain — hardcode nahi karte,
-  // backend se poochh ke sirf wahi dikhate hain jo actually chal sakte hain.
+  // Which gateways are live — enabled/disabled from admin Settings.
+  // Nothing here is hardcoded.
   useEffect(() => {
     orderApi
       .gateways()
       .then((res) => {
         if (!res) return;
-        setGateways(res.available || []);
-        if (res.default) setGateway(res.default);
+        const list = res.available || [];
+        setGateways(list);
+        // Preselect the admin's default gateway, but never one that is disabled
+        const preferred = list.some((g) => g.id === res.default) ? res.default : list[0]?.id;
+        if (preferred) setGateway(preferred);
+        setCodEnabled(res.cod_enabled !== false);
       })
-      .catch(() => setGateways([{ id: "razorpay", label: "Razorpay", type: "sdk" }]));
+      .catch(() => {
+        setGateways([{ id: "razorpay", label: "Razorpay", type: "sdk" }]);
+        setCodEnabled(true);
+      });
+  }, []);
+
+  // COD is available only when the admin has turned it on AND every cart item is COD-eligible
+  const codAvailable = codEnabled && !!summary?.cod_allowed;
+
+  // Re-validate the stored coupon against the current cart. Totals may have
+  // changed since it was applied, so we never trust the saved discount blindly.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const saved = getAppliedCoupon();
+    if (!saved) return;
+    setCouponInput(saved.code);
+    cartApi
+      .applyCoupon<{ coupon_code: string; discount: number }>(saved.code)
+      .then((res) => {
+        const value = Number(res?.discount) || 0;
+        setAppliedCoupon(saved.code);
+        setDiscount(value);
+        saveAppliedCoupon(saved.code, value);
+      })
+      .catch((err) => {
+        clearAppliedCoupon();
+        setAppliedCoupon(null);
+        setDiscount(0);
+        setCouponError(true);
+        setCouponMsg(err instanceof ApiError ? err.message : "This coupon is no longer valid");
+      });
+  }, [isLoggedIn, summary?.subtotal]);
+
+  async function applyCoupon() {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+    setApplyingCoupon(true);
+    setCouponMsg(null);
+    setCouponError(false);
+    try {
+      const res = await cartApi.applyCoupon<{ coupon_code: string; discount: number }>(code);
+      const value = Number(res?.discount) || 0;
+      saveAppliedCoupon(code, value);
+      setAppliedCoupon(code);
+      setDiscount(value);
+      setCouponMsg(`Coupon applied — ${formatINR(value)} off`);
+    } catch (err) {
+      clearAppliedCoupon();
+      setAppliedCoupon(null);
+      setDiscount(0);
+      setCouponError(true);
+      setCouponMsg(err instanceof ApiError ? err.message : "Could not apply this coupon");
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }
+
+  function removeCoupon() {
+    clearAppliedCoupon();
+    setAppliedCoupon(null);
+    setDiscount(0);
+    setCouponInput("");
+    setCouponMsg(null);
+    setCouponError(false);
+  }
+
+  useEffect(() => {
+    setPaymentMode(codAvailable ? "cod" : "online");
+  }, [codAvailable]);
+
+  const loadPrescriptions = useMemo(() => async (preferId?: string | number | null) => {
+    const [list, fresh] = await Promise.all([
+      prescriptionApi.list<Prescription[]>({ limit: 20 }).then((res) => res?.data ?? []).catch(() => []),
+      preferId ? prescriptionApi.detail<Prescription>(preferId).catch(() => null) : Promise.resolve(null),
+    ]);
+    let merged = list;
+    if (fresh && !list.some((p) => String(p.prescription_id) === String(fresh.prescription_id))) {
+      merged = [fresh, ...list];
+    }
+    setPrescriptions(merged);
+    return merged;
   }, []);
 
   useEffect(() => {
@@ -79,36 +233,25 @@ function CheckoutInner() {
     }).catch(() => setAddresses([]));
 
     if (summary?.requires_prescription) {
-      // Status filter jaan-boojh ke nahi laga rahe — customer ki koi bhi
-      // prescription select ho sakti hai (Pending bhi), pharmacist baad me
-      // verify karega. URL me prescription_id ho (upload ke turant baad) to
-      // uska data alag se fetch karke list me sabse upar rakhte hain, taaki
-      // pagination/limit se bahar reh jaane par bhi miss na ho.
-      Promise.all([
-        prescriptionApi.list<Prescription[]>({ limit: 20 }).then((res) => res?.data ?? []).catch(() => []),
-        prescriptionIdFromUrl
-          ? prescriptionApi.detail<Prescription>(prescriptionIdFromUrl).catch(() => null)
-          : Promise.resolve(null),
-      ]).then(([list, fresh]) => {
-        let merged = list;
-        if (fresh && !list.some((p) => String(p.prescription_id) === String(fresh.prescription_id))) {
-          merged = [fresh, ...list];
-        }
-        setPrescriptions(merged);
-
-        if (prescriptionIdFromUrl && merged.some((p) => String(p.prescription_id) === String(prescriptionIdFromUrl))) {
-          setSelectedPrescriptionId(prescriptionIdFromUrl);
-        } else if (merged[0]?.prescription_id) {
-          setSelectedPrescriptionId(merged[0].prescription_id);
-        }
+      loadPrescriptions(prescriptionIdFromUrl).then((merged) => {
+        const pick = prescriptionIdFromUrl && merged.some((p) => String(p.prescription_id) === String(prescriptionIdFromUrl))
+          ? prescriptionIdFromUrl
+          : merged[0]?.prescription_id ?? null;
+        if (pick) setSelectedPrescriptionId(pick);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, summary?.requires_prescription, prescriptionIdFromUrl]);
 
+  // As soon as a prescription is selected, auto-fill patient / doctor / hospital
   useEffect(() => {
-    if (!summary?.cod_allowed) setPaymentMode("online");
-  }, [summary?.cod_allowed]);
+    if (!selectedPrescriptionId) return;
+    const p = prescriptions.find((x) => String(x.prescription_id) === String(selectedPrescriptionId));
+    if (!p) return;
+    setPatientName(p.patient_name || "");
+    setDoctorName(p.doctor_name || "");
+    setHospitalName(p.hospital_name || "");
+  }, [selectedPrescriptionId, prescriptions]);
 
   const selectedAddress = useMemo(
     () => addresses.find((a) => a.ad_id === selectedAddressId) ?? null,
@@ -119,49 +262,173 @@ function CheckoutInner() {
     return [a.house_no, a.stree_address, a.landmark].filter(Boolean).join(", ");
   }
 
-  async function handleAddAddress(e: React.FormEvent) {
+  // ---------------------------------------------------------------- addresses
+  function openNewAddress() {
+    setEditingId(null);
+    setAddressDraft(EMPTY_ADDRESS);
+    setAddressErrors({});
+    setShowAddressForm(true);
+  }
+
+  function openEditAddress(a: Address) {
+    setEditingId(a.ad_id ?? null);
+    setAddressDraft({ ...EMPTY_ADDRESS, ...a });
+    setAddressErrors({});
+    setShowAddressForm(true);
+  }
+
+  function closeAddressForm() {
+    setShowAddressForm(false);
+    setEditingId(null);
+    setAddressErrors({});
+    setAddressDraft(EMPTY_ADDRESS);
+  }
+
+  async function handleSaveAddress(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
+
+    const local = validateAddress(addressDraft);
+    if (Object.keys(local).length) {
+      setAddressErrors(local);
+      return;
+    }
+
+    setSavingAddress(true);
     try {
-      // Backend create sirf { ad_id } deta hai, poora address nahi — isliye
-      // save karne ke baad list dobara fetch karte hain taaki asli saved
-      // record (id ke saath) state me aaye, guessed object nahi.
-      await addressApi.create<Address>(newAddress);
-      const list = await addressApi.list<Address[]>();
-      setAddresses(list ?? []);
-      const match = (list ?? []).find(
-        (a) => a.stree_address === newAddress.stree_address && a.pincode === newAddress.pincode
-      );
-      setSelectedAddressId(match?.ad_id ?? list?.[list.length - 1]?.ad_id ?? null);
-      setShowAddressForm(false);
-      setNewAddress(EMPTY_ADDRESS);
+      if (editingId) {
+        await addressApi.update(editingId, addressDraft);
+        const list = await addressApi.list<Address[]>();
+        setAddresses(list ?? []);
+        setSelectedAddressId(editingId);
+      } else {
+        await addressApi.create<Address>(addressDraft);
+        const list = await addressApi.list<Address[]>();
+        setAddresses(list ?? []);
+        const match = (list ?? []).find(
+          (a) => a.stree_address === addressDraft.stree_address && a.pincode === addressDraft.pincode
+        );
+        setSelectedAddressId(match?.ad_id ?? list?.[list.length - 1]?.ad_id ?? null);
+      }
+      closeAddressForm();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save address");
+      const fieldErrors = toFieldErrors(err);
+      if (Object.keys(fieldErrors).length) {
+        setAddressErrors(fieldErrors);
+      } else {
+        setError(err instanceof ApiError ? err.message : "Could not save the address");
+      }
+    } finally {
+      setSavingAddress(false);
     }
   }
 
+  async function handleRemoveAddress(adId: string | number) {
+    if (!window.confirm("Remove this address?")) return;
+    setDeletingId(adId);
+    setError(null);
+    try {
+      await addressApi.remove(adId);
+      const list = await addressApi.list<Address[]>();
+      setAddresses(list ?? []);
+      if (String(selectedAddressId) === String(adId)) {
+        setSelectedAddressId(list?.[0]?.ad_id ?? null);
+      }
+      if (String(editingId) === String(adId)) closeAddressForm();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not remove the address");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  // ------------------------------------------------------------ prescriptions
+  function onPickFiles(files: FileList | null) {
+    if (!files?.length) return;
+    const picked = Array.from(files).slice(0, 5);
+    setNewFiles(picked);
+    setPreviews(picked.map((f) => URL.createObjectURL(f)));
+    setPrescErrors((e) => ({ ...e, files: "" }));
+  }
+
+  function clearPickedFiles() {
+    previews.forEach((u) => URL.revokeObjectURL(u));
+    setNewFiles([]);
+    setPreviews([]);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function handleUploadPrescription() {
+    const e: Record<string, string> = {};
+    if (!newFiles.length) e.files = "Please choose at least one prescription image";
+    if (!patientName.trim()) e.patient_name = "Patient name is required";
+    if (!doctorName.trim()) e.doctor_name = "Doctor name is required";
+    if (!hospitalName.trim()) e.hospital_name = "Hospital / clinic name is required";
+    setPrescErrors(e);
+    if (Object.keys(e).length) return;
+
+    setUploading(true);
+    setError(null);
+    try {
+      const res = await prescriptionApi.upload<{ prescription_id: string | number }>(newFiles, {
+        patient_name: patientName.trim(),
+        doctor_name: doctorName.trim(),
+        hospital_name: hospitalName.trim(),
+      });
+      clearPickedFiles();
+      const merged = await loadPrescriptions(res?.prescription_id ?? null);
+      const newId = res?.prescription_id ?? merged[0]?.prescription_id ?? null;
+      if (newId) setSelectedPrescriptionId(newId);
+    } catch (err) {
+      const fieldErrors = toFieldErrors(err);
+      if (Object.keys(fieldErrors).length) setPrescErrors(fieldErrors);
+      else setError(err instanceof ApiError ? err.message : "Could not upload the prescription");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // ------------------------------------------------------------------- order
   async function placeOrder() {
     if (!isLoggedIn) return;
     if (!selectedAddress) {
       setError("Please select or add a delivery address.");
       return;
     }
-    if (summary?.requires_prescription && !selectedPrescriptionId) {
-      setError("This order needs a verified prescription. Please upload or select one.");
+    const addrIssues = validateAddress(selectedAddress);
+    if (Object.keys(addrIssues).length) {
+      setError(`The selected address is incomplete — ${Object.values(addrIssues)[0]}`);
+      openEditAddress(selectedAddress);
       return;
     }
+    if (summary?.requires_prescription) {
+      if (!selectedPrescriptionId) {
+        setError("This order needs a prescription. Please upload or select one.");
+        return;
+      }
+      const missing: Record<string, string> = {};
+      if (!patientName.trim()) missing.patient_name = "Patient name is required";
+      if (!doctorName.trim()) missing.doctor_name = "Doctor name is required";
+      if (!hospitalName.trim()) missing.hospital_name = "Hospital / clinic name is required";
+      if (Object.keys(missing).length) {
+        setPrescErrors(missing);
+        setError("Please fill in the patient, doctor and hospital details.");
+        return;
+      }
+    }
+    if (paymentMode === "online" && gateways.length === 0) {
+      setError("Online payment is not available right now. Please try Cash on Delivery.");
+      return;
+    }
+
     setError(null);
     setPlacing(true);
 
-    // OTP se account bana to naam kabhi nahi poochha jaata — jo bhi
-    // pehla naam yahan (billing/patient) diya jaaye wahi account pe
-    // permanently save kar dete hain. Sirf tab jab account me abhi tak
-    // koi naam na ho — kisi existing naam ko override nahi karte. Order
-    // ko block nahi karna, isliye background me fire-and-forget.
     if (!user?.customer_name?.trim() && selectedAddress.full_name) {
       authApi
         .updateProfile({ customer_name: selectedAddress.full_name })
         .then(() => refresh())
-        .catch(() => { /* non-critical — order flow continue rahega */ });
+        .catch(() => { /* non-critical — the order flow continues regardless */ });
     }
     try {
       const payload: CheckoutPayload = {
@@ -184,6 +451,7 @@ function CheckoutInner() {
               customer_shipping_pincode: shippingAddress.pincode,
               customer_shipping_country: "India",
             }),
+        coupon_code: appliedCoupon || undefined,
         payment_mode: paymentMode,
         payment_gateway: paymentMode === "online" ? gateway : undefined,
         prescription_id: selectedPrescriptionId ?? undefined,
@@ -198,14 +466,14 @@ function CheckoutInner() {
 
       const { order, payment } = data;
 
-      // COD, ya koi payment session hi nahi bana (edge case) — order seedha confirm
+      clearAppliedCoupon();
+
       if (paymentMode === "cod" || !payment) {
         await refreshCart();
         router.push(`/order-success/${order.order_id}`);
         return;
       }
 
-      // Razorpay — SDK modal
       if (payment.type === "sdk" && payment.gateway === "razorpay" && payment.razorpay) {
         await openRazorpayCheckout({
           session: payment.razorpay,
@@ -224,17 +492,27 @@ function CheckoutInner() {
         return;
       }
 
-      // PayU — hidden form POST, poora naya page load hoga
       if (payment.type === "redirect" && payment.gateway === "payu" && payment.payu) {
         submitToPayu(payment.payu);
         return;
       }
 
-      // Anjaana payment shape — order to ban chuka hai, order page pe bhej do
       await refreshCart();
       router.push(`/order-success/${order.order_id}`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not place order. Please try again.");
+      const fieldErrors = toFieldErrors(err);
+      if (Object.keys(fieldErrors).length) {
+        setError(Object.values(fieldErrors).join(" · "));
+      } else {
+        const message = err instanceof ApiError ? err.message : "Could not place order. Please try again.";
+        setError(message);
+        // A rejected coupon must not block the order — drop it and let them retry
+        if (err instanceof ApiError && err.status === 409 && /coupon/i.test(message)) {
+          removeCoupon();
+          setCouponError(true);
+          setCouponMsg(`${message} — the coupon has been removed, please place the order again.`);
+        }
+      }
     } finally {
       setPlacing(false);
     }
@@ -254,15 +532,16 @@ function CheckoutInner() {
       <h1 className="mb-8 font-display text-3xl font-bold text-[var(--ink)]">Checkout</h1>
 
       {error && (
-        <div className="mb-6 rounded-[var(--radius-sm)] border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3 text-sm text-[var(--coral-500)]">
-          {error}
+        <div className="mb-6 flex items-start gap-2 rounded-[var(--radius-sm)] border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3 text-sm text-[var(--coral-500)]">
+          <AlertCircle size={15} className="mt-0.5 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
         <div className="space-y-6">
           {!isLoggedIn ? (
-            <InlineOtpVerify onVerified={() => { /* isLoggedIn context se apne aap update hoga, cart merge hoga */ }} />
+            <InlineOtpVerify onVerified={() => { /* isLoggedIn updates from context */ }} />
           ) : (
             <>
               {/* Address */}
@@ -270,52 +549,100 @@ function CheckoutInner() {
                 <p className="mb-4 flex items-center gap-2 font-semibold text-[var(--ink)]">
                   <MapPin size={17} className="text-[var(--blue-500)]" /> Delivery Address
                 </p>
+
                 <div className="space-y-3">
+                  {addresses.length === 0 && !showAddressForm && (
+                    <p className="rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--ink-soft)]">
+                      No saved address yet. Add one to continue.
+                    </p>
+                  )}
+
                   {addresses.map((a) => (
-                    <label
+                    <div
                       key={a.ad_id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-[var(--radius-sm)] border p-4 text-sm transition ${
+                      className={`flex items-start gap-3 rounded-[var(--radius-sm)] border p-4 text-sm transition ${
                         selectedAddressId === a.ad_id ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)]"
                       }`}
                     >
                       <input
                         type="radio"
-                        className="mt-1"
+                        className="mt-1 cursor-pointer"
                         checked={selectedAddressId === a.ad_id}
                         onChange={() => setSelectedAddressId(a.ad_id ?? null)}
                       />
-                      <div>
+                      <div className="flex-1 cursor-pointer" onClick={() => setSelectedAddressId(a.ad_id ?? null)}>
                         <p className="font-semibold text-[var(--ink)]">
-                          {a.full_name} · {a.phone} {a.type && <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-medium uppercase">{a.type}</span>}
+                          {a.full_name} · {a.phone}
+                          {a.type && <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-medium uppercase">{a.type}</span>}
                         </p>
                         <p className="text-[var(--ink-soft)]">{addressLine(a)}, {a.city}, {a.state} - {a.pincode}</p>
                       </div>
-                    </label>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          title="Edit address"
+                          onClick={() => openEditAddress(a)}
+                          className="rounded-md p-1.5 text-[var(--ink-soft)] hover:bg-black/5 hover:text-[var(--blue-600)]"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          title="Remove address"
+                          disabled={deletingId === a.ad_id}
+                          onClick={() => a.ad_id && handleRemoveAddress(a.ad_id)}
+                          className="rounded-md p-1.5 text-[var(--ink-soft)] hover:bg-black/5 hover:text-[var(--coral-500)] disabled:opacity-50"
+                        >
+                          {deletingId === a.ad_id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
 
                 {!showAddressForm ? (
-                  <button onClick={() => setShowAddressForm(true)} className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[var(--blue-600)]">
+                  <button onClick={openNewAddress} className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-[var(--blue-600)]">
                     <Plus size={15} /> Add new address
                   </button>
                 ) : (
-                  <form onSubmit={handleAddAddress} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input required placeholder="Full name" value={newAddress.full_name} onChange={(e) => setNewAddress({ ...newAddress, full_name: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input required placeholder="Mobile number" value={newAddress.phone} onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input placeholder="House / Flat no." value={newAddress.house_no} onChange={(e) => setNewAddress({ ...newAddress, house_no: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input required placeholder="Street address" value={newAddress.stree_address} onChange={(e) => setNewAddress({ ...newAddress, stree_address: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input placeholder="Landmark (optional)" value={newAddress.landmark} onChange={(e) => setNewAddress({ ...newAddress, landmark: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none sm:col-span-2" />
-                    <input required placeholder="City" value={newAddress.city} onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input required placeholder="State" value={newAddress.state} onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input required placeholder="Pincode" value={newAddress.pincode} onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <select value={newAddress.type} onChange={(e) => setNewAddress({ ...newAddress, type: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none">
-                      <option value="Home">Home</option>
-                      <option value="Work">Work</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    <div className="flex gap-2 sm:col-span-2">
-                      <Button type="submit" size="md">Save Address</Button>
-                      <button type="button" onClick={() => setShowAddressForm(false)} className="text-sm font-medium text-[var(--ink-soft)]">Cancel</button>
+                  <form onSubmit={handleSaveAddress} className="mt-5 grid grid-cols-1 gap-3 border-t border-[var(--line)] pt-5 sm:grid-cols-2">
+                    <p className="text-sm font-semibold text-[var(--ink)] sm:col-span-2">
+                      {editingId ? "Edit address" : "New address"}
+                    </p>
+                    <FieldInput label="Full name" value={addressDraft.full_name} error={addressErrors.full_name}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, full_name: v })} />
+                    <FieldInput label="Mobile number" value={addressDraft.phone} error={addressErrors.phone}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, phone: v })} />
+                    <FieldInput label="House / Flat no." value={addressDraft.house_no || ""} error={addressErrors.house_no}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, house_no: v })} />
+                    <FieldInput label="Street address" value={addressDraft.stree_address} error={addressErrors.stree_address}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, stree_address: v })} />
+                    <FieldInput label="Landmark (optional)" className="sm:col-span-2" value={addressDraft.landmark || ""}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, landmark: v })} />
+                    <FieldInput label="City" value={addressDraft.city} error={addressErrors.city}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, city: v })} />
+                    <FieldInput label="State" value={addressDraft.state} error={addressErrors.state}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, state: v })} />
+                    <FieldInput label="PIN code" value={addressDraft.pincode} error={addressErrors.pincode}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, pincode: v })} />
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-[var(--ink-soft)]">Address type</label>
+                      <select
+                        value={addressDraft.type}
+                        onChange={(e) => setAddressDraft({ ...addressDraft, type: e.target.value })}
+                        className={`${FIELD_CLASS} border-[var(--line)]`}
+                      >
+                        <option value="Home">Home</option>
+                        <option value="Work">Work</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-3 sm:col-span-2">
+                      <Button type="submit" size="md" disabled={savingAddress}
+                        icon={savingAddress ? <Loader2 size={15} className="animate-spin" /> : undefined}>
+                        {savingAddress ? "Saving…" : editingId ? "Update Address" : "Save Address"}
+                      </Button>
+                      <button type="button" onClick={closeAddressForm} className="text-sm font-medium text-[var(--ink-soft)]">Cancel</button>
                     </div>
                   </form>
                 )}
@@ -329,12 +656,18 @@ function CheckoutInner() {
                 </label>
                 {!shippingSame && (
                   <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input placeholder="Full name" value={shippingAddress.full_name} onChange={(e) => setShippingAddress({ ...shippingAddress, full_name: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input placeholder="Mobile number" value={shippingAddress.phone} onChange={(e) => setShippingAddress({ ...shippingAddress, phone: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input placeholder="Street address" value={shippingAddress.stree_address} onChange={(e) => setShippingAddress({ ...shippingAddress, stree_address: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none sm:col-span-2" />
-                    <input placeholder="City" value={shippingAddress.city} onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input placeholder="State" value={shippingAddress.state} onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input placeholder="Pincode" value={shippingAddress.pincode} onChange={(e) => setShippingAddress({ ...shippingAddress, pincode: e.target.value })} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
+                    <FieldInput label="Full name" value={shippingAddress.full_name}
+                      onChange={(v) => setShippingAddress({ ...shippingAddress, full_name: v })} />
+                    <FieldInput label="Mobile number" value={shippingAddress.phone}
+                      onChange={(v) => setShippingAddress({ ...shippingAddress, phone: v })} />
+                    <FieldInput label="Street address" className="sm:col-span-2" value={shippingAddress.stree_address}
+                      onChange={(v) => setShippingAddress({ ...shippingAddress, stree_address: v })} />
+                    <FieldInput label="City" value={shippingAddress.city}
+                      onChange={(v) => setShippingAddress({ ...shippingAddress, city: v })} />
+                    <FieldInput label="State" value={shippingAddress.state}
+                      onChange={(v) => setShippingAddress({ ...shippingAddress, state: v })} />
+                    <FieldInput label="PIN code" value={shippingAddress.pincode}
+                      onChange={(v) => setShippingAddress({ ...shippingAddress, pincode: v })} />
                   </div>
                 )}
               </div>
@@ -345,18 +678,35 @@ function CheckoutInner() {
                   <p className="mb-4 flex items-center gap-2 font-semibold text-[var(--ink)]">
                     <FileWarning size={17} className="text-[#8A5A0C]" /> Prescription Required
                   </p>
-                  {prescriptions.length === 0 ? (
-                    <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] p-4 text-sm text-[var(--ink-soft)]">
-                      No approved prescription on file.{" "}
-                      <Link href="/prescription-upload?redirect=/checkout" className="font-semibold text-[var(--blue-600)]">Upload one now</Link>
-                    </div>
-                  ) : (
+
+                  {prescriptions.length > 0 && (
                     <div className="space-y-2">
+                      <p className="text-xs font-medium text-[var(--ink-soft)]">Select a saved prescription</p>
                       {prescriptions.map((p) => (
-                        <label key={p.prescription_id} className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-3 text-sm ${selectedPrescriptionId === p.prescription_id ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)]"}`}>
-                          <input type="radio" checked={selectedPrescriptionId === p.prescription_id} onChange={() => setSelectedPrescriptionId(p.prescription_id)} />
-                          {p.images?.[0] && <Image src={mediaUrl(p.images[0])} alt="prescription" width={40} height={40} className="rounded object-cover" />}
-                          <span className="flex-1">{p.reference_code || `Prescription #${p.prescription_id}`}</span>
+                        <label
+                          key={p.prescription_id}
+                          className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-3 text-sm ${
+                            String(selectedPrescriptionId) === String(p.prescription_id)
+                              ? "border-[var(--blue-500)] bg-[var(--blue-50)]"
+                              : "border-[var(--line)]"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            checked={String(selectedPrescriptionId) === String(p.prescription_id)}
+                            onChange={() => setSelectedPrescriptionId(p.prescription_id)}
+                          />
+                          {p.images?.[0] && (
+                            <Image src={mediaUrl(p.images[0])} alt="prescription" width={40} height={40} className="h-10 w-10 rounded object-cover" />
+                          )}
+                          <span className="flex-1">
+                            <span className="block font-medium">{p.reference_code || `Prescription #${p.prescription_id}`}</span>
+                            {(p.patient_name || p.doctor_name) && (
+                              <span className="block text-xs text-[var(--ink-soft)]">
+                                {[p.patient_name, p.doctor_name && `Dr. ${p.doctor_name}`, p.hospital_name].filter(Boolean).join(" · ")}
+                              </span>
+                            )}
+                          </span>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
                             p.status === "Approved" || p.status === "Completed"
                               ? "bg-[var(--mint-50)] text-[var(--mint-600)]"
@@ -368,19 +718,87 @@ function CheckoutInner() {
                           </span>
                         </label>
                       ))}
-                      {selectedPrescriptionId && prescriptions.find((p) => p.prescription_id === selectedPrescriptionId)?.status !== "Approved" && (
+                      {selectedPrescriptionId
+                        && prescriptions.find((p) => String(p.prescription_id) === String(selectedPrescriptionId))?.status !== "Approved" && (
                         <p className="text-xs text-[var(--ink-soft)]">
-                          Ye prescription abhi pharmacist verify kar raha hai — order place ho jaayega, status
-                          &quot;Prescription Pending&quot; rahega jab tak approve na ho jaaye.
+                          A pharmacist is still verifying this prescription — the order will be placed with the status
+                          &quot;Prescription Pending&quot; until it is approved.
                         </p>
                       )}
                     </div>
                   )}
 
-                  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <input placeholder="Patient name" value={patientName} onChange={(e) => setPatientName(e.target.value)} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input placeholder="Doctor name" value={doctorName} onChange={(e) => setDoctorName(e.target.value)} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none" />
-                    <input placeholder="Hospital / clinic name" value={hospitalName} onChange={(e) => setHospitalName(e.target.value)} className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none sm:col-span-2" />
+                  {/* Upload a new prescription right here */}
+                  <div className="mt-5 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] p-4">
+                    <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
+                      <UploadCloud size={16} className="text-[var(--blue-500)]" /> Upload a new prescription
+                    </p>
+
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      multiple
+                      onChange={(e) => onPickFiles(e.target.files)}
+                      className="block w-full text-xs text-[var(--ink-soft)] file:mr-3 file:rounded-full file:border-0 file:bg-[var(--blue-50)] file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[var(--blue-600)]"
+                    />
+                    {prescErrors.files && (
+                      <p className="mt-1.5 flex items-center gap-1 text-xs text-[var(--coral-500)]">
+                        <AlertCircle size={12} /> {prescErrors.files}
+                      </p>
+                    )}
+
+                    {previews.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {previews.map((src, i) => (
+                          <div key={src} className="relative h-20 w-20 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--line)]">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={src} alt={`preview ${i + 1}`} className="h-full w-full object-cover" />
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={clearPickedFiles}
+                          className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] text-[10px] font-medium text-[var(--ink-soft)] hover:text-[var(--coral-500)]"
+                        >
+                          <X size={14} /> Clear
+                        </button>
+                      </div>
+                    )}
+
+                    <p className="mt-4 text-xs font-medium text-[var(--ink-soft)]">
+                      Patient, doctor and hospital details are mandatory for a prescription order.
+                    </p>
+                    <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <FieldInput label="Patient name" value={patientName} error={prescErrors.patient_name}
+                        onChange={(v) => { setPatientName(v); setPrescErrors((e) => ({ ...e, patient_name: "" })); }} />
+                      <FieldInput label="Doctor name" value={doctorName} error={prescErrors.doctor_name}
+                        onChange={(v) => { setDoctorName(v); setPrescErrors((e) => ({ ...e, doctor_name: "" })); }} />
+                      <FieldInput label="Hospital / clinic name" className="sm:col-span-2" value={hospitalName} error={prescErrors.hospital_name}
+                        onChange={(v) => { setHospitalName(v); setPrescErrors((e) => ({ ...e, hospital_name: "" })); }} />
+                    </div>
+
+                    {newFiles.length > 0 && (
+                      <Button
+                        type="button"
+                        size="md"
+                        className="mt-4"
+                        disabled={uploading}
+                        onClick={handleUploadPrescription}
+                        icon={uploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
+                      >
+                        {uploading ? "Uploading…" : `Upload ${newFiles.length} file(s)`}
+                      </Button>
+                    )}
+
+                    {prescriptions.length === 0 && newFiles.length === 0 && (
+                      <p className="mt-3 text-xs text-[var(--ink-soft)]">
+                        Prefer the full upload page?{" "}
+                        <Link href="/prescription-upload?redirect=/checkout" className="font-semibold text-[var(--blue-600)]">
+                          Open it here
+                        </Link>
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -405,33 +823,53 @@ function CheckoutInner() {
                   <CreditCard size={17} className="text-[var(--blue-500)]" /> Payment Method
                 </p>
                 <div className="space-y-2">
-                  {summary?.cod_allowed && (
+                  {/* One flat list — the customer picks the exact gateway:
+                      Razorpay / PayU / Cash on Delivery. Gateways come from
+                      admin Settings, so a disabled one never appears here. */}
+                  {gateways.map((g) => {
+                    const active = paymentMode === "online" && gateway === g.id;
+                    return (
+                      <label
+                        key={g.id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-4 text-sm ${active ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)]"}`}
+                      >
+                        <input
+                          type="radio"
+                          name="payment-method"
+                          checked={active}
+                          onChange={() => { setPaymentMode("online"); setGateway(g.id); }}
+                        />
+                        <Wallet size={16} className="text-[var(--ink-soft)]" />
+                        <span className="font-medium">Pay with {g.label || g.id}</span>
+                        <span className="ml-auto text-xs text-[var(--ink-soft)]">
+                          UPI / Card / Netbanking
+                        </span>
+                      </label>
+                    );
+                  })}
+
+                  {codAvailable && (
                     <label className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-4 text-sm ${paymentMode === "cod" ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)]"}`}>
-                      <input type="radio" checked={paymentMode === "cod"} onChange={() => setPaymentMode("cod")} />
+                      <input
+                        type="radio"
+                        name="payment-method"
+                        checked={paymentMode === "cod"}
+                        onChange={() => setPaymentMode("cod")}
+                      />
                       <Truck size={16} className="text-[var(--ink-soft)]" />
                       <span className="font-medium">Cash on Delivery</span>
+                      <span className="ml-auto text-xs text-[var(--ink-soft)]">Pay at your door</span>
                     </label>
                   )}
-                  <label className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-4 text-sm ${paymentMode === "online" ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)]"}`}>
-                    <input type="radio" checked={paymentMode === "online"} onChange={() => setPaymentMode("online")} />
-                    <Wallet size={16} className="text-[var(--ink-soft)]" />
-                    <span className="font-medium">Pay Online (UPI / Card / Netbanking)</span>
-                  </label>
-                  {paymentMode === "online" && gateways.length > 1 && (
-                    <div className="ml-8 flex gap-2 pt-1">
-                      {gateways.map((g) => (
-                        <button
-                          key={g.id}
-                          onClick={() => setGateway(g.id)}
-                          className={`rounded-full border px-4 py-1.5 text-xs font-semibold capitalize ${gateway === g.id ? "border-[var(--blue-500)] bg-[var(--blue-500)] text-white" : "border-[var(--line)] text-[var(--ink-soft)]"}`}
-                        >
-                          {g.label || g.id}
-                        </button>
-                      ))}
-                    </div>
+
+                  {!codEnabled && (
+                    <p className="text-xs text-[var(--ink-soft)]">Cash on Delivery is currently unavailable.</p>
                   )}
-                  {paymentMode === "online" && gateways.length === 0 && (
-                    <p className="ml-8 text-xs text-[var(--coral-500)]">Online payment abhi available nahi hai.</p>
+
+                  {gateways.length === 0 && !codAvailable && (
+                    <p className="text-xs text-[var(--coral-500)]">
+                      No payment method is available right now. Please contact support.
+                    </p>
                   )}
                 </div>
               </div>
@@ -456,11 +894,56 @@ function CheckoutInner() {
               </div>
             ))}
           </div>
+          {isLoggedIn && (
+            <div className="mb-4 border-t border-[var(--line)] pt-4">
+              <div className="flex gap-2">
+                <div className="flex h-11 flex-1 items-center gap-2 rounded-full border border-[var(--line)] px-4">
+                  <Tag size={15} className="text-[var(--ink-soft)]" />
+                  <input
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="Coupon code"
+                    disabled={!!appliedCoupon}
+                    className="w-full bg-transparent text-sm outline-none disabled:opacity-70"
+                  />
+                </div>
+                {appliedCoupon ? (
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="flex items-center gap-1 rounded-full border border-[var(--line)] px-4 text-sm font-semibold text-[var(--ink-soft)]"
+                  >
+                    <X size={14} /> Remove
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={applyCoupon}
+                    disabled={applyingCoupon}
+                    className="rounded-full bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {applyingCoupon ? "Checking…" : "Apply"}
+                  </button>
+                )}
+              </div>
+              {couponMsg && (
+                <p className={`mt-2 text-xs font-medium ${couponError ? "text-[var(--coral-500)]" : "text-[var(--mint-600)]"}`}>
+                  {couponMsg}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2 border-t border-[var(--line)] pt-4 text-sm font-mono-nums">
             <div className="flex justify-between text-[var(--ink-soft)]"><span>Subtotal</span><span>{formatINR(summary?.subtotal ?? 0)}</span></div>
             <div className="flex justify-between text-[var(--ink-soft)]"><span>GST</span><span>{formatINR(summary?.gst ?? 0)}</span></div>
-            <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]"><span>Total</span><span>{formatINR(summary?.total ?? 0)}</span></div>
-            {!isLoggedIn && <p className="pt-1 text-xs text-[var(--ink-soft)]">Estimated — final GST/shipping mobile verify karne ke baad.</p>}
+            {discount > 0 && (
+              <div className="flex justify-between text-[var(--mint-600)]">
+                <span>Coupon ({appliedCoupon})</span><span>- {formatINR(discount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]"><span>Total</span><span>{formatINR(Math.max((summary?.total ?? 0) - discount, 0))}</span></div>
+            {!isLoggedIn && <p className="pt-1 text-xs text-[var(--ink-soft)]">Estimated — final GST/shipping after mobile verification.</p>}
           </div>
           {isLoggedIn ? (
             <Button
@@ -473,9 +956,10 @@ function CheckoutInner() {
               {placing ? "Placing order…" : "Place Order"}
             </Button>
           ) : (
-<p className="mt-6 text-center text-xs text-[var(--ink-soft)]">
-  Please verify your number above to place the order.
-</p>          )}
+            <p className="mt-6 text-center text-xs text-[var(--ink-soft)]">
+              Please verify your number above to place the order.
+            </p>
+          )}
         </div>
       </div>
     </div>

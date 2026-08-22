@@ -9,9 +9,9 @@ import type { ApiProduct } from "@/types";
 
 export const revalidate = 300;
 
-// `generateMetadata` aur page component dono isi function ko call karte hain
-// — `cache()` se ek hi request me dono ka result share ho jaata hai, network
-// call do baar nahi jaati.
+// Both `generateMetadata` and the page component call this same function
+// — `cache()` lets both share one result within a single request, so the network
+// so the call is not made twice.
 const getProduct = cache(async (slug: string): Promise<ApiProduct | null> => {
   try {
     return await catalogApi.product<ApiProduct>(slug);
@@ -43,8 +43,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title,
     description,
     alternates: { canonical: url },
-    // Inactive/discontinued product kabhi bhi resolve ho jaye (edge case) to
-    // Google usko index na kare — 404 pages already notFound() se handle hain.
+    // If an inactive/discontinued product somehow resolves (edge case) then
+    // Keep Google from indexing it — 404 pages are already handled by notFound().
     robots: isActive ? { index: true, follow: true } : { index: false, follow: false },
     openGraph: {
       title,
@@ -65,8 +65,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 /**
  * Google ko product ka structured data — price, stock, rating, brand.
- * Search results me price/rating stars dikhne ka isi se chance banta hai
- * (rich snippets), sirf plain SEO tags se nahi milta.
+ * This is what gives search results a chance to show price/rating stars
+ * (rich snippets), which plain SEO tags alone do not provide.
  */
 function ProductJsonLd({ product }: { product: ApiProduct }) {
   const price = Number(product.product_sp ?? product.product_mrp ?? 0);

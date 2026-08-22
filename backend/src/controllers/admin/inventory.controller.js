@@ -31,7 +31,7 @@ const expiring = asyncHandler(async (req, res) => {
   return ok(res, await inventoryModel.expiringProducts(days, limit));
 });
 
-/** GET /admin/inventory/movements — poora stock ledger */
+/** GET /admin/inventory/movements — the full stock ledger */
 const movements = asyncHandler(async (req, res) => {
   const { page, limit, offset } = getPagination(req.query, 50, 200);
   const { rows, total } = await inventoryModel.listMovements({
@@ -47,17 +47,17 @@ const movements = asyncHandler(async (req, res) => {
 
 /**
  * PATCH /admin/inventory/:productId
- * Exact stock set karo (physical count ke baad). Difference log ho jaata hai.
+ * Set the exact stock (after a physical count). The difference is logged.
  */
 const adjustStock = asyncHandler(async (req, res) => {
   const { stock_quantity, note, change_type } = req.body;
 
   if (stock_quantity === undefined || stock_quantity === null) {
-    return fail(res, 'stock_quantity chahiye', 422);
+    return fail(res, 'stock_quantity is required', 422);
   }
   const validTypes = Object.values(INVENTORY_CHANGE_TYPE);
   if (change_type && !validTypes.includes(change_type)) {
-    return fail(res, `change_type in me se ek: ${validTypes.join(', ')}`, 422);
+    return fail(res, `change_type must be one of: ${validTypes.join(', ')}`, 422);
   }
 
   const result = await inventoryModel.setStock(req.params.productId, stock_quantity, {
@@ -81,16 +81,16 @@ const adjustStock = asyncHandler(async (req, res) => {
     changed_by: req.admin.admin_username,
   }, 'inventory.view');
 
-  return ok(res, result, `Stock ${result.before} se ${result.after} kar diya`);
+  return ok(res, result, `Stock changed from ${result.before} to ${result.after}`);
 });
 
 /**
  * POST /admin/inventory/:productId/add — naya stock aaya (purchase)
- * Adjust se alag: ye quantity ADD karta hai, set nahi karta.
+ * Different from Adjust: this ADDS quantity, it does not set it.
  */
 const addStock = asyncHandler(async (req, res) => {
   const quantity = parseInt(req.body.quantity, 10);
-  if (!quantity || quantity < 1) return fail(res, 'quantity 1 se zyada honi chahiye', 422);
+  if (!quantity || quantity < 1) return fail(res, 'quantity must be at least 1', 422);
 
   const db = require('../../config/db');
   const after = await db.withTransaction(async (conn) => inventoryModel.incrementStock(conn, {
@@ -105,15 +105,15 @@ const addStock = asyncHandler(async (req, res) => {
   await cache.invalidate.products();
   await cache.del('inventory:summary');
 
-  return ok(res, { stock_quantity: after }, `${quantity} units add ho gaye`);
+  return ok(res, { stock_quantity: after }, `${quantity} units added`);
 });
 
 /**
- * POST /admin/inventory/:productId/remove — damage / expiry me stock nikaalo
+ * POST /admin/inventory/:productId/remove — remove stock for damage / expiry
  */
 const removeStock = asyncHandler(async (req, res) => {
   const quantity = parseInt(req.body.quantity, 10);
-  if (!quantity || quantity < 1) return fail(res, 'quantity 1 se zyada honi chahiye', 422);
+  if (!quantity || quantity < 1) return fail(res, 'quantity must be at least 1', 422);
 
   const changeType = req.body.change_type || INVENTORY_CHANGE_TYPE.DAMAGE;
 
@@ -122,7 +122,7 @@ const removeStock = asyncHandler(async (req, res) => {
     const [[product]] = await conn.query(
       `SELECT stock_quantity FROM products WHERE product_id = ? FOR UPDATE`, [req.params.productId]
     );
-    if (!product) throw Object.assign(new Error('Product nahi mila'), { status: 404 });
+    if (!product) throw Object.assign(new Error('Product not found'), { status: 404 });
 
     const before = product.stock_quantity;
     const newQty = Math.max(0, before - quantity);
@@ -147,14 +147,14 @@ const removeStock = asyncHandler(async (req, res) => {
   await cache.invalidate.products();
   await cache.del('inventory:summary');
 
-  return ok(res, { stock_quantity: after }, `${quantity} units nikaal diye`);
+  return ok(res, { stock_quantity: after }, `Removed ${quantity} units`);
 });
 
 /** POST /admin/inventory/bulk — CSV import / stock taking */
 const bulkUpdate = asyncHandler(async (req, res) => {
   const updates = req.body.updates;
   if (!Array.isArray(updates) || !updates.length) {
-    return fail(res, 'updates array chahiye: [{ product_id, stock_quantity, note }]', 422);
+    return fail(res, 'An updates array is required: [{ product_id, stock_quantity, note }]', 422);
   }
 
   const results = await inventoryModel.bulkSetStock(updates, req.admin.admin_username);
@@ -172,7 +172,7 @@ const bulkUpdate = asyncHandler(async (req, res) => {
     updated: results.filter((r) => r.ok).length,
     failed: results.filter((r) => !r.ok),
     results,
-  }, 'Bulk update ho gaya');
+  }, 'Bulk update complete');
 });
 
 /** GET /admin/inventory/export */

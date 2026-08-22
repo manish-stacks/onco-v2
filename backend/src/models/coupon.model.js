@@ -37,26 +37,26 @@ async function list(filters = {}, { limit = 20, offset = 0 } = {}) {
 }
 
 /**
- * Coupon valid hai ya nahi — cart apply karte waqt aur checkout dono jagah.
+ * Whether a coupon is valid — used both when applying on the cart and at checkout.
  * Returns { valid, reason, coupon, discount }
  */
 async function validateForCart({ code, customerId, subtotal, productIds = [] }) {
   const coupon = await findByCode(code);
-  if (!coupon) return { valid: false, reason: 'Coupon code galat hai' };
-  if (coupon.status !== 'Active') return { valid: false, reason: 'Ye coupon abhi active nahi hai' };
+  if (!coupon) return { valid: false, reason: 'The coupon code is invalid' };
+  if (coupon.status !== 'Active') return { valid: false, reason: 'This coupon is not active right now' };
 
   const today = new Date().toISOString().slice(0, 10);
   if (coupon.start_date && String(coupon.start_date).slice(0, 10) > today) {
-    return { valid: false, reason: 'Ye coupon abhi shuru nahi hua' };
+    return { valid: false, reason: 'This coupon has not started yet' };
   }
   if (coupon.expiry_date && String(coupon.expiry_date).slice(0, 10) < today) {
-    return { valid: false, reason: 'Ye coupon expire ho chuka hai' };
+    return { valid: false, reason: 'This coupon has expired' };
   }
   if (coupon.minimum_amount && subtotal < coupon.minimum_amount) {
-    return { valid: false, reason: `Minimum ₹${coupon.minimum_amount} ka order chahiye` };
+    return { valid: false, reason: `A minimum order of ₹${coupon.minimum_amount} is required` };
   }
   if (coupon.number_of_total_uses !== null && coupon.number_of_total_uses <= 0) {
-    return { valid: false, reason: 'Ye coupon poori tarah use ho chuka hai' };
+    return { valid: false, reason: 'This coupon has been fully used' };
   }
 
   if (coupon.per_customer_limit && customerId) {
@@ -65,7 +65,7 @@ async function validateForCart({ code, customerId, subtotal, productIds = [] }) 
       [coupon.coupon_id, customerId]
     );
     if (used >= coupon.per_customer_limit) {
-      return { valid: false, reason: 'Aap ye coupon pehle hi use kar chuke ho' };
+      return { valid: false, reason: 'You have already used this coupon' };
     }
   }
 
@@ -85,7 +85,7 @@ async function validateForCart({ code, customerId, subtotal, productIds = [] }) 
       );
       matches = rows.length > 0;
     }
-    if (!matches) return { valid: false, reason: 'Ye coupon in products pe apply nahi hota' };
+    if (!matches) return { valid: false, reason: 'This coupon does not apply to these products' };
   }
 
   return { valid: true, coupon, discount: calculateDiscount(coupon, subtotal) };
@@ -99,12 +99,12 @@ function calculateDiscount(coupon, subtotal) {
   if (coupon.max_discount_amount && discount > coupon.max_discount_amount) {
     discount = coupon.max_discount_amount;
   }
-  return money(Math.min(discount, subtotal)); // discount kabhi subtotal se zyada na ho
+  return money(Math.min(discount, subtotal)); // the discount must never exceed the subtotal
 }
 
 /**
- * Use consume karo — checkout transaction ke andar `conn` ke saath.
- * Atomic hai: do simultaneous checkouts last use nahi le sakte.
+ * Consume a use — inside the checkout transaction, with `conn`.
+ * Atomic: two simultaneous checkouts cannot consume the last use.
  */
 async function consumeUse(conn, couponId, customerId, orderId, discountAmount) {
   const [[coupon]] = await conn.query(
@@ -130,7 +130,7 @@ async function consumeUse(conn, couponId, customerId, orderId, discountAmount) {
   return true;
 }
 
-/** Order cancel hone pe use wapas de do */
+/** Give the use back when an order is cancelled */
 async function refundUse(couponId, orderId, conn = db) {
   await conn.query(
     `UPDATE coupons SET
@@ -178,7 +178,7 @@ async function remove(id) {
   await db.query(`DELETE FROM coupons WHERE coupon_id = ?`, [id]);
 }
 
-/** Kaunsa coupon kitna chala — reports ke liye */
+/** Which coupon was used how much — for reports */
 async function usageReport(couponId) {
   const [rows] = await db.query(
     `SELECT cu.*, c.customer_name, c.mobile, o.databaseOrderID, o.amount AS order_amount

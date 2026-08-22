@@ -51,13 +51,13 @@ export function productToMedicine(p: ApiProduct): Medicine {
     inStock,
     packSize: p.weight_quantity || "",
     composition: p.salt || "",
-    // `benifits` prose paragraph hai — comma pe split karne se sentence
-    // beech me toot jaate the ("namely" apne aap me ek bullet ban jaata
-    // tha). Ab poora paragraph ek saath rakhte hain, UI me expandable text
-    // ke roop me dikhta hai, checkmark list ki tarah nahi.
+    // `benifits` is a prose paragraph — splitting on commas broke sentences
+    // in half ("namely" became a bullet of its own
+    // . We now keep the whole paragraph together and render it in the UI
+    // as expandable text, not as a checkmark list.
     benefits: stripInlineFormatting(p.benifits || "").trim(),
-    // key_features me admin genuinely alag-alag lines dalta hai, isliye
-    // sirf newline pe split — comma pe nahi (comma sentence ke beech aata hai).
+    // admins genuinely put separate lines in key_features, so
+    // split on newlines only — not on commas (commas occur mid-sentence).
     uses: (p.key_features || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
     dosage: p.how_to_use || "",
     sideEffects: (p.side_effects || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
@@ -80,9 +80,9 @@ export function categoryToTag(c: Category): CategoryTag {
 }
 
 /**
- * `/categories/tree` se aata hai — har node me `children[]` khud ke andar
- * nested hote hain (backend ne poora tree bana ke diya hai, yahan sirf
- * shape adapt karte hain).
+ * Comes from `/categories/tree` — each node nests its own `children[]`
+ * are nested (the backend builds the full tree; here we only
+ * adapt the shape).
  */
 export function categoryTreeToNode(c: Category & { children?: (Category & { children?: unknown[] })[] }): CategoryTreeNode {
   return {
@@ -119,9 +119,9 @@ export function testimonialToTag(t: ApiTestimonial, i = 0): TestimonialTag {
 }
 
 /**
- * Medicine (UI shape) -> guest cart snapshot. Guest cart ke liye ek chhota,
- * display-ready snapshot chahiye taaki login se pehle bhi cart page render
- * ho sake, alag se product fetch kiye bina.
+ * Medicine (UI shape) -> guest cart snapshot. For the guest cart we keep a small,
+ * we need a display-ready snapshot so the cart page can render even before login
+ * without fetching the product separately.
  */
 export function medicineToGuestSnapshot(m: Medicine) {
   return {

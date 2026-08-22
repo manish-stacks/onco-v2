@@ -5,15 +5,15 @@ const { ok, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
 
 /**
- * OTP history — support team ke liye, jab customer bole "OTP nahi aaya".
+ * OTP history — for the support team, when a customer says "I did not get the OTP".
  *
- * ⚠ Live OTP dikhana ek real risk hai: jiske paas `otp.view` permission hai
- * wo kisi bhi customer ke account me ghus sakta hai. Isliye:
- *   • ye sirf `otp.view` permission wale role ko milta hai (default: Super Admin)
- *   • har baar dekhne pe activity log banta hai
- *   • OTP sirf tab dikhta hai jab wo abhi valid ho — expire/use hone ke baad
- *     masked ho jaata hai
- * Ye permission bas usi ko do jise sach me chahiye.
+ * ⚠ Showing a live OTP is a real risk: anyone with the `otp.view` permission
+ * they could get into any customer's account. Therefore:
+ *   • only roles with the `otp.view` permission get this (default: Super Admin)
+ *   • an activity log entry is created on every view
+ *   • the OTP is visible only while it is still valid — after expiry/use
+ *     gets masked
+ * Grant this permission only to those who truly need it.
  */
 
 function maskOtp(row) {
@@ -55,7 +55,7 @@ const list = asyncHandler(async (req, res) => {
   );
   const [[{ total }]] = await db.query(`SELECT COUNT(*) AS total FROM otp_logs o ${whereSql}`, params);
 
-  // Search karke dekha — ye log hona chahiye, warna misuse trace nahi hoga
+  // Deliberate: this must be logged, otherwise misuse cannot be traced
   if (req.query.search) {
     await adminModel.logActivity({
       admin_id: req.admin.admin_id,

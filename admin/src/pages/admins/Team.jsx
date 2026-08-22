@@ -28,7 +28,7 @@ export default function Team() {
     <>
       <PageHeader
         title="Team & access"
-        subtitle="Sub-admins, employees aur unki permissions"
+        subtitle="Sub-admins, employees and their permissions"
       />
       <Card dense>
         <Tabs tabs={TABS.filter((t) => (t.value === 'roles' ? can(P.ROLES_VIEW) : true))}
@@ -54,11 +54,11 @@ function Members() {
 
   const del = useMutation(
     (id) => api.del(`/admin/admins/${id}`),
-    { success: 'Team member hata diya', onSuccess: () => { setToDelete(null); reload(); } }
+    { success: 'Team member removed', onSuccess: () => { setToDelete(null); reload(); } }
   );
   const toggle = useMutation(
     ({ id, status }) => api.patch(`/admin/admins/${id}/status`, { status }),
-    { success: 'Status update ho gaya', onSuccess: reload }
+    { success: 'Status updated', onSuccess: reload }
   );
 
   const canManage = can(P.ADMINS_MANAGE);
@@ -158,7 +158,7 @@ function Members() {
       <DataTable
         columns={columns} rows={rows} loading={loading} rowKey="admin_id"
         rowTone={(a) => (a.status === 'Active' ? 'ok' : 'idle')}
-        emptyIcon={Users} emptyTitle="Koi team member nahi"
+        emptyIcon={Users} emptyTitle="No team members"
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
 
@@ -169,7 +169,7 @@ function Members() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.admin_id)} loading={del.loading}
         title="Remove team member" confirmLabel="Remove"
-        message={`${toDelete?.admin_name || toDelete?.admin_username} ka access khatam ho jaayega. Unke kiye hue changes activity log me rahenge.`}
+        message={`${toDelete?.admin_name || toDelete?.admin_username} will lose access. The changes they made stay in the activity log.`}
       />
     </>
   );
@@ -203,7 +203,7 @@ function MemberModal({ open, onClose, member, roles, onDone }) {
         ? api.patch(`/admin/admins/${member.admin_id}`, body)
         : api.post('/admin/admins', body);
     },
-    { success: isEdit ? 'Member update ho gaya' : 'Member add ho gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Member updated' : 'Member added', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -213,7 +213,7 @@ function MemberModal({ open, onClose, member, roles, onDone }) {
     <Modal
       open={open} onClose={onClose} size="lg"
       title={isEdit ? 'Edit team member' : 'Add team member'}
-      subtitle={isEdit ? undefined : 'Sub-admin ya employee — role se decide hoga kya kar payenge'}
+      subtitle={isEdit ? undefined : 'Sub-admin or employee — the role decides what they can do'}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -227,7 +227,7 @@ function MemberModal({ open, onClose, member, roles, onDone }) {
         <Field label="Full name" required error={err.admin_name}>
           <Input value={form.admin_name || ''} onChange={(e) => set('admin_name', e.target.value)} autoFocus />
         </Field>
-        <Field label="Username" required error={err.admin_username} hint={isEdit ? undefined : 'Login ke liye'}>
+        <Field label="Username" required error={err.admin_username} hint={isEdit ? undefined : 'Used to sign in'}>
           <Input mono value={form.admin_username || ''} disabled={isEdit}
             onChange={(e) => set('admin_username', e.target.value)} />
         </Field>
@@ -239,7 +239,7 @@ function MemberModal({ open, onClose, member, roles, onDone }) {
           </Field>
         )}
 
-        <Field label="Role" required hint="Ye decide karta hai kya access milega">
+        <Field label="Role" required hint="This decides what access they get">
           <Select value={form.user_type || ''} placeholder="Select role"
             options={roles.map((r) => ({ value: r.type_id, label: r.name }))}
             onChange={(e) => set('user_type', e.target.value)} />
@@ -272,7 +272,7 @@ function ResetPasswordModal({ member, onClose }) {
   const [pw, setPw] = useState('');
   const save = useMutation(
     () => api.post(`/admin/admins/${member.admin_id}/reset-password`, { new_password: pw }),
-    { success: 'Password reset ho gaya', onSuccess: () => { onClose(); setPw(''); } }
+    { success: 'Password reset', onSuccess: () => { onClose(); setPw(''); } }
   );
 
   return (
@@ -288,7 +288,7 @@ function ResetPasswordModal({ member, onClose }) {
         </>
       }
     >
-      <Field label="New password" required hint="Kam se kam 8 characters. Unhe alag se bata dena.">
+      <Field label="New password" required hint="At least 8 characters. Share it with them separately.">
         <Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus />
       </Field>
     </Modal>
@@ -306,7 +306,7 @@ function Roles() {
 
   const del = useMutation(
     (id) => api.del(`/admin/roles/${id}`),
-    { success: 'Role delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } }
+    { success: 'Role deleted', onSuccess: () => { setToDelete(null); reload(); } }
   );
 
   const canManage = can(P.ROLES_MANAGE);
@@ -354,7 +354,7 @@ function Roles() {
     <>
       <FilterBar>
         <p className="text-2xs text-ink-500 flex-1 py-1.5">
-          System roles delete nahi ho sakte, lekin unki permissions edit kar sakte ho.
+          System roles cannot be deleted, but you can edit their permissions.
         </p>
         {canManage && <Button size="sm" variant="primary" icon={Plus} onClick={() => setEditing({})}>New role</Button>}
       </FilterBar>
@@ -362,7 +362,7 @@ function Roles() {
       <DataTable
         columns={columns} rows={roles || []} loading={loading} rowKey="type_id"
         rowTone={(r) => (r.status === 'Active' ? 'ok' : 'idle')}
-        emptyIcon={ShieldCheck} emptyTitle="Koi role nahi"
+        emptyIcon={ShieldCheck} emptyTitle="No roles"
       />
 
       <RoleModal open={!!editing} onClose={() => setEditing(null)} role={editing} onDone={reload} />
@@ -370,7 +370,7 @@ function Roles() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.type_id)} loading={del.loading}
         title="Delete role" confirmLabel="Delete"
-        message={`"${toDelete?.name}" delete ho jaayega. Agar is role pe koi member hai to pehle unhe dusre role me shift karna padega.`}
+        message={`"${toDelete?.name}" will be deleted. If any member is on this role, move them to another role first.`}
       />
     </>
   );
@@ -399,7 +399,7 @@ function RoleModal({ open, onClose, role, onDone }) {
     () => (isEdit
       ? api.put(`/admin/roles/${role.type_id}`, form)
       : api.post('/admin/roles', form)),
-    { success: isEdit ? 'Role update ho gaya' : 'Role ban gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Role updated' : 'Role created', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const toggle = (p) => setForm((f) => ({
@@ -440,7 +440,7 @@ function RoleModal({ open, onClose, role, onDone }) {
           </Field>
           <Field label="Description">
             <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Kya kaam karta hai ye role" />
+              placeholder="What this role is for" />
           </Field>
         </div>
 
@@ -548,8 +548,8 @@ function Activity() {
 
       <DataTable
         columns={columns} rows={rows} loading={loading} rowKey="id" compact
-        emptyIcon={History} emptyTitle="Koi activity nahi"
-        emptyDescription="Admin actions yahan record hote hain."
+        emptyIcon={History} emptyTitle="No activity"
+        emptyDescription="Admin actions are recorded here."
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
     </>

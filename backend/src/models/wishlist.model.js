@@ -22,7 +22,7 @@ async function add(customerId, productId) {
     );
     return result.insertId;
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') return null; // pehle se hai, koi baat nahi
+    if (err.code === 'ER_DUP_ENTRY') return null; // already exists, that is fine
     throw err;
   }
 }
@@ -34,7 +34,7 @@ async function remove(customerId, productId) {
   return result.affectedRows > 0;
 }
 
-/** Add ho to hata do, na ho to daal do — heart icon toggle ke liye */
+/** Remove it if present, add it if not — for the heart icon toggle */
 async function toggle(customerId, productId) {
   const removed = await remove(customerId, productId);
   if (removed) return { added: false };

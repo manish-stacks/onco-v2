@@ -1,4 +1,5 @@
 const orderModel = require('../../models/order.model');
+const prescriptionModel = require('../../models/prescription.model');
 const orderService = require('../../services/order.service');
 const adminModel = require('../../models/admin.model');
 const cache = require('../../utils/cache');
@@ -7,10 +8,10 @@ const { getPagination, getSort, toCsv } = require('../../utils/helpers');
 const { ORDER_STATUSES, ORDER_STATUS_FLOW, PAYMENT_STATUS } = require('../../config/constants');
 
 /**
- * Ek hi set of endpoints — web aur app dono orders ke liye.
- *   ?orderFrom=web  -> sirf website ke orders
- *   ?orderFrom=app  -> sirf mobile app ke orders
- *   (koi filter nahi) -> dono milke
+ * One set of endpoints for both web and app orders.
+ *   ?orderFrom=web  -> only website orders
+ *   ?orderFrom=app  -> only mobile app orders
+ *   (no filter) -> both combined
  */
 
 /** GET /admin/orders */
@@ -37,7 +38,7 @@ const list = asyncHandler(async (req, res) => {
   return paginated(res, rows, total, page, limit);
 });
 
-/** GET /admin/orders/stats — cards ke liye, 60s cached */
+/** GET /admin/orders/stats — for the summary cards, cached for 60s */
 const stats = asyncHandler(async (req, res) => {
   const filters = {
     orderFrom: req.query.orderFrom,
@@ -51,9 +52,9 @@ const stats = asyncHandler(async (req, res) => {
 /** GET /admin/orders/:orderId */
 const detail = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId);
-  if (!order) return fail(res, 'Order nahi mila', 404);
+  if (!order) return fail(res, 'Order not found', 404);
 
-  // agla kaun sa status allowed hai — frontend dropdown isse banata hai
+  // which status is allowed next — the frontend dropdown is built from this
   order.allowed_next_statuses = ORDER_STATUS_FLOW[order.status] || [];
   return ok(res, order);
 });
@@ -63,18 +64,18 @@ const updateStatus = asyncHandler(async (req, res) => {
   const { status, note, force } = req.body;
 
   if (!ORDER_STATUSES.includes(status)) {
-    return fail(res, `status in me se ek hona chahiye: ${ORDER_STATUSES.join(', ')}`, 422);
+    return fail(res, `status must be one of: ${ORDER_STATUSES.join(', ')}`, 422);
   }
 
   const order = await orderModel.findById(req.params.orderId, { withItems: false, withHistory: false });
-  if (!order) return fail(res, 'Order nahi mila', 404);
+  if (!order) return fail(res, 'Order not found', 404);
 
-  // flow validate — force=true se override ho sakta hai (super admin ke liye)
+  // validate the flow — can be overridden with force=true (for super admins)
   const allowed = ORDER_STATUS_FLOW[order.status] || [];
   if (!force && !allowed.includes(status)) {
     return fail(
       res,
-      `'${order.status}' se seedha '${status}' pe nahi ja sakte. Allowed: ${allowed.join(', ') || 'koi nahi'}`,
+      `Cannot move directly from '${order.status}' to '${status}'. Allowed: ${allowed.join(', ') || 'none'}`,
       409
     );
   }
@@ -90,10 +91,10 @@ const updateStatus = asyncHandler(async (req, res) => {
     description: `${order.status} -> ${status}`, ip_address: req.ip,
   });
 
-  return ok(res, result, 'Order status update ho gaya');
+  return ok(res, result, 'Order status updated');
 });
 
-/** POST /admin/orders/:orderId/cancel — refund + stock wapasi ke saath */
+/** POST /admin/orders/:orderId/cancel — with refund + stock restore */
 const cancelOrder = asyncHandler(async (req, res) => {
   const result = await orderService.cancelOrder(req.params.orderId, {
     changedBy: req.admin.admin_username,
@@ -108,14 +109,14 @@ const cancelOrder = asyncHandler(async (req, res) => {
   });
 
   return ok(res, result, result.refund?.failed
-    ? 'Order cancel ho gaya, lekin refund fail hua — manually check karo'
-    : 'Order cancel ho gaya');
+    ? 'The order was cancelled, but the refund failed — check it manually'
+    : 'Order cancelled');
 });
 
 /** PATCH /admin/orders/:orderId/tracking */
 const updateTracking = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId, { withItems: false, withHistory: false });
-  if (!order) return fail(res, 'Order nahi mila', 404);
+  if (!order) return fail(res, 'Order not found', 404);
 
   await orderModel.updateTracking(req.params.orderId, {
     awb_number: req.body.awb_number,
@@ -127,7 +128,7 @@ const updateTracking = asyncHandler(async (req, res) => {
   });
 
   await cache.invalidate.orders();
-  return ok(res, null, 'Tracking details update ho gayi');
+  return ok(res, null, 'Tracking details updated');
 });
 
 /** PATCH /admin/orders/:orderId/payment — manual payment mark (bank transfer, etc.) */
@@ -135,7 +136,7 @@ const updatePayment = asyncHandler(async (req, res) => {
   const { payment_status, transaction_number } = req.body;
   const valid = Object.values(PAYMENT_STATUS);
   if (!valid.includes(payment_status)) {
-    return fail(res, `payment_status in me se ek: ${valid.join(', ')}`, 422);
+    return fail(res, `payment_status must be one of: ${valid.join(', ')}`, 422);
   }
 
   await orderModel.updatePayment(req.params.orderId, { payment_status, transaction_number });
@@ -147,19 +148,19 @@ const updatePayment = asyncHandler(async (req, res) => {
     description: payment_status, ip_address: req.ip,
   });
 
-  return ok(res, null, 'Payment status update ho gaya');
+  return ok(res, null, 'Payment status updated');
 });
 
 /** PATCH /admin/orders/:orderId — shipping address / notes edit */
 const updateOrder = asyncHandler(async (req, res) => {
   const updated = await orderModel.updateFields(req.params.orderId, req.body);
-  if (!updated) return fail(res, 'Koi valid field nahi mila update karne ke liye', 422);
+  if (!updated) return fail(res, 'No valid field was provided to update', 422);
 
   await cache.invalidate.orders();
-  return ok(res, await orderModel.findById(req.params.orderId), 'Order update ho gaya');
+  return ok(res, await orderModel.findById(req.params.orderId), 'Order updated');
 });
 
-/** GET /admin/orders/export — CSV (har row = ek item) */
+/** GET /admin/orders/export — CSV (one row per item) */
 const exportCsv = asyncHandler(async (req, res) => {
   const rows = await orderModel.listForExport({
     status: req.query.status,
@@ -191,7 +192,7 @@ const exportCsv = asyncHandler(async (req, res) => {
 /** GET /admin/orders/:orderId/invoice — invoice ka structured data (PDF frontend banaye) */
 const invoice = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId);
-  if (!order) return fail(res, 'Order nahi mila', 404);
+  if (!order) return fail(res, 'Order not found', 404);
 
   const settingsModel = require('../../models/settings.model');
   const settings = await settingsModel.get();
@@ -233,7 +234,44 @@ const invoice = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * PATCH /admin/orders/:orderId/prescription
+ * Approve / reject the prescription straight from the order detail page,
+ * so there is no need to jump to the separate Prescriptions page.
+ * body: { status: 'Approved' | 'Rejected' | ..., rejection_reason, notes }
+ */
+const updatePrescriptionStatus = asyncHandler(async (req, res) => {
+  const { status, rejection_reason, notes } = req.body;
+
+  const order = await orderModel.findById(req.params.orderId, { withItems: false, withHistory: false });
+  if (!order) return fail(res, 'Order not found', 404);
+  if (!order.prescription_id) return fail(res, 'No prescription is attached to this order', 409);
+
+  const { PRESCRIPTION_STATUSES } = require('../../config/constants');
+  if (!PRESCRIPTION_STATUSES.includes(status)) {
+    return fail(res, `status must be one of: ${PRESCRIPTION_STATUSES.join(', ')}`, 422);
+  }
+  if (status === 'Rejected' && !rejection_reason) {
+    return fail(res, 'A reason is required in order to reject', 422);
+  }
+
+  await prescriptionModel.updateStatus(order.prescription_id, status, {
+    reviewedBy: req.admin.admin_id,
+    rejectionReason: rejection_reason,
+    notes,
+  });
+
+  await adminModel.logActivity({
+    admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
+    action: 'status_change', module: 'prescriptions', record_id: order.prescription_id,
+    description: `Order ${order.databaseOrderID} — prescription -> ${status}`, ip_address: req.ip,
+  });
+
+  await cache.invalidate.orders();
+  return ok(res, await orderModel.findById(req.params.orderId), 'Prescription status updated');
+});
+
 module.exports = {
   list, stats, detail, updateStatus, cancelOrder, updateTracking,
-  updatePayment, updateOrder, exportCsv, invoice,
+  updatePayment, updateOrder, exportCsv, invoice, updatePrescriptionStatus,
 };

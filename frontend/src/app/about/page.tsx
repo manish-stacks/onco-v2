@@ -38,8 +38,8 @@ const values = [
 ];
 
 const perks = [
-  { icon: Truck,        title: "Free Delivery",    desc: "Orders Over $120" },
-  { icon: RefreshCw,    title: "Easy Returns",     desc: "Within 30 Days" },
+  { icon: Truck,        title: "Free Delivery",    desc: "Orders Over 1500" },
+  { icon: RefreshCw,    title: "Easy Returns",     desc: "Hassle-free return policy" },
   { icon: Wallet,       title: "Safe Payment",     desc: "100% Secure" },
   { icon: Headphones,   title: "24/7 Support",     desc: "Always Here For You" },
 ];

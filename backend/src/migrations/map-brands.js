@@ -1,24 +1,24 @@
 /**
- * company_name (free text) ko brands table se link karo.
+ * Link company_name (free text) to the brands table.
  *
- *   npm run map-brands                      # dry run — sirf report, kuch change nahi
- *   npm run map-brands -- --apply           # actually link karo
- *   npm run map-brands -- --apply --min=2   # sirf wo naam jo 2+ products me hain
- *   npm run map-brands -- --apply --no-cleanup   # orphan brands mat hatao
+ *   npm run map-brands                      # dry run — report only, no changes
+ *   npm run map-brands -- --apply           # actually link them
+ *   npm run map-brands -- --apply --min=2   # only names present in 2+ products
+ *   npm run map-brands -- --apply --no-cleanup   # do not remove orphan brands
  *
- * DOBARA CHALANA SAFE HAI. Pehle run me galat naam ban gaye ho (jaise "Gls"
- * ki jagah "GLS"), to normalize/display theek karke dobara chala do — products
- * naye brands pe shift ho jaayenge aur purane khaali brands cleanup me hat
- * jaayenge. Homepage wale brands (image ya is_featured wale) kabhi nahi hatte.
+ * RE-RUNNING IS SAFE. If the first run produced wrong names (such as "Gls"
+ * instead of "GLS"), fix normalize/display and run it again — the products
+ * will shift to the new brands and the old empty brands are removed during cleanup
+ * would be removed. Homepage brands (with an image or is_featured) are never removed.
  *
- * Kya karta hai:
- *   1. products.company_name ke distinct values uthata hai
- *   2. Normalize karta hai — "CIPLA", "Cipla ", "cipla ltd." ek hi brand banti hai
- *   3. brands table me jo pehle se hai usse match karta hai, warna nayi banata hai
- *   4. products.brand_id set karta hai
+ * What it does:
+ *   1. Reads the distinct values of products.company_name
+ *   2. Normalizes them — "CIPLA", "Cipla ", "cipla ltd." become one brand
+ *   3. Matches against existing rows in the brands table, otherwise creates a new one
+ *   4. Sets products.brand_id
  *
- * company_name column delete NAHI hota — audit ke liye rehta hai, aur jo
- * products map na ho payein unka fallback bana rehta hai.
+ * The company_name column is NOT deleted — it stays for auditing, and whatever
+ * products that could not be mapped keep their fallback.
  */
 require('dotenv').config();
 const mysql = require('mysql2/promise');
@@ -35,20 +35,20 @@ function parseArgs() {
 /**
  * Do alag regex — jaan-boojh ke.
  *
- * MATCH_SUFFIXES aggressive hai: sirf ye decide karne ke liye ki do naam
- * ek hi company hain ya nahi. "Sun Pharmaceuticals Industries Ltd" aur
- * "Sun Pharmaceutical Ind.Ltd." dono "sun" ban jaate hain -> ek brand.
+ * MATCH_SUFFIXES is aggressive: it exists only to decide whether two names
+ * are the same company or not. "Sun Pharmaceuticals Industries Ltd" and
+ * "Sun Pharmaceutical Ind.Ltd." both reduce to "sun" -> one brand.
  *
- * DISPLAY_SUFFIXES conservative hai: sirf legal form hatata hai. Warna
- * display naam "Sun" jaisa bare reh jaata, jo admin ke liye bekaar hai.
+ * DISPLAY_SUFFIXES is conservative: it only strips the legal form. Otherwise
+ * the display name would stay bare like "Sun", which is useless for the admin.
  */
 const MATCH_SUFFIXES = /\b(pvt|private|ltd|limited|inc|llp|co|company|corp|corporation|india|indian|healthcare|health|pharma|pharmaceutical|pharmaceuticals|laboratories|laboratory|labs|lab|industries|industry|ind|internationals|international|remedies|formulations|biotech|biotec)\b/gi;
 
 const DISPLAY_SUFFIXES = /\b(pvt|private|ltd|limited|inc|llp|corp|corporation)\b/gi;
 
 /**
- * Matching key — sirf comparison ke liye, kabhi dikhta nahi.
- * Apostrophe hata dete hain taaki "Dr Reddy's" aur "Dr Reddys" match karein.
+ * Matching key — for comparison only, never displayed.
+ * Apostrophes are removed so that "Dr Reddy's" and "Dr Reddys" match.
  */
 function normalize(name) {
   return String(name || '')
@@ -63,9 +63,9 @@ function normalize(name) {
 /**
  * Jo brand naam admin ko dikhega.
  *
- * Normalized key se NAHI banate — wo lowercase hai, to "GLS" -> "Gls" aur
- * "Dr Reddy's" -> "Dr Reddy S" ban jaata tha. Iske bajaye jo naam DB me
- * sabse zyada baar likha gaya hai usko saaf karke use karte hain.
+ * We do NOT build it from the normalized key — that is lowercase, so "GLS" -> "Gls" and
+ * "Dr Reddy's" used to become "Dr Reddy S". Instead, the name stored in the DB
+ * we take the most frequently written form and clean it up.
  */
 function displayName(variants) {
   const primary = [...variants].sort((a, b) => b.count - a.count)[0].name;
@@ -82,9 +82,9 @@ function displayName(variants) {
   if (!out) out = primary.trim();
 
   /**
-   * ALL-CAPS naam ko title case karo, lekin chhote acronyms chhodo:
+   * Title-case ALL-CAPS names, but leave short acronyms alone:
    *   "INTAS PHARMACEUTICALS" -> "Intas Pharmaceuticals"
-   *   "GLS" -> "GLS"  (3 chars, acronym hai)
+   *   "GLS" -> "GLS"  (3 chars, it is an acronym)
    *   "BDR PHARMA" -> "BDR Pharma"
    */
   const words = out.split(' ');
@@ -94,7 +94,7 @@ function displayName(variants) {
     out = words
       .map((w) => {
         if (w.length <= 3) return w; // GLS, BDR, RPG waise hi
-        if (w !== w.toUpperCase()) return w; // pehle se mixed case hai
+        if (w !== w.toUpperCase()) return w; // already mixed case
         return w.charAt(0) + w.slice(1).toLowerCase();
       })
       .join(' ');
@@ -123,10 +123,10 @@ async function main() {
     database: process.env.DB_NAME,
   });
 
-  console.log(`\n[brands] ${apply ? 'APPLY MODE' : 'DRY RUN — kuch change nahi hoga'}\n`);
+  console.log(`\n[brands] ${apply ? 'APPLY MODE' : 'DRY RUN — nothing will change'}\n`);
 
   // -------------------------------------------------------------------------
-  // 1. Existing brands ko normalized key se index karo
+  // 1. Index existing brands by their normalized key
   // -------------------------------------------------------------------------
   const [existingBrands] = await conn.query(`SELECT id, title FROM brands`);
   const brandByKey = new Map();
@@ -135,7 +135,7 @@ async function main() {
     if (key && !brandByKey.has(key)) brandByKey.set(key, b);
   });
 
-  console.log(`  brands table me pehle se: ${existingBrands.length}\n`);
+  console.log(`  already in the brands table: ${existingBrands.length}\n`);
 
   // -------------------------------------------------------------------------
   // 2. products.company_name ke distinct values
@@ -148,7 +148,7 @@ async function main() {
      ORDER BY products DESC`
   );
 
-  // Normalized key pe group karo — variants ek saath aa jayenge
+  // Group by normalized key — the variants end up together
   const groups = new Map();
   rows.forEach((r) => {
     const key = normalize(r.company_name);
@@ -177,13 +177,13 @@ async function main() {
   console.log(`  distinct company_name values : ${rows.length}`);
   console.log(`  normalize ke baad brands     : ${all.length}`);
   console.log(`  jinke variants merge honge   : ${merged.length}`);
-  console.log(`  brands table me pehle se     : ${toLink.length}`);
+  console.log(`  already in the brands table  : ${toLink.length}`);
   console.log(`  nayi brands banengi          : ${toCreate.length}`);
   if (skipped) console.log(`  skip (min=${minProducts} se kam)         : ${skipped}`);
   console.log('  ─────────────────────────────────────────────────────\n');
 
   if (merged.length) {
-    console.log('  MERGE HONE WALE VARIANTS (ye ek hi brand ban jayenge):\n');
+    console.log('  VARIANTS THAT WILL BE MERGED (these become one brand):\n');
     merged.slice(0, 25).forEach((g) => {
       console.log(`    ${displayName(g.variants).padEnd(32)} ${String(g.products).padStart(5)} products`);
       g.variants.forEach((v) => console.log(`      · "${v.name}" (${v.count})`));
@@ -201,7 +201,7 @@ async function main() {
 
   if (!apply) {
     console.log('  ─────────────────────────────────────────────────────');
-    console.log('  Ye sirf report thi. Sahi lage to chalao:');
+    console.log('  That was a report only. If it looks right, run:');
     console.log('    npm run map-brands -- --apply\n');
     await conn.end();
     return;
@@ -210,7 +210,7 @@ async function main() {
   // -------------------------------------------------------------------------
   // 4. Apply
   // -------------------------------------------------------------------------
-  console.log('  Apply kar rahe hain...\n');
+  console.log('  Applying...\n');
 
   let created = 0;
   let linked = 0;
@@ -229,7 +229,7 @@ async function main() {
       brandId = res.insertId;
       created += 1;
     } else {
-      // Slug missing ho to bhar do
+      // Fill in the slug if it is missing
       await conn.query(
         `UPDATE brands SET slug = COALESCE(NULLIF(slug,''), ?), product_count = ? WHERE id = ?`,
         [slugify(g.existing.title), g.products, brandId]
@@ -237,7 +237,7 @@ async function main() {
       linked += 1;
     }
 
-    // Is brand ke saare naam variants wale products link karo
+    // Link every product carrying a name variant of this brand
     const names = g.variants.map((v) => v.name);
     const [upd] = await conn.query(
       `UPDATE products SET brand_id = ?
@@ -247,7 +247,7 @@ async function main() {
     productsUpdated += upd.affectedRows;
   }
 
-  // product_count refresh — kuch products already linked ho sakte the
+  // refresh product_count — some products may already have been linked
   await conn.query(
     `UPDATE brands b
      SET product_count = (SELECT COUNT(*) FROM products p WHERE p.brand_id = b.id)`
@@ -256,12 +256,12 @@ async function main() {
   /**
    * Orphan cleanup.
    *
-   * Script dobara chalane pe products naye (sahi naam wale) brands pe shift
-   * ho jaate hain, aur pichhle run ke brands khaali reh jaate hain. Unko
-   * hata dete hain — warna Brands page me 200 junk entries dikhengi.
+   * On a re-run, products shift to the new (correctly named) brands
+   * and the previous run's brands are left empty. Those
+   * are removed — otherwise the Brands page would show 200 junk entries.
    *
-   * Homepage wale brands SAFE hain: jinke paas image hai ya is_featured=1
-   * hai, wo chhode jaate hain chahe unpe koi product na ho.
+   * Homepage brands are SAFE: those that have an image or is_featured=1
+   * they are kept even if no product belongs to them.
    */
   let cleaned = 0;
   if (args.cleanup !== false && !args['no-cleanup']) {
@@ -292,15 +292,15 @@ async function main() {
 
   console.log('  ─────────────────────────────────────────────────────');
   console.log(`  nayi brands banayi     : ${created}`);
-  console.log(`  existing se link kiya  : ${linked}`);
+  console.log(`  linked to existing    : ${linked}`);
   console.log(`  products update hue    : ${productsUpdated}`);
   if (cleaned) console.log(`  khaali brands hataye   : ${cleaned}`);
   console.log(`  ab bhi unmapped        : ${unmapped}  (min filter se skip hue honge)`);
   console.log(`  company_name khaali    : ${noBrand}`);
   console.log('  ─────────────────────────────────────────────────────\n');
-  console.log('  Ho gaya. Admin panel > Brands me product counts dikh jayenge.');
-  console.log('  Galat merge dikhe to Brands page se rename/split kar sakte ho —');
-  console.log('  company_name column waise ka waisa hai, kuch khoya nahi.\n');
+  console.log('  Done. The product counts will show under Admin panel > Brands.');
+  console.log('  If a merge looks wrong you can rename/split it from the Brands page —');
+  console.log('  the company_name column is untouched, nothing was lost.\n');
 
   await conn.end();
 }

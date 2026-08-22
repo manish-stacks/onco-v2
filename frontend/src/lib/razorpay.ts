@@ -8,7 +8,7 @@ declare global {
 
 let loadPromise: Promise<boolean> | null = null;
 
-/** Script ek hi baar load hota hai, baaki calls cached promise use karte hain */
+/** The script loads only once; subsequent calls reuse the cached promise */
 export function loadRazorpayScript(): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
   if (window.Razorpay) return Promise.resolve(true);
@@ -38,13 +38,13 @@ interface OpenOptions {
 
 /**
  * Razorpay modal kholo. `session` backend ke `payment.razorpay` (checkout
- * response) ya `retryPayment` ke `razorpay` field se aata hai — dono jagah
- * shape same hai: { key_id, order_id, amount, currency, prefill? }.
+ * response) or the `razorpay` field of `retryPayment` — in both places
+ * the shape is the same: { key_id, order_id, amount, currency, prefill? }.
  */
 export async function openRazorpayCheckout({ session, name, description, onSuccess, onDismiss }: OpenOptions) {
   const loaded = await loadRazorpayScript();
   if (!loaded || !window.Razorpay) {
-    throw new Error("Payment gateway load nahi ho paya. Internet check karo.");
+    throw new Error("The payment gateway could not be loaded. Please check your internet connection.");
   }
 
   const rzp = new window.Razorpay({

@@ -20,8 +20,8 @@ function PrescriptionUploadInner() {
   const { isLoggedIn } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
-  // Checkout se aaya ho to yahan "/checkout" hota hai — upload ke baad
-  // wapas usi page pe, naye prescription_id ke saath bhej dete hain.
+  // If they came from checkout this is "/checkout" — after the upload
+  // we send them back to the same page with the new prescription_id.
   const redirectTo = params.get("redirect");
 
   const [files, setFiles] = useState<File[]>([]);
@@ -118,8 +118,8 @@ function PrescriptionUploadInner() {
                   Continue to Checkout
                 </Button>
                 <p className="max-w-xs text-xs text-[var(--ink-soft)]">
-                  Ye prescription pharmacist verify karega — verification hone tak bhi is order ko place kiya ja sakta
-                  hai, status &quot;Prescription Pending&quot; rahega jab tak approve na ho.
+                  A pharmacist will verify this prescription — the order can be placed even before verification is complete
+                  , and the status will stay &quot;Prescription Pending&quot; until it is approved.
                 </p>
               </div>
             ) : (
@@ -133,7 +133,7 @@ function PrescriptionUploadInner() {
           <motion.div key="form" exit={{ opacity: 0 }}>
             {redirectTo && (
               <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 px-4 py-3 text-sm text-[var(--blue-600)]">
-                Upload karne ke baad hum aapko seedha checkout par wapas le jaayenge.
+                After uploading we will take you straight back to checkout.
               </div>
             )}
             {errorMsg && (

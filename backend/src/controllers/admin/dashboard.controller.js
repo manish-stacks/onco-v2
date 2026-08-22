@@ -9,7 +9,7 @@ const { dateRangeFromPreset } = require('../../utils/helpers');
 
 /**
  * GET /admin/dashboard
- * Ek call me poora dashboard. 60s cache — har admin page load pe hit hota hai.
+ * The entire dashboard in one call. 60s cache — hit on every admin page load.
  * ?preset=today|week|month|year  ya  ?from_date=&to_date=
  */
 const overview = asyncHandler(async (req, res) => {
@@ -72,7 +72,7 @@ const overview = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
-/** GET /admin/dashboard/quick-stats — sirf cards, har 30s poll ke liye halka */
+/** GET /admin/dashboard/quick-stats — cards only, light enough to poll every 30s */
 const quickStats = asyncHandler(async (req, res) => {
   const data = await cache.getOrSet('admin:dashboard:quick', 30, async () => {
     const [orders, inventory, prescriptions] = await Promise.all([

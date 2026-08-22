@@ -27,12 +27,12 @@ function fail(res, message = 'Something went wrong', status = 400, errors = null
   return res.status(status).json({ success: false, message, errors });
 }
 
-/** Async controller wrapper — try/catch har jagah likhne se bachne ke liye */
+/** Async controller wrapper — avoids writing try/catch everywhere */
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
-/** Throw karne ke liye typed error */
+/** A typed error for throwing */
 function httpError(message, status = 400) {
   return Object.assign(new Error(message), { status });
 }

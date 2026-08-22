@@ -6,12 +6,12 @@ const { inrPlain, formatItems } = require('../utils/notify-format');
 /**
  * Ek jagah se saare channels.
  *
- * order.service ko ye nahi sochna chahiye ki WhatsApp bhejna hai ya push —
- * bas `notify.orderPlaced(order)` bolna hai. Yahan se WhatsApp customer ko,
- * push app pe, aur SSE admin panel pe — sab ek saath nikal jaata hai.
+ * order.service should not have to think about whether to send WhatsApp or push —
+ * just call `notify.orderPlaced(order)`. From here WhatsApp goes to the customer,
+ * push to the app, and SSE to the admin panel — all dispatched together.
  *
- * Har function fire-and-forget hai: notification fail hone se order flow
- * kabhi nahi rukna chahiye.
+ * Every function is fire-and-forget: a failed notification must not break the order flow
+ * must never stop.
  */
 
 function fireAndForget(promise, label) {
@@ -20,7 +20,7 @@ function fireAndForget(promise, label) {
   });
 }
 
-/** Order place ho gaya — customer ko confirmation */
+/** Order placed — confirmation for the customer */
 async function orderPlaced(order, items = []) {
   const isWeb = order.orderFrom !== 'app';
   const template = isWeb ? wa.TEMPLATES.WEB_ORDER_SUCCESS : wa.TEMPLATES.ORDER_SUCCESS;
@@ -59,8 +59,8 @@ async function orderPlaced(order, items = []) {
 
   fireAndForget(
     push.sendToCustomer(order.customer_id, {
-      title: 'Order confirm ho gaya',
-      body: `${order.databaseOrderID} — ₹${inrPlain(order.amount)}. Hum jaldi dispatch karenge.`,
+      title: 'Order confirmed',
+      body: `${order.databaseOrderID} — ₹${inrPlain(order.amount)}. We will dispatch it soon.`,
       channel: 'orders',
     }, { type: 'order', order_id: order.order_id, screen: 'order_detail' },
     { orderId: order.order_id }),
@@ -93,14 +93,14 @@ async function paymentSuccess(order, items = []) {
 
   fireAndForget(
     push.sendToCustomer(order.customer_id, {
-      title: 'Payment mil gaya',
-      body: `₹${inrPlain(order.amount)} received — order ${order.databaseOrderID} process ho raha hai.`,
+      title: 'Payment received',
+      body: `₹${inrPlain(order.amount)} received — order ${order.databaseOrderID} is being processed.`,
     }, { type: 'payment', order_id: order.order_id }, { orderId: order.order_id }),
     'paymentSuccess push'
   );
 }
 
-/** Payment verify fail — ye customer ko nahi, ADMIN ko jaata hai */
+/** Payment verification failed — this goes to the ADMIN, not the customer */
 async function paymentFailedAlert({ order, paymentId, gatewayOrderId, context, error }) {
   fireAndForget(
     wa.alertAdmins(wa.TEMPLATES.PAYMENT_FAILED_ALERT, {
@@ -147,14 +147,14 @@ async function orderStatusChanged(order, newStatus) {
   fireAndForget(
     push.sendToCustomer(order.customer_id, {
       title: `Order ${newStatus.toLowerCase()}`,
-      body: `${order.databaseOrderID} ab "${newStatus}" hai.`,
+      body: `${order.databaseOrderID} is now "${newStatus}".`,
     }, { type: 'order_status', order_id: order.order_id, status: newStatus },
     { orderId: order.order_id }),
     'orderStatus push'
   );
 }
 
-/** Ship ho gaya — AWB ke saath */
+/** Shipped — with the AWB */
 async function orderShipped(order, { courier, awb, trackingUrl }) {
   fireAndForget(
     wa.sendTemplate(order.customer_phone, wa.TEMPLATES.ORDER_SHIPPED, {
@@ -169,8 +169,8 @@ async function orderShipped(order, { courier, awb, trackingUrl }) {
 
   fireAndForget(
     push.sendToCustomer(order.customer_id, {
-      title: 'Order ship ho gaya',
-      body: `${courier || 'DTDC'} · AWB ${awb}. Track karne ke liye tap karo.`,
+      title: 'Order shipped',
+      body: `${courier || 'DTDC'} · AWB ${awb}. Tap to track.`,
     }, {
       type: 'shipped', order_id: order.order_id, awb, tracking_url: trackingUrl,
     }, { orderId: order.order_id }),
@@ -191,10 +191,10 @@ async function orderCancelled(order, reason) {
 
   fireAndForget(
     push.sendToCustomer(order.customer_id, {
-      title: 'Order cancel ho gaya',
+      title: 'Order cancelled',
       body: reason
         ? `${order.databaseOrderID} — ${String(reason).slice(0, 80)}`
-        : `${order.databaseOrderID} cancel kar diya gaya hai.`,
+        : `${order.databaseOrderID} has been cancelled.`,
     }, { type: 'order_cancelled', order_id: order.order_id }, { orderId: order.order_id }),
     'orderCancelled push'
   );
@@ -209,7 +209,7 @@ async function prescriptionReviewed(prescription, customer) {
       title: `Prescription ${prescription.status.toLowerCase()}`,
       body: prescription.status === 'Rejected' && prescription.rejection_reason
         ? String(prescription.rejection_reason).slice(0, 100)
-        : `${prescription.reference_code} review ho gaya.`,
+        : `${prescription.reference_code} has been reviewed.`,
     }, { type: 'prescription', prescription_id: prescription.prescription_id }),
     'prescriptionReviewed push'
   );

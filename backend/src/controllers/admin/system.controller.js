@@ -22,7 +22,7 @@ const getHealth = asyncHandler(async (req, res) => {
 // CACHE
 // ---------------------------------------------------------------------------
 
-/** GET /admin/system/cache — kitna cache pada hai */
+/** GET /admin/system/cache — how much cache is stored */
 const cacheStats = asyncHandler(async (req, res) => {
   let redisInfo = { ok: false };
   try {
@@ -30,7 +30,7 @@ const cacheStats = asyncHandler(async (req, res) => {
     const used = info.match(/used_memory_human:(\S+)/);
     const peak = info.match(/used_memory_peak_human:(\S+)/);
 
-    // Sirf humare prefix wale keys count karo — DB shared ho sakta hai
+    // Only count keys with our prefix — the DB may be shared
     const prefix = redis.options.keyPrefix || '';
     let keys = 0;
     const byNamespace = {};
@@ -90,8 +90,8 @@ const clearCache = asyncHandler(async (req, res) => {
   if (scope === 'media') {
     result.media = mediaRoutes.clearCache();
   } else if (scope === 'redis' || scope === 'all') {
-    // Saare prefixed keys — doosre apps ka data nahi chhuta,
-    // isliye FLUSHDB nahi, prefix scan
+    // All prefixed keys — other apps' data is untouched,
+    // so a prefix scan instead of FLUSHDB
     await cache.invalidate.all();
     result.redis = { cleared: true };
 
@@ -115,21 +115,21 @@ const clearCache = asyncHandler(async (req, res) => {
   });
 
   return ok(res, result, scope === 'all'
-    ? 'Poora cache saaf ho gaya'
-    : `${scope} cache saaf ho gaya`);
+    ? 'The entire cache was cleared'
+    : `${scope} cache cleared`);
 });
 
 // ---------------------------------------------------------------------------
 // MEDIA MIGRATION
 // ---------------------------------------------------------------------------
 
-/** Query ya body se tables list — string "a,b" ya array dono chalti hai */
+/** Table list from the query or body — accepts either the string "a,b" or an array */
 function normalizeTables(value) {
   if (!value) return null;
   const arr = Array.isArray(value) ? value : String(value).split(',');
   const clean = arr.map((t) => String(t).trim()).filter(Boolean);
 
-  // Sirf wahi tables jo MEDIA_MAP me hain — koi arbitrary table name na aaye
+  // Only tables present in MEDIA_MAP — no arbitrary table name gets through
   const allowed = new Set(MEDIA_MAP.map((m) => m.table));
   const valid = clean.filter((t) => allowed.has(t));
   return valid.length ? valid : null;
@@ -138,7 +138,7 @@ function normalizeTables(value) {
 /**
  * GET /admin/system/media/preview?tables=products,categories&limit=24
  *
- * Migrate karne se pehle dikhane ke liye — kaunsi images jaane wali hain.
+ * Preview before migrating — which images are about to move.
  */
 const previewMedia = asyncHandler(async (req, res) => {
   const data = await mediaMigration.preview({
@@ -173,12 +173,12 @@ const mediaStatus = asyncHandler(async (req, res) => {
 
 /**
  * POST /admin/system/media/scan
- * DB scan karke kaam ki list banata hai. Chalane me thoda time lagta hai
- * (saari tables padhta hai) lekin ye ek baar ka kaam hai.
+ * Scans the DB and builds a work list. It takes a little time to run
+ * (it reads every table) but this is a one-time job.
  */
 const scanMedia = asyncHandler(async (req, res) => {
   if (!storage.isS3Enabled()) {
-    return fail(res, 'Pehle S3 configure karo — .env me S3_BUCKET aur keys daalo', 409);
+    return fail(res, 'Configure S3 first — set S3_BUCKET and the keys in .env', 409);
   }
 
   const result = await mediaMigration.scan({ tables: normalizeTables(req.body.tables) });
@@ -189,20 +189,20 @@ const scanMedia = asyncHandler(async (req, res) => {
     description: `${result.pending} images queued`, ip_address: req.ip,
   });
 
-  return ok(res, result, `${result.pending} images migrate hone baaki hain`);
+  return ok(res, result, `${result.pending} images remaining to migrate`);
 });
 
 /**
  * POST /admin/system/media/migrate
  * body: { limit: 50, retry_failed: false }
  *
- * Ek batch process karta hai aur turant return kar deta hai. Admin panel
- * isko baar-baar call karta hai jab tak `done` na aaye — isse har batch ka
- * result dikhta rehta hai aur request timeout nahi hoti.
+ * Processes one batch and returns immediately. The admin panel
+ * calls this repeatedly until `done` is returned — so each batch's
+ * the result keeps updating and the request does not time out.
  */
 const migrateMedia = asyncHandler(async (req, res) => {
   if (!storage.isS3Enabled()) {
-    return fail(res, 'Pehle S3 configure karo', 409);
+    return fail(res, 'Configure S3 first', 409);
   }
 
   const result = await mediaMigration.runBatch({
@@ -213,7 +213,7 @@ const migrateMedia = asyncHandler(async (req, res) => {
   });
 
   return ok(res, result, result.done
-    ? 'Saari images migrate ho gayi'
+    ? 'All images have been migrated'
     : `${result.succeeded} migrate hui, ${result.remaining} baaki`);
 });
 
@@ -227,19 +227,19 @@ const failedMedia = asyncHandler(async (req, res) => {
 
 /**
  * POST /admin/system/media/repair-urls
- * LEGACY_MEDIA_PATH badla ho to purani queued rows ke URLs theek kar do.
+ * If LEGACY_MEDIA_PATH changed, fix the URLs on the old queued rows.
  */
 const repairUrls = asyncHandler(async (req, res) => {
   const result = await mediaMigration.repairSourceUrls({
     tables: normalizeTables(req.body.tables),
   });
-  return ok(res, result, `${result.fixed} URLs theek kiye (${result.checked} check hue)`);
+  return ok(res, result, `${result.fixed} URLs fixed (${result.checked} checked)`);
 });
 
 /** POST /admin/system/media/retry-failed */
 const retryFailed = asyncHandler(async (req, res) => {
   const result = await mediaMigration.resetFailed();
-  return ok(res, result, `${result.reset} items dobara try honge`);
+  return ok(res, result, `${result.reset} items will be retried`);
 });
 
 /** DELETE /admin/system/media/queue */
@@ -252,7 +252,7 @@ const clearQueue = asyncHandler(async (req, res) => {
     description: `${result.cleared} items`, ip_address: req.ip,
   });
 
-  return ok(res, result, 'Migration queue saaf ho gayi');
+  return ok(res, result, 'Migration queue cleared');
 });
 
 module.exports = {

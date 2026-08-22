@@ -105,7 +105,7 @@ async function update(id, data) {
 
 async function remove(id) {
   const [[{ children }]] = await db.query(`SELECT COUNT(*) AS children FROM categories WHERE parent_id = ?`, [id]);
-  if (children > 0) throw Object.assign(new Error('Is category ke sub-categories hain, pehle unhe hatao'), { status: 409 });
+  if (children > 0) throw Object.assign(new Error('This category has sub-categories, remove them first'), { status: 409 });
 
   await db.query(`DELETE FROM product_categories WHERE category_id = ?`, [id]);
   await db.query(`DELETE FROM categories WHERE category_id = ?`, [id]);

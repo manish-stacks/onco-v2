@@ -1,18 +1,18 @@
 /**
- * LOCAL DEV — purana data hata ke DB chhota karo.
+ * LOCAL DEV — shrink the DB by removing old data.
  *
  *   npm run trim -- --orders=50
  *   npm run trim -- --orders=50 --prescriptions=50 --yes
  *
- * Kyun chahiye: production dump me 34,000+ orders hain. Local pe develop
- * karne ke liye 50 kaafi hain, aur migration ka `ALTER TABLE orders` poori
- * table rebuild karta hai — 34k rows pe minutes lagte hain, 50 rows pe
+ * Why it is needed: the production dump has 34,000+ orders. Developing locally
+ * 50 is plenty for development, and the migration's `ALTER TABLE orders` rebuilds the whole
+ * table — that takes minutes on 34k rows, and seconds on 50
  * milliseconds.
  *
- * PURANE aur NAYE dono schema pe chalta hai — migration se pehle ya baad,
- * jab bhi chalao.
+ * Works on BOTH the OLD and NEW schema — before or after the migration,
+ * whenever you run it.
  *
- * ⚠ Ye data PERMANENTLY delete karta hai. Production pe kabhi mat chalana.
+ * ⚠ This deletes data PERMANENTLY. Never run it in production.
  */
 require('dotenv').config();
 const readline = require('readline');
@@ -58,7 +58,7 @@ async function main() {
   const dbName = process.env.DB_NAME;
 
   if (process.env.NODE_ENV === 'production') {
-    console.error('[trim] NODE_ENV=production hai. Ye script production pe nahi chalegi.');
+    console.error('[trim] NODE_ENV=production. This script will not run in production.');
     process.exit(1);
   }
 
@@ -70,7 +70,7 @@ async function main() {
     database: dbName,
   });
 
-  // Migration se pehle purane naam hain, baad me naye — dono handle karo
+  // Before the migration the names are old, after it they are new — handle both
   const migrated = await tableExists(conn, dbName, 'order_items');
   const T = migrated
     ? { orders: 'orders', items: ['order_items'], prescriptions: 'prescriptions', prescIdCol: 'prescription_id' }
@@ -86,18 +86,18 @@ async function main() {
 
   const totalOrders = await count(conn, T.orders);
   if (totalOrders === null) {
-    console.error(`[trim] "${T.orders}" table nahi mili. DB sahi hai?`);
+    console.error(`[trim] Table "${T.orders}" not found. Is the DB correct?`);
     await conn.end();
     process.exit(1);
   }
 
   if (totalOrders <= keepOrders) {
-    console.log(`[trim] Pehle se sirf ${totalOrders} orders hain — kuch delete karne ki zaroorat nahi.`);
+    console.log(`[trim] There are only ${totalOrders} orders already — nothing needs to be deleted.`);
     await conn.end();
     return;
   }
 
-  // Nth latest order ka id — usse purane sab delete honge
+  // The id of the Nth latest order — everything older than it is deleted
   const [[cutoffRow]] = await conn.query(
     `SELECT order_id FROM \`${T.orders}\` ORDER BY order_id DESC LIMIT 1 OFFSET ?`,
     [keepOrders - 1]
@@ -105,9 +105,9 @@ async function main() {
   const cutoff = cutoffRow.order_id;
   const willDelete = totalOrders - keepOrders;
 
-  console.log('  Kya delete hoga');
+  console.log('  What will be deleted');
   console.log('  ─────────────────────────────────────────────');
-  console.log(`  ${T.orders.padEnd(24)} ${String(willDelete).padStart(7)} rows  (${keepOrders} latest bachenge)`);
+  console.log(`  ${T.orders.padEnd(24)} ${String(willDelete).padStart(7)} rows  (${keepOrders} latest will be kept)`);
 
   for (const t of T.items) {
     const c = await count(conn, t);
@@ -117,11 +117,11 @@ async function main() {
     }
   }
 
-  // temp tables ab use nahi hoti — poori khaali kar do
+  // the temp tables are no longer used — empty them completely
   const tempTables = ['cp_order_temp', 'cp_temp_order', 'cp_temp_order_details'];
   for (const t of tempTables) {
     const c = await count(conn, t);
-    if (c) console.log(`  ${t.padEnd(24)} ${String(c).padStart(7)} rows  (poori khaali hogi)`);
+    if (c) console.log(`  ${t.padEnd(24)} ${String(c).padStart(7)} rows  (will be emptied completely)`);
   }
 
   let prescCutoff = null;
@@ -140,9 +140,9 @@ async function main() {
   console.log('  ─────────────────────────────────────────────\n');
 
   if (!args.yes) {
-    const answer = await confirm('  Ye data permanently delete ho jayega. Aage badhein? (haan/no): ');
+    const answer = await confirm('  This data will be permanently deleted. Continue? (yes/no): ');
     if (!['haan', 'y', 'yes', 'ha'].includes(answer)) {
-      console.log('\n[trim] Cancel kar diya. Kuch delete nahi hua.');
+      console.log('\n[trim] Cancelled. Nothing was deleted.');
       await conn.end();
       return;
     }
@@ -160,16 +160,16 @@ async function main() {
       const ms = Date.now() - start;
       console.log(`ok  ${String(res.affectedRows ?? 0).padStart(7)} rows  ${ms}ms`);
     } catch (err) {
-      if (err.errno === 1146) { console.log('skip (table nahi hai)'); return; }
+      if (err.errno === 1146) { console.log('skip (table does not exist)'); return; }
       console.log('FAIL');
       throw err;
     }
   };
 
-  console.log('  Delete kar rahe hain');
+  console.log('  Deleting');
   console.log('  ─────────────────────────────────────────────');
 
-  // Bachhe pehle, parent baad me — warna orphan reh jaate hain
+  // Children first, parents after — otherwise they are left orphaned
   for (const t of T.items) {
     await step(`${t} (purane items)`, `DELETE FROM \`${t}\` WHERE order_id < ?`, [cutoff]);
   }
@@ -177,7 +177,7 @@ async function main() {
   if (migrated) {
     await step('order_status_logs', 'DELETE FROM `order_status_logs` WHERE order_id < ?', [cutoff]);
     await step('coupon_usages', 'DELETE FROM `coupon_usages` WHERE order_id < ?', [cutoff]);
-    await step('inventory_logs (order wale)',
+    await step('inventory_logs (order related)',
       "DELETE FROM `inventory_logs` WHERE reference_type = 'order' AND reference_id < ?", [cutoff]);
   }
 
@@ -188,7 +188,7 @@ async function main() {
   }
 
   if (prescCutoff) {
-    // Jo prescriptions bache hue orders se judi hain unhe mat chhedo
+    // Leave prescriptions attached to surviving orders untouched
     await step(`${T.prescriptions} (purane)`,
       `DELETE FROM \`${T.prescriptions}\`
        WHERE \`${T.prescIdCol}\` < ?
@@ -209,8 +209,8 @@ async function main() {
   console.log('  ─────────────────────────────────────────────\n');
 
   const after = await count(conn, T.orders);
-  console.log(`[trim] Ho gaya. ${T.orders} me ab ${after} orders hain.\n`);
-  console.log('  Space wapas paane ke liye (optional, thoda time lega):');
+  console.log(`[trim] Done. ${T.orders} now has ${after} orders.\n`);
+  console.log('  To reclaim space (optional, takes a little time):');
   console.log(`    OPTIMIZE TABLE \`${T.orders}\`;\n`);
   if (!migrated) console.log('  Ab migration chalao:  npm run migrate\n');
 

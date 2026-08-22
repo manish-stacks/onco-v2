@@ -8,7 +8,7 @@ export default defineConfig({
     alias: { '@': path.resolve(__dirname, './src') },
   },
   build: {
-    // recharts bhaari hai — usko alag chunk me rakho taaki pehla load halka rahe
+    // recharts is heavy — keep it in its own chunk so the first load stays light
     rollupOptions: {
       output: {
         manualChunks: {
@@ -21,9 +21,14 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      // dev me CORS ka jhanjhat na ho — /api seedha backend pe chala jaata hai
+      // Avoids CORS in dev — /api goes straight to the backend.
+      //
+      // This used to default to the remote beta server, which meant `npm run dev`
+      // silently tested against production code instead of the backend running
+      // locally on :4000. Local is the default now; point VITE_API_PROXY at beta
+      // only when you actually want to hit it.
       '/api': {
-        target: process.env.VITE_API_PROXY || 'https://www.betaapi.oncohealthmart.com',
+        target: process.env.VITE_API_PROXY || 'http://localhost:4000',
         changeOrigin: true,
       },
     },

@@ -2,13 +2,13 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, Boxes, Users, FileText, Tags,
   Ticket, Star, BarChart3, Settings, ShieldCheck, Newspaper, X, Building2, Bell, Activity,
-  Image, Tag, MapPin, Inbox,
+  Image, Tag, MapPin, Inbox, MonitorSmartphone,
 } from 'lucide-react';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
 import { cx } from '@/components/ui';
 
-/** Sections ops workflow ke hisaab se — jo roz chahiye wo upar */
+/** Sections ordered by ops workflow — what is needed daily sits at the top */
 const NAV = [
   {
     section: null,
@@ -20,6 +20,7 @@ const NAV = [
     section: 'Operations',
     items: [
       { to: '/orders', label: 'Orders', icon: ShoppingCart, perm: P.ORDERS_VIEW },
+      { to: '/pos', label: 'POS / New order', icon: MonitorSmartphone, perm: P.ORDERS_MANAGE },
       { to: '/prescriptions', label: 'Prescriptions', icon: FileText, perm: P.PRESCRIPTIONS_VIEW },
       { to: '/customers', label: 'Customers', icon: Users, perm: P.CUSTOMERS_VIEW },
     ],
@@ -84,7 +85,7 @@ export default function Sidebar({ open, onClose, alertCounts = {}, live = false 
 
       <aside
         className={cx(
-          'fixed lg:sticky top-0 left-0 z-40 h-screen w-60 shrink-0 bg-ink flex flex-col',
+          'fixed lg:sticky top-0 left-0 z-40 h-screen w-[250px] shrink-0 bg-ink flex flex-col',
           'transition-transform lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
@@ -92,8 +93,8 @@ export default function Sidebar({ open, onClose, alertCounts = {}, live = false 
         {/* Wordmark: "onco" mono me — poore panel ka code-first character */}
         <div className="flex items-center justify-between h-14 px-4 border-b border-white/10 shrink-0">
           <div className="flex items-baseline gap-0.5">
-            <span className="font-mono text-[0.9375rem] font-semibold text-white tracking-tight">onco</span>
-            <span className="text-[0.9375rem] font-semibold text-teal">healthmart</span>
+            <span className="font-mono text-2xl font-semibold text-white tracking-tight">Onco</span>
+            <span className="text-2xl font-semibold text-teal">Healthmart</span>
           </div>
           <button
             onClick={onClose}
@@ -122,10 +123,10 @@ export default function Sidebar({ open, onClose, alertCounts = {}, live = false 
                         end={item.end}
                         onClick={onClose}
                         className={({ isActive }) => cx(
-                          'flex items-center gap-2.5 px-2.5 py-[7px] rounded text-[0.8125rem] transition-colors',
+                          'flex items-center gap-2.5 px-2.5 py-[7px] rounded transition-colors text-[16px]',
                           isActive
                             ? 'bg-teal/20 text-white font-medium'
-                            : 'text-white/60 hover:text-white hover:bg-white/[0.06]'
+                            : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
                         )}
                       >
                         <item.icon size={15} className="shrink-0" />
@@ -148,7 +149,7 @@ export default function Sidebar({ open, onClose, alertCounts = {}, live = false 
           <p className="text-2xs text-white/30">Admin Console v1.0</p>
           <span
             className="flex items-center gap-1.5 text-2xs text-white/40"
-            title={live ? 'Live updates chalu hain' : 'Live connection nahi hai — 60s pe refresh ho raha hai'}
+            title={live ? 'Live updates are on' : 'No live connection — refreshing every 60s'}
           >
             <span className={cx(
               'w-1.5 h-1.5 rounded-full',

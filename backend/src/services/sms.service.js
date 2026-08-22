@@ -5,12 +5,12 @@ const { normalizeMobile } = require('../utils/helpers');
 /**
  * SMS via Fast2SMS.
  *
- * Do routes support hain:
+ * Two routes are supported:
  *   route=otp  — Fast2SMS ka built-in OTP route. Sirf `variables_values` me
- *                OTP bhejna hota hai, koi DLT template ID nahi chahiye.
- *                Message fixed hota hai: "Your OTP: 123456"
- *   route=dlt  — Apna DLT-approved template use karna ho to. Tab
- *                FAST2SMS_DLT_TEMPLATE_ID aur sender_id chahiye.
+ *                only the OTP is sent, no DLT template ID needed.
+ *                Message is fixed: "Your OTP: 123456"
+ *   route=dlt  — use this when you have your own DLT-approved template. Then
+ *                FAST2SMS_DLT_TEMPLATE_ID and sender_id are required.
  *
  * .env:
  *   FAST2SMS_API_KEY=
@@ -18,7 +18,7 @@ const { normalizeMobile } = require('../utils/helpers');
  *   FAST2SMS_SENDER_ID=OHMART     (dlt route ke liye)
  *   FAST2SMS_DLT_TEMPLATE_ID=     (dlt route ke liye)
  *
- * Key na ho to OTP console pe print hota hai — local dev ka flow tootta nahi.
+ * Without a key the OTP is printed to the console — the local dev flow keeps working.
  */
 const BASE = 'https://www.fast2sms.com/dev/bulkV2';
 
@@ -26,7 +26,7 @@ function isConfigured() {
   return !!process.env.FAST2SMS_API_KEY;
 }
 
-/** Fast2SMS 10-digit numbers leta hai, country code ke bina */
+/** Fast2SMS accepts 10-digit numbers, without a country code */
 function toTenDigit(mobile) {
   const digits = String(mobile || '').replace(/\D/g, '');
   return digits.slice(-10);
@@ -44,7 +44,7 @@ async function post(payload) {
 }
 
 /**
- * OTP bhejo aur otp_logs me record karo (admin panel me dikhta hai).
+ * Send an OTP and record it in otp_logs (visible in the admin panel).
  *
  * @param {string} mobile
  * @param {string} otp
@@ -57,7 +57,7 @@ async function sendOtp(mobile, otp, meta = {}) {
   let delivered = false;
 
   if (!isConfigured()) {
-    console.log(`[sms] DEV MODE — ${number} ka OTP: ${otp}`);
+    console.log(`[sms] DEV MODE — OTP for ${number}: ${otp}`);
     result = { dev: true, otp };
   } else {
     provider = 'fast2sms';
@@ -84,7 +84,7 @@ async function sendOtp(mobile, otp, meta = {}) {
       delivered = result?.return === true;
 
       if (!delivered) {
-        console.error('[sms] Fast2SMS ne reject kiya:', result);
+        console.error('[sms] Fast2SMS rejected it:', result);
       }
     } catch (err) {
       const msg = err.response?.data || err.message;
@@ -104,7 +104,7 @@ async function sendOtp(mobile, otp, meta = {}) {
 
   if (isConfigured() && !delivered) {
     throw Object.assign(
-      new Error('OTP bhejne me dikkat aayi, thodi der baad try karo'),
+      new Error('There was a problem sending the OTP, please try again shortly'),
       { status: 502 }
     );
   }
@@ -112,7 +112,7 @@ async function sendOtp(mobile, otp, meta = {}) {
   return result;
 }
 
-/** Transactional SMS — order updates wagairah. DLT template zaroori hai. */
+/** Transactional SMS — order updates etc. A DLT template is mandatory. */
 async function sendTransactional(mobile, templateId, variables = []) {
   if (!isConfigured() || !templateId) {
     console.log(`[sms] DEV MODE — ${toTenDigit(mobile)} | template ${templateId} |`, variables);
@@ -128,16 +128,16 @@ async function sendTransactional(mobile, templateId, variables = []) {
       flash: 0,
     });
   } catch (err) {
-    // SMS fail hone se main flow nahi rukna chahiye
+    // A failed SMS must not stop the main flow
     console.error('[sms] transactional fail:', err.response?.data || err.message);
     return { failed: true };
   }
 }
 
 /**
- * OTP history — admin support team dekhti hai jab customer bole
- * "OTP nahi aaya". Ye deliberately store hota hai, isliye ise
- * `otp.view` permission ke peeche rakha gaya hai.
+ * OTP history — the admin support team checks this when a customer says
+ * "OTP not received". This is stored deliberately, so it
+ * is kept behind the `otp.view` permission.
  */
 async function logOtp({ mobile, otp, customerId, purpose, channel, provider, delivered, response, source, ip, expiresAt }) {
   try {

@@ -18,7 +18,7 @@ function adminAuth(req, res, next) {
   }
 }
 
-/** Role ke permissions — 5 min cache, kyunki har request pe check hota hai */
+/** Permissions for a role — cached for 5 min, since it is checked on every request */
 async function getRolePermissions(roleId) {
   return cache.getOrSet(`rbac:role:${roleId}`, cache.TTL.MEDIUM, async () => {
     const [rows] = await db.query(`SELECT permission FROM role_permissions WHERE role_id = ?`, [roleId]);
@@ -28,7 +28,7 @@ async function getRolePermissions(roleId) {
 
 /**
  * requirePermission('orders.manage')
- * Multiple bhi de sakte ho — koi ek bhi ho to allow:
+ * You can pass several — allow if any one of them matches:
  * requirePermission(['orders.manage','orders.cancel'])
  */
 function requirePermission(permission) {
@@ -41,7 +41,7 @@ function requirePermission(permission) {
       const perms = await getRolePermissions(req.admin.user_type);
       const allowed = required.some((p) => perms.includes(p));
       if (!allowed) {
-        return fail(res, `Permission denied — chahiye: ${required.join(' ya ')}`, 403);
+        return fail(res, `Permission denied — required: ${required.join(' or ')}`, 403);
       }
       req.adminPermissions = perms;
       return next();
@@ -51,7 +51,7 @@ function requirePermission(permission) {
   };
 }
 
-/** Role permissions cache saaf — role update hone pe call karo */
+/** Clear the role permissions cache — call this when a role is updated */
 async function clearRoleCache(roleId) {
   if (roleId) await cache.del(`rbac:role:${roleId}`);
   else await cache.delByPrefix('rbac:role:');

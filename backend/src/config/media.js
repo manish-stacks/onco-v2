@@ -1,8 +1,8 @@
 /**
- * DB me image paths kahan-kahan padi hain — migration aur cleanup dono
- * isi map se chalte hain.
+ * Where image paths live in the DB — needed for both migration and cleanup
+ * also run off this map.
  *
- * Naya table/column add karo to bas yahan entry daal do, migration khud
+ * When you add a new table/column just add an entry here, the migration
  * usko uthaa legi.
  */
 const MEDIA_MAP = [
@@ -49,7 +49,7 @@ const MEDIA_MAP = [
     folder: 'settings',
   },
   {
-    // JSON array column — har element alag asset hai
+    // JSON array column — each element is a separate asset
     table: 'prescriptions',
     pk: 'prescription_id',
     columns: ['images'],
@@ -57,8 +57,8 @@ const MEDIA_MAP = [
     folder: 'prescriptions',
   },
   {
-    // Historical snapshot — order ke waqt ki image. Migrate karna optional hai,
-    // lekin purane orders me broken image na dikhe isliye kar dete hain.
+    // Historical snapshot — the image as it was at order time. Migrating it is optional,
+    // but we do it so old orders do not show a broken image.
     table: 'order_items',
     pk: 'item_id',
     columns: ['product_image'],
@@ -66,14 +66,14 @@ const MEDIA_MAP = [
   },
 ];
 
-/** Purani site jahan images abhi padi hain */
+/** The old site where the images currently live */
 function legacyBase() {
   return (process.env.LEGACY_MEDIA_BASE_URL || 'https://oncohealthmart.com').replace(/\/$/, '');
 }
 
 /**
- * Images ka folder purani site pe. DB me aksar sirf filename padi hoti hai
- * (jaise "abc123.jpg"), aur asli URL banta hai:
+ * The image folder on the old site. The DB often stores only the filename
+ * (such as "abc123.jpg"), and the real URL is built as:
  *   https://oncohealthmart.com  +  /uploads/img_upload/  +  abc123.jpg
  */
 function legacyPath() {
@@ -84,10 +84,10 @@ function legacyPath() {
 /**
  * DB me stored value ko downloadable URL me badlo.
  *
- * Values kai tarah ki ho sakti hain, isliye har case handle karna padta hai:
+ * Values can come in several shapes, so every case has to be handled:
  *   "abc.jpg"                              -> base + /uploads/img_upload/abc.jpg
  *   "sub/abc.jpg"                          -> base + /uploads/img_upload/sub/abc.jpg
- *   "/uploads/img_upload/abc.jpg"          -> base + waise hi (dobara prefix mat lagao)
+ *   "/uploads/img_upload/abc.jpg"          -> base + as-is (do not prefix twice)
  *   "uploads/img_upload/abc.jpg"           -> base + /uploads/img_upload/abc.jpg
  *   "https://oncohealthmart.com/..."       -> waise hi
  */
@@ -97,14 +97,14 @@ function toSourceUrl(value) {
   let v = String(value).trim();
   if (!v) return null;
 
-  // Pehle se poora URL hai
+  // Already a full URL
   if (/^https?:\/\//i.test(v)) return v;
 
   v = v.replace(/^\/+/, ''); // leading slashes hata do
   const folder = legacyPath().replace(/^\//, ''); // "uploads/img_upload"
 
-  // Path me folder pehle se hai? To dobara mat jodo — warna
-  // /uploads/img_upload/uploads/img_upload/abc.jpg ban jayega
+  // Is the folder already in the path? Then do not add it again — otherwise
+  // it would become /uploads/img_upload/uploads/img_upload/abc.jpg
   const hasFolder = v.toLowerCase().startsWith(`${folder.toLowerCase()}/`);
 
   return hasFolder
@@ -112,16 +112,16 @@ function toSourceUrl(value) {
     : `${legacyBase()}${legacyPath()}/${v}`;
 }
 
-/** Ye value pehle hi migrate ho chuki hai? */
+/** Has this value already been migrated? */
 function isMigrated(value) {
-  if (!value) return true; // khaali hai, migrate karne ko kuch nahi
+  if (!value) return true; // empty, nothing to migrate
   const v = String(value);
   const cdn = process.env.CDN_BASE_URL;
   const bucket = process.env.S3_BUCKET;
 
   if (cdn && v.includes(cdn.replace(/^https?:\/\//, ''))) return true;
   if (bucket && v.includes(`${bucket}.s3.`)) return true;
-  if (v.startsWith('/media/')) return true; // humare proxy se serve ho rahi hai
+  if (v.startsWith('/media/')) return true; // served through our proxy
   return false;
 }
 

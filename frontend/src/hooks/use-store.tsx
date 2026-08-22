@@ -28,9 +28,9 @@ interface StoreContextValue {
   summary: CartSummary | null;
   cartLoading: boolean;
   /**
-   * true = ye cart abhi local (login se pehle) hai. GST/shipping/coupon
-   * calculate nahi hote — login/checkout ke baad server ka `/orders/quote`
-   * asli numbers deta hai. Cart page pe isse "estimated" note dikhao.
+   * true = this cart is currently local (pre-login). GST/shipping/coupon
+   * are not calculated — after login/checkout the server's `/orders/quote`
+   * returns the real numbers. Show this as an "estimated" note on the cart page.
    */
   isGuestCart: boolean;
   addToCart: (medicine: Medicine, quantity?: number) => Promise<void>;
@@ -100,8 +100,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [cartLoading, setCartLoading] = useState(false);
 
   // -- Guest cart (localStorage) --------------------------------------------
-  // SSR pe hamesha [] se shuru — localStorage sirf client pe hai. Mount ke
-  // baad ek effect me asli value load hoti hai (hydration mismatch se bachne
+  // Always start from [] on SSR — localStorage exists only on the client. After
+  // the real value is loaded in an effect (to avoid a hydration mismatch
   // ke liye).
   const [guestItems, setGuestItems] = useState<GuestCartItem[]>([]);
   useEffect(() => {
@@ -149,9 +149,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [isLoggedIn]);
 
-  // Login transition pe guest cart ko server pe merge karo. Logout pe server
-  // state clear kar do (guest cart alag localStorage me hi rehta hai, isse
-  // touch nahi karte — agli baar login karega to wahi merge hoga).
+  // On the login transition, merge the guest cart on the server. On logout, the server
+  // clear the state (the guest cart stays in its own localStorage; we do not
+  // touch it — it will be merged on the next login).
   const prevLoggedIn = useRef(isLoggedIn);
   useEffect(() => {
     const wasLoggedIn = prevLoggedIn.current;
@@ -167,8 +167,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               setGuestItems([]);
             })
             .catch(() => {
-              // Merge fail ho to bhi login successful hai — guest cart
-              // localStorage me pada rahega, agli baar retry ho jayega.
+              // The login is successful even if the merge fails — the guest cart
+              // it stays in localStorage and will be retried next time.
             })
         : Promise.resolve();
 
@@ -212,7 +212,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Guest — local cart, koi login wall nahi
+      // Guest — local cart, no login wall
       const items = guestCartAdd(medicineToGuestSnapshot(medicine), quantity);
       setGuestItems(items);
       showToast("Added to cart");
@@ -280,13 +280,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [isLoggedIn]);
 
   // -- Wishlist actions -------------------------------------------------------
-  // Wishlist DB-backed hai aur "save for later" hai, guest merge ki zaroorat
-  // utni critical nahi jitni cart ki — login abhi bhi required rakha hai.
+  // The wishlist is DB-backed and acts as "save for later", so a guest merge is
+  // not as critical as the cart — login is still required.
 
   const toggleWishlist = useCallback(
     async (productId: string | number) => {
       if (!isLoggedIn) {
-        showToast("Wishlist ke liye login karo");
+        showToast("Log in to use the wishlist");
         return;
       }
       const id = String(productId);
@@ -303,7 +303,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const isWishlisted = useCallback((productId: string | number) => wishlistIds.includes(String(productId)), [wishlistIds]);
 
-  // -- Unified cart (server ya guest, jo bhi applicable ho) ------------------
+  // -- Unified cart (server or guest, whichever applies) ---------------------
 
   const cartItems = useMemo(
     () => (isLoggedIn ? serverCartItems : guestItems.map(guestItemToApiCartItem)),

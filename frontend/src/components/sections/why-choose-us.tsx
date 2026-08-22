@@ -2,8 +2,8 @@ import { Truck, RefreshCw, Wallet, Headphones } from "lucide-react";
 import { Reveal } from "@/components/ui/reveal";
 
 const points = [
-  { icon: Truck, title: "Free Delivery", desc: "Orders Over $120" },
-  { icon: RefreshCw, title: "Get Refund", desc: "Within 30 Days Returns" },
+  { icon: Truck, title: "Free Delivery", desc: "Orders Over 1500" },
+  { icon: RefreshCw, title: "Get Refund", desc: "Hassle-free return policy" },
   { icon: Wallet, title: "Safe Payment", desc: "100% Secure Payment" },
   { icon: Headphones, title: "24/7 Support", desc: "Feel Free To Call Us" },
 ];

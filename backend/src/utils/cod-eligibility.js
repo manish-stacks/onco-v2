@@ -1,25 +1,25 @@
 /**
- * COD eligibility — cart, quote, aur checkout teeno jagah se yahi use hota
- * hai, taaki teeno jagah same result aaye.
+ * COD eligibility — cart, quote and checkout all use this
+ * so that all three places produce the same result.
  */
 
 /**
- * Ek product COD-eligible hai ya nahi.
+ * Whether a single product is COD-eligible.
  *
- * Do cheezein check hoti hain:
+ * Two things are checked:
  *   1. `isCOD` flag — DB se number (0/1) ya string ('0'/'1') dono aa sakta
- *      hai, driver/config ke hisaab se. `!it.isCOD` purana code me bug tha:
- *      string '0' truthy hoti hai, isliye `!('0')` === false — matlab flag
- *      0 hone par bhi COD allowed reh jaata. Isliye exact string match
- *      karte hain.
- *   2. `storage` text — agar cold-chain range (2-8°C, "refrigerate" waghera)
- *      mention ho, to isCOD true hone ke bawजूद bhi COD nahi dete. Return
- *      hui cold-chain medicine agar delivery ke beech garam ho jaaye to
- *      wapas becha nahi ja sakta — isliye aise items sirf prepaid.
+ *      depending on the driver/config. `!it.isCOD` was a bug in the old code:
+ *      the string '0' is truthy, so `!('0')` === false — meaning the flag
+ *      COD stayed allowed even when the flag was 0. Hence the exact string match
+ *      is used.
+ *   2. `storage` text — if a cold-chain range (2-8°C, "refrigerate" etc.)
+ *      is mentioned, we do not allow COD even if isCOD is true. A returned
+ *      cold-chain medicine that warms up during delivery
+ *      item cannot be resold — so such items are prepaid only.
  *
- * Poora order tabhi COD-eligible hai jab USKE SAARE items eligible hon —
- * ek bhi non-eligible item ho to poora order online payment maangta hai
- * (order split karke aadha COD aadha online nahi ho sakta).
+ * An order is COD-eligible only when ALL of its items are eligible —
+ * if even one item is non-eligible the whole order requires online payment
+ * (an order cannot be split into half COD and half online).
  */
 function isProductCodEligible(product) {
   const codFlag = String(product?.isCOD ?? '0') === '1';
@@ -28,12 +28,12 @@ function isProductCodEligible(product) {
 }
 
 /**
- * Storage instructions me pharma cold-chain range dhoondhta hai.
+ * Looks for a pharma cold-chain range in the storage instructions.
  * "2-8°C" / "2°C to 8°C" / "store between 2 and 8 degrees" ye standard
- * refrigeration range hai (vaccines, biologics, insulin waghera). Broad
- * temperature regex jaan-boojh ke nahi use kiya — warna "store below 25°C"
- * jaisi normal room-temperature instruction bhi galti se cold-chain ban
- * jaati, aur genuine room-temp products pe COD galat block ho jaata.
+ * is a refrigeration range (vaccines, biologics, insulin, etc.). A broad
+ * a temperature regex is deliberately not used — otherwise "store below 25°C"
+ * a normal room-temperature instruction would be mistaken for cold-chain
+ * and COD would be wrongly blocked on genuine room-temperature products.
  */
 function requiresColdChain(storage) {
   if (!storage) return false;

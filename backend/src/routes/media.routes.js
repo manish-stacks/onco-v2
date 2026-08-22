@@ -9,17 +9,17 @@ const storage = require('../services/storage.service');
 /**
  * Cached image proxy — /media/<key>
  *
- * Kaam: S3 se ek baar object laao, local disk pe rakho, aage se wahi serve
- * karo. Isse har page load pe S3 hit nahi hoti (S3 GET requests ka paisa
- * lagta hai aur latency bhi zyada hai).
+ * What it does: fetch the object from S3 once, keep it on the local disk, and serve that from then on
+ * This avoids hitting S3 on every page load (S3 GET requests cost money
+ * and the latency is higher).
  *
- * ⚠ Asli production answer CloudFront hai — wo edge pe cache karta hai,
- * humara server beech me aata hi nahi. Ye proxy tab ke liye hai jab CDN
- * abhi setup na hua ho, ya single-server deploy ho.
+ * ⚠ The real production answer is CloudFront — it caches at the edge,
+ * our server never sits in the middle. This proxy is for when the CDN
+ * may not be set up yet, or the deploy is single-server.
  *
  * CloudFront lagane ke baad `CDN_BASE_URL` set kar do aur
- * `MEDIA_SERVE_MODE=proxy` hata do — URLs seedha CDN ki ban jaayengi
- * aur ye route bypass ho jayega.
+ * remove `MEDIA_SERVE_MODE=proxy` — the URLs will then point straight at the CDN
+ * and this route will be bypassed.
  */
 
 const CACHE_DIR = path.join(__dirname, '..', '..', 'cache', 'media');
@@ -28,7 +28,7 @@ const MAX_CACHE_MB = parseInt(process.env.MEDIA_CACHE_MAX_MB || '2048', 10);
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
-/** Key ko flat filename me — nested folders banane se bachte hain */
+/** Turn the key into a flat filename — avoids creating nested folders */
 function cachePath(key) {
   const hash = crypto.createHash('sha1').update(key).digest('hex');
   const ext = path.extname(key) || '.bin';
@@ -36,8 +36,8 @@ function cachePath(key) {
 }
 
 /**
- * Cache badhta rehta hai to disk bhar jaayegi. Har 100th request pe
- * check karo, aur limit cross ho to sabse purani files hata do.
+ * The cache keeps growing and would fill the disk. On every 100th request
+ * check it, and if the limit is crossed delete the oldest files.
  */
 let requestCount = 0;
 function maybeEvict() {
@@ -54,7 +54,7 @@ function maybeEvict() {
     const totalMb = files.reduce((s, f) => s + f.size, 0) / (1024 * 1024);
     if (totalMb <= MAX_CACHE_MB) return;
 
-    // LRU — sabse purani access wali pehle hatao
+    // LRU — evict the least recently accessed first
     files.sort((a, b) => a.atime - b.atime);
     let freed = 0;
     const target = totalMb - MAX_CACHE_MB * 0.8; // 80% tak le aao
@@ -63,7 +63,7 @@ function maybeEvict() {
       if (freed / (1024 * 1024) >= target) break;
       try { fs.unlinkSync(f.full); freed += f.size; } catch { /* already gone */ }
     }
-    console.log(`[media-cache] ${(freed / 1024 / 1024).toFixed(1)}MB evict kiya`);
+    console.log(`[media-cache] evicted ${(freed / 1024 / 1024).toFixed(1)}MB`);
   } catch (err) {
     console.error('[media-cache] evict fail:', err.message);
   }
@@ -107,7 +107,7 @@ router.get(/^\/(.+)$/, async (req, res) => {
     console.error('[media-cache] read fail:', err.message);
   }
 
-  // 2. Origin (S3) se laao aur cache kar lo
+  // 2. Fetch from origin (S3) and cache it
   try {
     const object = await storage.getObject(key);
     if (!object) return res.status(404).send('Not found');
@@ -115,7 +115,7 @@ router.get(/^\/(.+)$/, async (req, res) => {
     try {
       fs.writeFileSync(local, object.body);
     } catch (err) {
-      // Cache write fail ho to bhi image to serve honi chahiye
+      // The image must still be served even if the cache write fails
       console.error('[media-cache] write fail:', err.message);
     }
 
@@ -129,7 +129,7 @@ router.get(/^\/(.+)$/, async (req, res) => {
   }
 });
 
-/** Cache stats — admin System page dikhata hai */
+/** Cache stats — shown on the admin System page */
 function cacheStats() {
   try {
     const files = fs.readdirSync(CACHE_DIR);
@@ -148,7 +148,7 @@ function cacheStats() {
   }
 }
 
-/** Poora media cache saaf */
+/** Clear the entire media cache */
 function clearCache() {
   let removed = 0;
   try {

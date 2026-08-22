@@ -37,7 +37,7 @@ export default function Banners() {
   const del = useMutation(
     (id) => api.del(`/admin/banners/${id}`),
     {
-      success: 'Banner delete ho gaya',
+      success: 'Banner deleted',
       onSuccess: () => {
         setToDelete(null);
         reload();
@@ -51,7 +51,7 @@ export default function Banners() {
     <>
       <PageHeader
         title="Banners"
-        subtitle="Homepage carousel me jo slides dikhti hain"
+        subtitle="The slides shown in the homepage carousel"
         actions={
           canManage && (
             <Button
@@ -187,8 +187,8 @@ export default function Banners() {
         <Card dense>
           <EmptyState
             icon={Image}
-            title="Koi banner nahi"
-            description="Homepage carousel ke liye pehla banner add karo."
+            title="No banners"
+            description="Add the first banner for the homepage carousel."
             action={
               canManage && (
                 <Button
@@ -244,7 +244,7 @@ export default function Banners() {
           {
             key: 'banner_link',
             label: 'Link URL',
-            hint: 'Click karne pe kahan jaaye',
+            hint: 'Where it goes on click',
           },
 
           // ----------------------------------------------------------
@@ -272,7 +272,7 @@ export default function Banners() {
             key: 'body',
             label: 'Description',
             type: 'textarea',
-            hint: 'Banner ke neeche short description',
+            hint: 'Short description under the banner',
           },
 
           {
@@ -310,7 +310,7 @@ export default function Banners() {
         loading={del.loading}
         title="Delete banner"
         confirmLabel="Delete"
-        message="Ye banner homepage se hat jayega."
+        message="This banner will be removed from the homepage."
       />
     </>
   );

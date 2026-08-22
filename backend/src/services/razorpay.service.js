@@ -5,7 +5,7 @@ let instance = null;
 function getInstance() {
   if (!instance) {
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      throw Object.assign(new Error('Razorpay keys .env me set nahi hain'), { status: 500 });
+      throw Object.assign(new Error('Razorpay keys are not set in .env'), { status: 500 });
     }
     instance = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
@@ -15,7 +15,7 @@ function getInstance() {
   return instance;
 }
 
-/** amount rupees me — paise me convert hoke jaata hai */
+/** amount in rupees — converted to paise before sending */
 async function createOrder(amount, receipt, notes = {}) {
   return getInstance().orders.create({
     amount: Math.round(amount * 100),

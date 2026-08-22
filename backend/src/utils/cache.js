@@ -2,11 +2,11 @@ const redis = require('../config/redis');
 const { CACHE_TTL } = require('../config/constants');
 
 /**
- * Redis kharab ho jaye to app crash nahi hona chahiye — har function
- * error swallow karke DB se seedha data de deta hai.
+ * The app must not crash if Redis breaks — every function
+ * swallows the error and returns data directly from the DB.
  */
 
-/** Cache-aside: pehle redis dekho, na mile to fetchFn chalao aur store karo */
+/** Cache-aside: check redis first, otherwise run fetchFn and store the result */
 async function getOrSet(key, ttlSeconds, fetchFn) {
   try {
     const cached = await redis.get(key);
@@ -45,7 +45,7 @@ async function del(...keys) {
   }
 }
 
-/** SCAN se prefix* ke saare keys delete — KEYS use nahi karta (prod safe) */
+/** Delete every prefix* key via SCAN — does not use KEYS (prod safe) */
 async function delByPrefix(prefix) {
   try {
     const fullPrefix = `${redis.options.keyPrefix || ''}${prefix}`;
@@ -64,7 +64,7 @@ async function delByPrefix(prefix) {
   }
 }
 
-/** Ek product/category badla to jo bhi list cache uspe depend karti hai, saaf */
+/** When a product/category changes, clear every list cache that depends on it */
 const invalidate = {
   products: () => Promise.all([delByPrefix('products:'), delByPrefix('home:')]),
   categories: () => Promise.all([delByPrefix('categories:'), delByPrefix('products:'), delByPrefix('home:')]),

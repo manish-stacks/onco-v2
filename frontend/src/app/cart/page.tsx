@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Minus, Plus, Trash2, ShoppingBag, FileWarning, Tag, ArrowRight, AlertTriangle, Info } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, FileWarning, Tag, ArrowRight, AlertTriangle, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mediaUrl, cartApi, ApiError } from "@/lib/api";
 import { formatINR } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
 import { useAuth } from "@/context/auth-context";
+import { clearAppliedCoupon, getAppliedCoupon, saveAppliedCoupon } from "@/lib/coupon";
 
 
 export default function CartPage() {
@@ -17,25 +18,60 @@ export default function CartPage() {
   const { cartItems, summary, cartLoading, isGuestCart, updateQuantity, removeFromCart, refreshCart } = useStore();
   const [coupon, setCoupon] = useState("");
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const [discount, setDiscount] = useState(0);
+
+  // Restore a coupon that was applied earlier in this session
+  useEffect(() => {
+    const saved = getAppliedCoupon();
+    if (saved) {
+      setAppliedCode(saved.code);
+      setDiscount(saved.discount);
+      setCoupon(saved.code);
+    }
+  }, []);
 
   async function applyCoupon() {
-    if (!coupon.trim()) return;
+    const code = coupon.trim().toUpperCase();
+    if (!code) return;
     if (!isLoggedIn) {
-      setCouponMsg("Coupon apply karne ke liye checkout par mobile verify karo");
+      setCouponError(true);
+      setCouponMsg("Verify your mobile number at checkout to apply a coupon");
       return;
     }
     setApplying(true);
     setCouponMsg(null);
+    setCouponError(false);
     try {
-      await cartApi.applyCoupon(coupon.trim());
-      setCouponMsg(`Coupon "${coupon.trim()}" applied`);
+      // The endpoint validates the code and returns the discount it would give.
+      // We store it so the checkout page can send it with the order.
+      const res = await cartApi.applyCoupon<{ coupon_code: string; discount: number }>(code);
+      const value = Number(res?.discount) || 0;
+      saveAppliedCoupon(code, value);
+      setAppliedCode(code);
+      setDiscount(value);
+      setCouponMsg(`Coupon "${code}" applied — ${formatINR(value)} off`);
       await refreshCart();
     } catch (err) {
+      clearAppliedCoupon();
+      setAppliedCode(null);
+      setDiscount(0);
+      setCouponError(true);
       setCouponMsg(err instanceof ApiError ? err.message : "Could not apply coupon");
     } finally {
       setApplying(false);
     }
+  }
+
+  function removeCoupon() {
+    clearAppliedCoupon();
+    setAppliedCode(null);
+    setDiscount(0);
+    setCoupon("");
+    setCouponMsg(null);
+    setCouponError(false);
   }
 
   if (cartLoading && cartItems.length === 0) {
@@ -50,7 +86,7 @@ export default function CartPage() {
         </span>
         <h1 className="mb-2 font-display text-2xl font-bold text-[var(--ink)]">Your cart is empty</h1>
         <p className="mb-6 max-w-sm text-[var(--ink-soft)]">Looks like you haven&apos;t added any medicines yet. Explore our catalogue to get started.</p>
-        <Button href="/search" icon={<ArrowRight size={16} />}>Continue Shopping</Button>
+        <Button href="/shop" icon={<ArrowRight size={16} />}>Continue Shopping</Button>
       </div>
     );
   }
@@ -140,15 +176,28 @@ export default function CartPage() {
                 className="w-full bg-transparent text-sm outline-none"
               />
             </div>
-            <button
-              onClick={applyCoupon}
-              disabled={applying}
-              className="rounded-full bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              Apply
-            </button>
+            {appliedCode ? (
+              <button
+                onClick={removeCoupon}
+                className="flex items-center gap-1 rounded-full border border-[var(--line)] px-4 text-sm font-semibold text-[var(--ink-soft)]"
+              >
+                <X size={14} /> Remove
+              </button>
+            ) : (
+              <button
+                onClick={applyCoupon}
+                disabled={applying}
+                className="rounded-full bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {applying ? "Checking…" : "Apply"}
+              </button>
+            )}
           </div>
-          {couponMsg && <p className="mb-4 text-xs font-medium text-[var(--mint-600)]">{couponMsg}</p>}
+          {couponMsg && (
+            <p className={`mb-4 text-xs font-medium ${couponError ? "text-[var(--coral-500)]" : "text-[var(--mint-600)]"}`}>
+              {couponMsg}
+            </p>
+          )}
 
           <div className="space-y-2 border-t border-[var(--line)] pt-4 text-sm font-mono-nums">
             <div className="flex justify-between text-[var(--ink-soft)]">
@@ -159,9 +208,15 @@ export default function CartPage() {
               <span>GST</span>
               <span>{formatINR(summary?.gst ?? 0)}</span>
             </div>
+            {discount > 0 && (
+              <div className="flex justify-between text-[var(--mint-600)]">
+                <span>Coupon ({appliedCode})</span>
+                <span>- {formatINR(discount)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]">
               <span>Total</span>
-              <span>{formatINR(summary?.total ?? 0)}</span>
+              <span>{formatINR(Math.max((summary?.total ?? 0) - discount, 0))}</span>
             </div>
             <p className="pt-1 text-xs text-[var(--ink-soft)]">Final shipping &amp; COD fee shown at checkout.</p>
           </div>
@@ -169,7 +224,7 @@ export default function CartPage() {
           <Button href="/checkout" size="lg" className="mt-6 w-full" icon={<ArrowRight size={16} />}>
             Proceed to Checkout
           </Button>
-          <Button href="/search" variant="outline" size="md" className="mt-3 w-full">
+          <Button href="/shop" variant="outline" size="md" className="mt-3 w-full">
             Continue Shopping
           </Button>
         </div>

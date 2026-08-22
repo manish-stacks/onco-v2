@@ -11,22 +11,22 @@ const { MEDIA_MAP, toSourceUrl, isMigrated, legacyBase } = require('../config/me
  *
  * Do phase me:
  *   1. SCAN  — DB scan karke `media_migration_items` me kaam ki list banao
- *   2. RUN   — batch me (50/100) process karo: download -> S3 -> DB update
+ *   2. RUN   — process in batches (50/100): download -> S3 -> DB update
  *
- * Batch me isliye kyunki 10,000+ images ek request me nahi ho sakti — request
- * timeout ho jaayegi aur beech me fail hua to pata nahi chalega kahan tak hua.
- * Har item ka apna status hai, to jitni baar chalao, wahin se aage badhta hai.
+ * Batched because 10,000+ images cannot be done in one request — the request
+ * it would time out, and a mid-way failure would leave no trace of how far it got.
+ * Every item has its own status, so each run continues from where it stopped.
  */
 
-const BATCH_LIMIT = 200; // ek request me isse zyada nahi, chahe kuch bhi bolo
+const BATCH_LIMIT = 200; // never more than this in one request, no matter what is asked
 
 // ---------------------------------------------------------------------------
 // SCAN
 // ---------------------------------------------------------------------------
 
 /**
- * DB scan karke pending items ki list banao.
- * Dobara chalane pe pehle se queued items duplicate nahi honge.
+ * Scan the DB and build the list of pending items.
+ * Re-running it will not duplicate items that are already queued.
  */
 async function scan({ tables } = {}) {
   const targets = tables?.length
@@ -50,10 +50,10 @@ async function scan({ tables } = {}) {
         const raw = row[col];
         if (!raw) continue;
 
-        // JSON array column (prescriptions.images) — har element alag item
+        // JSON array column (prescriptions.images) — each element is a separate item
         // json_index: -1 = normal column, 0+ = JSON array ka index.
-        // NULL isliye nahi use karte kyunki MySQL ka UNIQUE index NULL ko
-        // duplicate nahi maanta — dedupe tootjata hai.
+        // We avoid NULL because MySQL's UNIQUE index does not treat NULL
+        // as a duplicate — the dedupe breaks.
         const values = map.json
           ? parseJson(raw, []).map((v, i) => ({ value: v, index: i }))
           : [{ value: raw, index: -1 }];
@@ -86,7 +86,7 @@ async function scan({ tables } = {}) {
       table: map.table,
       found,                      // DB me kitni image values mili
       queued,                     // kitni NAYI queue hui (duplicate skip)
-      already_migrated: skipped,  // pehle se S3 pe hain
+      already_migrated: skipped,  // already on S3
     });
   }
 
@@ -97,7 +97,7 @@ async function scan({ tables } = {}) {
   return { tables: summary, pending };
 }
 
-/** Duplicate na ho — same (table, record, column, index) dobara queue na kare */
+/** Avoid duplicates — do not queue the same (table, record, column, index) twice */
 async function queueItem(item) {
   try {
     const [res] = await db.query(
@@ -120,7 +120,7 @@ async function queueItem(item) {
 // ---------------------------------------------------------------------------
 
 /**
- * Agla batch process karo.
+ * Process the next batch.
  * @param {object} opts { limit, retryFailed, dryRun }
  */
 async function runBatch({ limit = 50, retryFailed = false, dryRun = false, tables } = {}) {
@@ -129,7 +129,7 @@ async function runBatch({ limit = 50, retryFailed = false, dryRun = false, table
   const statuses = retryFailed ? ['pending', 'failed'] : ['pending'];
   const params = [...statuses];
 
-  // Sirf chuni hui tables — admin ne jo select kiya wahi migrate ho
+  // Only the selected tables — migrate exactly what the admin picked
   let tableFilter = '';
   if (tables?.length) {
     tableFilter = ` AND source_table IN (${tables.map(() => '?').join(',')})`;
@@ -176,7 +176,7 @@ async function runBatch({ limit = 50, retryFailed = false, dryRun = false, table
     }
   }
 
-  // Images badli hain to product/category cache purani URLs de raha hoga
+  // If images changed, the product/category cache is still serving the old URLs
   if (results.succeeded > 0) {
     await cache.invalidate.all();
   }
@@ -188,10 +188,10 @@ async function runBatch({ limit = 50, retryFailed = false, dryRun = false, table
 
 /** Ek image: download -> S3 -> DB update */
 async function migrateOne(item) {
-  // Beech me kisi aur ne migrate kar diya ho to dobara mat karo
+  // If someone else migrated it in the meantime, do not do it again
   const current = await currentValue(item);
   if (current && isMigrated(current)) {
-    await markDone(item, current, 'pehle se migrated');
+    await markDone(item, current, 'already migrated');
     return current;
   }
 
@@ -215,19 +215,19 @@ async function download(url) {
     responseType: 'arraybuffer',
     timeout: 30000,
     maxContentLength: 25 * 1024 * 1024,
-    // Purani site pe kuch images pe SSL/redirect issue ho sakta hai
+    // Some images on the old site may have SSL/redirect issues
     maxRedirects: 5,
     validateStatus: (s) => s >= 200 && s < 300,
     headers: { 'User-Agent': 'oncohealthmart-media-migration/1.0' },
   });
 
   const contentType = res.headers['content-type'] || '';
-  // 404 page HTML aa gaya to usko image samajh ke S3 pe mat daalo
+  // if a 404 page HTML comes back, do not treat it as an image and push it to S3
   if (contentType.includes('text/html')) {
-    throw new Error('Source ne image ki jagah HTML bheja (404 page?)');
+    throw new Error('The source returned HTML instead of an image (404 page?)');
   }
   if (!res.data || res.data.length < 100) {
-    throw new Error('File khaali ya bahut chhoti hai');
+    throw new Error('The file is empty or too small');
   }
 
   return { data: Buffer.from(res.data), contentType };
@@ -247,8 +247,8 @@ async function currentValue(item) {
   return row.val;
 }
 
-/** DB me nayi URL daalo — JSON column me sirf wahi index badlo */
-/** -1 matlab normal column, 0+ matlab JSON array ka element */
+/** Write the new URL into the DB — in a JSON column, change only that index */
+/** -1 means a normal column, 0+ means an element of a JSON array */
 function isJsonItem(item) {
   return item.json_index !== null && item.json_index !== undefined && item.json_index >= 0;
 }
@@ -302,11 +302,11 @@ async function pendingCount(includeFailed = false, tables) {
 }
 
 /**
- * Migrate karne se pehle dikhane ke liye — pending images ka sample.
+ * Preview before migrating — a sample of the pending images.
  *
- * source_url public site ki hai, isliye browser seedha `<img>` me load kar
- * leta hai. Isse admin dekh sakta hai ki jo migrate hone wali hai wo sahi
- * image hai ya 404/placeholder.
+ * the source_url belongs to the public site, so the browser can load it directly in an `<img>`
+ * This lets the admin verify that what is about to be migrated is correct
+ * whether the image exists or is a 404/placeholder.
  */
 async function preview({ tables, limit = 24, offset = 0 } = {}) {
   const params = [];
@@ -330,8 +330,8 @@ async function preview({ tables, limit = 24, offset = 0 } = {}) {
     params
   );
 
-  // URL yahan dobara banate hain, DB me padi hui pe bharosa nahi karte —
-  // LEGACY_MEDIA_PATH badla ho to purani queued rows me galat URL padi hogi
+  // We rebuild the URL here rather than trusting what is stored in the DB —
+  // If LEGACY_MEDIA_PATH changed, the old queued rows hold the wrong URL
   return {
     rows: rows.map((r) => ({ ...r, source_url: resolveUrl(r) })),
     total,
@@ -341,10 +341,10 @@ async function preview({ tables, limit = 24, offset = 0 } = {}) {
 /**
  * Item ka asli source URL.
  *
- * `source_url` column scan ke waqt bhara jaata hai. Agar uske baad
- * LEGACY_MEDIA_BASE_URL ya LEGACY_MEDIA_PATH badla ho, to wo stale ho jaata
- * hai — isliye har baar `old_value` se fresh banate hain. Stored column
- * sirf audit ke liye reh jaata hai.
+ * The `source_url` column is filled during the scan. If afterwards
+ * If LEGACY_MEDIA_BASE_URL or LEGACY_MEDIA_PATH changed, it goes stale
+ * so we rebuild it from `old_value` every time. A stored column
+ * remains only for auditing.
  */
 function resolveUrl(item) {
   return toSourceUrl(item.old_value) || item.source_url;
@@ -352,8 +352,8 @@ function resolveUrl(item) {
 
 /**
  * Purani queued rows ka source_url current config se theek kar do.
- * Runtime pe to resolveUrl already sambhal leta hai, ye sirf DB ko
- * consistent rakhne ke liye hai.
+ * At runtime resolveUrl already handles it; this only keeps the DB
+ * exists to keep it consistent.
  */
 async function repairSourceUrls({ tables } = {}) {
   const params = [];
@@ -429,7 +429,7 @@ async function failedItems({ limit = 50, offset = 0 } = {}) {
   return { rows, total };
 }
 
-/** Failed items ko wapas pending karo — retry ke liye */
+/** Move failed items back to pending — for a retry */
 async function resetFailed() {
   const [res] = await db.query(
     `UPDATE media_migration_items SET status = 'pending', error = NULL WHERE status = 'failed'`
@@ -437,7 +437,7 @@ async function resetFailed() {
   return { reset: res.affectedRows };
 }
 
-/** Sab clear — dobara scan karne se pehle */
+/** Clear everything — before scanning again */
 async function clearQueue() {
   const [res] = await db.query(`DELETE FROM media_migration_items`);
   return { cleared: res.affectedRows };

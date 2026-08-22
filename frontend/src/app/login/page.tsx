@@ -1,49 +1,75 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Phone, Lock, KeyRound, ArrowRight, Loader2, Eye, EyeOff,
-  ShieldCheck, Truck, Headphones, CheckCircle2,
+  Phone,
+  Lock,
+  KeyRound,
+  ArrowRight,
+  Loader2,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Truck,
+  Pill,
+  CheckCircle2,
 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { ApiError } from "@/lib/api";
 
-const trustPoints = [
-  { icon: ShieldCheck, text: "100% genuine, licensed pharmacy medicines" },
-  { icon: Truck, text: "Fast, discreet delivery across India" },
-  { icon: Headphones, text: "Real pharmacist support, 24/7" },
-];
-
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
+
   const redirectTo = params.get("redirect") || "/account";
-  const { requestOtp, verifyOtp, loginPassword } = useAuth();
+
+  const { requestOtp, verifyOtp, loginPassword, isLoggedIn, loading: authLoading } = useAuth();
+
+  // No point showing the login page to someone who is already signed in —
+  // send them straight to the redirect target (or their account).
+  useEffect(() => {
+    if (!authLoading && isLoggedIn) router.replace(redirectTo);
+  }, [authLoading, isLoggedIn, redirectTo, router]);
 
   const [mode, setMode] = useState<"otp" | "password">("otp");
+
   const [mobile, setMobile] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [otp, setOtp] = useState("");
-  const [customerId, setCustomerId] = useState<string | number | null>(null);
+
+  const [customerId, setCustomerId] = useState<
+    string | number | null
+  >(null);
+
   const [devOtp, setDevOtp] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [showPassword, setShowPassword] = useState(false);
+
   async function handleRequestOtp(e: React.FormEvent) {
     e.preventDefault();
+
     setError(null);
     setLoading(true);
+
     try {
       const res = await requestOtp(mobile);
+
       setCustomerId(res.customer_id);
       setDevOtp(res.dev_otp || null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not send OTP");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not send OTP"
+      );
     } finally {
       setLoading(false);
     }
@@ -51,14 +77,22 @@ function LoginInner() {
 
   async function handleVerifyOtp(e: React.FormEvent) {
     e.preventDefault();
+
     if (!customerId) return;
+
     setError(null);
     setLoading(true);
+
     try {
       await verifyOtp(customerId, otp);
+
       router.push(redirectTo);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Invalid OTP");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Invalid OTP"
+      );
     } finally {
       setLoading(false);
     }
@@ -66,13 +100,20 @@ function LoginInner() {
 
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault();
+
     setError(null);
     setLoading(true);
+
     try {
       await loginPassword(mobile, password);
+
       router.push(redirectTo);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Login failed");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Login failed"
+      );
     } finally {
       setLoading(false);
     }
@@ -81,208 +122,451 @@ function LoginInner() {
   function switchMode(next: "otp" | "password") {
     setMode(next);
     setError(null);
-    if (next === "otp") setCustomerId(null);
+
+    if (next === "otp") {
+      setCustomerId(null);
+      setOtp("");
+      setDevOtp(null);
+    }
   }
 
   return (
-    <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl grid-cols-1 lg:grid-cols-[1fr_1fr]">
-      {/* Branding panel — desktop only */}
-      <div className="relative hidden overflow-hidden bg-gradient-to-br from-[var(--blue-600)] to-[var(--blue-900)] px-12 py-16 lg:flex lg:flex-col lg:justify-center">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-white/5" />
+    <main className="min-h-[calc(100vh-4rem)]  px-4 py-10 sm:px-6 sm:py-14">
 
-        <div className="relative">
-          <Link href="/" className="mb-10 inline-flex items-center rounded-lg bg-white px-3 py-2">
-            <Image src="/logo.png" alt="Onco Health Mart" width={180} height={56} className="h-10 w-auto object-contain" />
-          </Link>
-
-          <h2 className="mb-3 max-w-sm font-display text-3xl font-bold leading-tight text-white">
-            Your health, delivered with care.
-          </h2>
-          <p className="mb-10 max-w-sm text-sm leading-relaxed text-white/70">
-            Sign in to track orders, manage prescriptions, and get your medicines faster next time.
-          </p>
-
-          <ul className="space-y-4">
-            {trustPoints.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3 text-sm text-white/90">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
-                  <Icon size={16} />
-                </span>
-                {text}
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* Background decoration */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-1/2 top-32 h-72 w-72 -translate-x-1/2 rounded-full bg-blue-100/40 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-teal-100/30 blur-3xl" />
       </div>
 
-      {/* Form panel */}
-      <div className="flex flex-col justify-center px-4 py-12 sm:px-8 lg:px-16">
-        <div className="mx-auto w-full max-w-sm">
-          {/* Mobile-only compact logo */}
-          <Link href="/" className="mb-8 flex justify-center lg:hidden">
-            <Image src="/logo.png" alt="Onco Health Mart" width={160} height={50} className="h-10 w-auto object-contain" />
-          </Link>
+      <div className="relative mx-auto w-full max-w-[470px]">
 
-          <h1 className="mb-1 font-display text-2xl font-bold text-[var(--ink)]">Welcome back</h1>
-          <p className="mb-7 text-sm text-[var(--ink-soft)]">Login to manage orders, prescriptions and your wishlist.</p>
+        {/* Login Card */}
+        <div className="rounded-3xl border border-slate-200/80 bg-white px-6 py-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:px-9 sm:py-10">
 
-          <div className="mb-6 flex rounded-full bg-black/[0.04] p-1 text-sm font-medium">
-            <button
-              onClick={() => switchMode("otp")}
-              className={`flex-1 rounded-full py-2.5 transition-colors ${mode === "otp" ? "bg-white text-[var(--ink)] shadow-sm" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"}`}
-            >
-              OTP Login
-            </button>
-            <button
-              onClick={() => switchMode("password")}
-              className={`flex-1 rounded-full py-2.5 transition-colors ${mode === "password" ? "bg-white text-[var(--ink)] shadow-sm" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"}`}
-            >
-              Password
-            </button>
+         
+
+          {/* Heading */}
+          <div className="mb-7 text-center">
+
+            <h1 className="text-[28px] font-bold tracking-tight text-slate-900">
+              Welcome Back 👋
+            </h1>
+
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Login to continue shopping and manage your account.
+            </p>
+
           </div>
 
+          {/* Login Mode Toggle */}
+          <div className="mb-7 rounded-xl bg-slate-100 p-1">
+
+            <div className="grid grid-cols-2 gap-1">
+
+              <button
+                type="button"
+                onClick={() => switchMode("otp")}
+                className={`rounded-lg py-2.5 text-sm font-semibold transition-all ${
+                  mode === "otp"
+                    ? "bg-white text-blue-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                OTP Login
+              </button>
+
+              <button
+                type="button"
+                onClick={() => switchMode("password")}
+                className={`rounded-lg py-2.5 text-sm font-semibold transition-all ${
+                  mode === "password"
+                    ? "bg-white text-blue-700 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Password
+              </button>
+
+            </div>
+          </div>
+
+          {/* Error */}
           {error && (
-            <div className="mb-5 rounded-[var(--radius-sm)] border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3 text-sm text-[var(--coral-500)]">
-              {error}
+            <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-sm font-medium text-red-700">
+                {error}
+              </p>
             </div>
           )}
 
+          {/* ================= OTP LOGIN ================= */}
+
           {mode === "otp" ? (
             !customerId ? (
-              <form onSubmit={handleRequestOtp} className="space-y-5">
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium text-[var(--ink)]">Mobile number</span>
-                  <div className="flex h-12 items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 transition-colors focus-within:border-[var(--blue-500)]">
-                    <Phone size={16} className="shrink-0 text-[var(--ink-soft)]" />
+
+              <form
+                onSubmit={handleRequestOtp}
+                className="space-y-5"
+              >
+
+                {/* Mobile */}
+                <div>
+
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Mobile Number
+                  </label>
+
+                  <div className="flex h-13 items-center rounded-xl border border-slate-200 bg-white px-4 transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
+
+                    <span className="mr-3 border-r border-slate-200 pr-3 text-sm font-semibold text-slate-700">
+                      +91
+                    </span>
+
+                    <Phone
+                      size={17}
+                      className="mr-2 shrink-0 text-slate-400"
+                    />
+
                     <input
                       required
                       autoFocus
                       type="tel"
                       inputMode="numeric"
+                      maxLength={10}
                       value={mobile}
-                      onChange={(e) => setMobile(e.target.value)}
-                      placeholder="10-digit mobile number"
-                      className="w-full bg-transparent text-sm outline-none"
+                      onChange={(e) =>
+                        setMobile(
+                          e.target.value.replace(/\D/g, "")
+                        )
+                      }
+                      placeholder="Enter mobile number"
+                      className="h-full w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                     />
+
                   </div>
-                </label>
+
+                </div>
+
+                {/* Button */}
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full"
                   disabled={loading}
-                  icon={loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                  className="h-13 w-full rounded-xl bg-gradient-to-r from-blue-600 to-teal-500 text-white shadow-lg shadow-blue-500/15 transition-all hover:shadow-xl hover:shadow-blue-500/20"
+                  icon={
+                    loading ? (
+                      <Loader2
+                        size={17}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <ArrowRight size={17} />
+                    )
+                  }
                 >
-                  {loading ? "Sending OTP…" : "Send OTP"}
+                  {loading ? "Sending OTP..." : "Send OTP"}
                 </Button>
-                <p className="text-center text-xs leading-relaxed text-[var(--ink-soft)]">
-                  New number? An account will be created automatically after verification.
+
+                <p className="text-center text-xs leading-5 text-slate-400">
+                  New number? Your account will be created
+                  automatically after verification.
                 </p>
+
               </form>
+
             ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-5">
-                <div className="flex items-start gap-2.5 rounded-[var(--radius-sm)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 px-4 py-3">
-                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[var(--blue-500)]" />
-                  <p className="text-xs leading-relaxed text-[var(--blue-700)]">
-                    OTP sent to <span className="font-semibold">{mobile}</span>.{" "}
-                    <button type="button" onClick={() => setCustomerId(null)} className="font-semibold underline underline-offset-2">
-                      Change number
-                    </button>
-                  </p>
+
+              /* ================= OTP VERIFY ================= */
+
+              <form
+                onSubmit={handleVerifyOtp}
+                className="space-y-5"
+              >
+
+                {/* OTP Sent */}
+                <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4">
+
+                  <div className="flex items-start gap-3">
+
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                      <CheckCircle2
+                        size={17}
+                        className="text-blue-600"
+                      />
+                    </div>
+
+                    <div>
+
+                      <p className="text-sm font-medium text-slate-700">
+                        OTP sent successfully
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        Enter the OTP sent to{" "}
+                        <span className="font-semibold text-slate-700">
+                          +91 {mobile}
+                        </span>
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomerId(null);
+                          setOtp("");
+                          setDevOtp(null);
+                        }}
+                        className="mt-2 text-xs font-semibold text-blue-600 underline underline-offset-2"
+                      >
+                        Change number
+                      </button>
+
+                    </div>
+
+                  </div>
                 </div>
 
+                {/* Dev OTP */}
                 {devOtp && (
-                  <p className="rounded-[var(--radius-sm)] bg-[var(--blue-50)] px-4 py-2 text-xs text-[var(--blue-600)]">
-                    Dev mode OTP: <span className="font-mono-nums font-bold">{devOtp}</span>
-                  </p>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+                    Development OTP:
+                    <span className="ml-2 font-mono font-bold">
+                      {devOtp}
+                    </span>
+                  </div>
                 )}
 
-                <label className="block">
-                  <span className="mb-1.5 block text-sm font-medium text-[var(--ink)]">Enter OTP</span>
-                  <div className="flex h-12 items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 transition-colors focus-within:border-[var(--blue-500)]">
-                    <KeyRound size={16} className="shrink-0 text-[var(--ink-soft)]" />
+                {/* OTP Input */}
+                <div>
+
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Enter OTP
+                  </label>
+
+                  <div className="flex h-14 items-center rounded-xl border border-slate-200 bg-white px-4 transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
+
+                    <KeyRound
+                      size={18}
+                      className="mr-3 shrink-0 text-slate-400"
+                    />
+
                     <input
                       required
                       autoFocus
                       inputMode="numeric"
+                      maxLength={6}
                       value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="6-digit OTP"
-                      className="w-full bg-transparent text-sm tracking-[0.3em] outline-none"
+                      onChange={(e) =>
+                        setOtp(
+                          e.target.value.replace(/\D/g, "")
+                        )
+                      }
+                      placeholder="Enter 6-digit OTP"
+                      className="w-full bg-transparent text-center text-lg font-semibold tracking-[0.45em] text-slate-900 outline-none placeholder:text-sm placeholder:tracking-normal placeholder:text-slate-400"
                     />
+
                   </div>
-                </label>
+
+                </div>
 
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full"
                   disabled={loading}
-                  icon={loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                  className="h-13 w-full rounded-xl bg-gradient-to-r from-blue-600 to-teal-500 text-white shadow-lg shadow-blue-500/15"
+                  icon={
+                    loading ? (
+                      <Loader2
+                        size={17}
+                        className="animate-spin"
+                      />
+                    ) : (
+                      <ArrowRight size={17} />
+                    )
+                  }
                 >
-                  {loading ? "Verifying…" : "Verify & Login"}
+                  {loading
+                    ? "Verifying..."
+                    : "Verify & Login"}
                 </Button>
+
               </form>
             )
+
           ) : (
-            <form onSubmit={handlePasswordLogin} className="space-y-5">
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-[var(--ink)]">Mobile number</span>
-                <div className="flex h-12 items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 transition-colors focus-within:border-[var(--blue-500)]">
-                  <Phone size={16} className="shrink-0 text-[var(--ink-soft)]" />
+
+            /* ================= PASSWORD LOGIN ================= */
+
+            <form
+              onSubmit={handlePasswordLogin}
+              className="space-y-5"
+            >
+
+              {/* Mobile */}
+              <div>
+
+                <label className="mb-2 block text-sm font-semibold text-slate-700">
+                  Mobile Number
+                </label>
+
+                <div className="flex h-13 items-center rounded-xl border border-slate-200 bg-white px-4 transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
+
+                  <span className="mr-3 border-r border-slate-200 pr-3 text-sm font-semibold text-slate-700">
+                    +91
+                  </span>
+
+                  <Phone
+                    size={17}
+                    className="mr-2 shrink-0 text-slate-400"
+                  />
+
                   <input
                     required
                     type="tel"
                     inputMode="numeric"
+                    maxLength={10}
                     value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    placeholder="10-digit mobile number"
-                    className="w-full bg-transparent text-sm outline-none"
+                    onChange={(e) =>
+                      setMobile(
+                        e.target.value.replace(/\D/g, "")
+                      )
+                    }
+                    placeholder="Enter mobile number"
+                    className="h-full w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                   />
+
                 </div>
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-[var(--ink)]">Password</span>
-                <div className="flex h-12 items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 transition-colors focus-within:border-[var(--blue-500)]">
-                  <Lock size={16} className="shrink-0 text-[var(--ink-soft)]" />
+
+              </div>
+
+              {/* Password */}
+              <div>
+
+                <div className="mb-2 flex items-center justify-between">
+
+                  <label className="text-sm font-semibold text-slate-700">
+                    Password
+                  </label>
+
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-semibold text-blue-600 hover:underline"
+                  >
+                    Forgot Password?
+                  </Link>
+
+                </div>
+
+                <div className="flex h-13 items-center rounded-xl border border-slate-200 bg-white px-4 transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
+
+                  <Lock
+                    size={17}
+                    className="mr-2 shrink-0 text-slate-400"
+                  />
+
                   <input
                     required
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Your password"
-                    className="w-full bg-transparent text-sm outline-none"
+                    onChange={(e) =>
+                      setPassword(e.target.value)
+                    }
+                    placeholder="Enter your password"
+                    className="h-full w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                   />
+
                   <button
                     type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="shrink-0 text-[var(--ink-soft)] hover:text-[var(--ink)]"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() =>
+                      setShowPassword((v) => !v)
+                    }
+                    className="ml-2 shrink-0 text-slate-400 transition hover:text-slate-700"
+                    aria-label={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
                   >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPassword ? (
+                      <EyeOff size={17} />
+                    ) : (
+                      <Eye size={17} />
+                    )}
                   </button>
+
                 </div>
-              </label>
+
+              </div>
+
               <Button
                 type="submit"
                 size="lg"
-                className="w-full"
                 disabled={loading}
-                icon={loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                className="h-13 w-full rounded-xl bg-gradient-to-r from-blue-600 to-teal-500 text-white shadow-lg shadow-blue-500/15"
+                icon={
+                  loading ? (
+                    <Loader2
+                      size={17}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <ArrowRight size={17} />
+                  )
+                }
               >
-                {loading ? "Logging in…" : "Login"}
+                {loading ? "Logging in..." : "Login"}
               </Button>
+
             </form>
           )}
 
-          <p className="mt-8 text-center text-sm text-[var(--ink-soft)]">
-            New here?{" "}
-            <Link href="/register" className="font-semibold text-[var(--blue-600)] hover:underline">Create an account</Link>
+
+          {/* Register */}
+          <div className="mt-6 border-t border-slate-100 pt-6 text-center">
+
+            <p className="text-sm text-slate-500">
+              New to Onco Health Mart?
+            </p>
+
+            <Link
+              href="/register"
+              className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
+            >
+              Create an account
+              <ArrowRight size={14} />
+            </Link>
+
+          </div>
+
+          {/* Footer */}
+          <p className="mt-7 text-center text-[11px] leading-5 text-slate-400">
+            By continuing, you agree to our{" "}
+            <Link
+              href="/terms"
+              className="text-slate-500 underline"
+            >
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link
+              href="/privacy-policy"
+              className="text-slate-500 underline"
+            >
+              Privacy Policy
+            </Link>
+            .
           </p>
+
         </div>
+
+        {/* Bottom security text */}
+        <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-400">
+          <ShieldCheck size={14} className="text-teal-500" />
+          Your information is protected and securely encrypted
+        </div>
+
       </div>
-    </div>
+    </main>
   );
 }
 

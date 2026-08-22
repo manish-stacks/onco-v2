@@ -5,14 +5,14 @@ const { getPagination } = require('../../utils/helpers');
 const events = require('../../services/events.service');
 
 /**
- * Web aur app dono yahi endpoint use karte hain. Jitni images bhejo (1 se 10),
- * sab ek JSON array me store hoti hain — koi image_1..image_5 wala jhanjhat nahi.
+ * Both web and app use this endpoint. However many images you send (1 to 10),
+ * are all stored in one JSON array — no image_1..image_5 hassle.
  */
 
 /** POST /prescriptions — multipart, field name: images */
 const upload = asyncHandler(async (req, res) => {
   const files = req.files || [];
-  if (!files.length) return fail(res, 'Kam se kam ek prescription image chahiye', 422);
+  if (!files.length) return fail(res, 'At least one prescription image is required', 422);
 
   const images = await storeFiles(files, 'prescriptions');
   console.log('Uploaded prescription images:', images.length, images);
@@ -36,32 +36,32 @@ const upload = asyncHandler(async (req, res) => {
     source: req.platform,
   }, 'prescriptions.view');
 
-  return created(res, { ...result, images }, `${images.length} image(s) upload ho gayi`);
+  return created(res, { ...result, images }, `${images.length} image(s) uploaded`);
 });
 
 /** POST /prescriptions/:id/images — existing prescription me aur images */
 const addImages = asyncHandler(async (req, res) => {
   const presc = await prescriptionModel.findById(req.params.id);
-  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription nahi mila', 404);
+  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription not found', 404);
   if (!['Pending', 'Under Review'].includes(presc.status)) {
-    return fail(res, `'${presc.status}' status me images add nahi kar sakte`, 409);
+    return fail(res, `Images cannot be added while the status is '${presc.status}'`, 409);
   }
 
   const files = req.files || [];
-  if (!files.length) return fail(res, 'Koi image nahi mili', 422);
+  if (!files.length) return fail(res, 'No image was received', 422);
 
   const uploaded = await storeFiles(files, 'prescriptions');
   const images = await prescriptionModel.addImages(req.params.id, uploaded);
-  return ok(res, { images }, 'Images add ho gayi');
+  return ok(res, { images }, 'Images added');
 });
 
 /** DELETE /prescriptions/:id/images */
 const removeImage = asyncHandler(async (req, res) => {
   const presc = await prescriptionModel.findById(req.params.id);
-  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription nahi mila', 404);
+  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription not found', 404);
 
   const images = await prescriptionModel.removeImage(req.params.id, req.body.image_path);
-  return ok(res, { images }, 'Image hata di');
+  return ok(res, { images }, 'Image removed');
 });
 
 /** GET /prescriptions */
@@ -77,20 +77,20 @@ const myPrescriptions = asyncHandler(async (req, res) => {
 /** GET /prescriptions/:id */
 const prescriptionDetail = asyncHandler(async (req, res) => {
   const presc = await prescriptionModel.findById(req.params.id);
-  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription nahi mila', 404);
+  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription not found', 404);
   return ok(res, presc);
 });
 
-/** DELETE /prescriptions/:id — sirf pending state me */
+/** DELETE /prescriptions/:id — only while pending */
 const cancelPrescription = asyncHandler(async (req, res) => {
   const presc = await prescriptionModel.findById(req.params.id);
-  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription nahi mila', 404);
+  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription not found', 404);
   if (!['Pending', 'Under Review'].includes(presc.status)) {
-    return fail(res, `'${presc.status}' status ka prescription cancel nahi ho sakta`, 409);
+    return fail(res, `A prescription with status '${presc.status}' cannot be cancelled`, 409);
   }
 
   await prescriptionModel.updateStatus(req.params.id, 'Cancelled', { rejectionReason: req.body.reason });
-  return ok(res, null, 'Prescription cancel ho gaya');
+  return ok(res, null, 'Prescription cancelled');
 });
 
 module.exports = {

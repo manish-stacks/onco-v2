@@ -3,14 +3,14 @@ const fs = require('fs');
 const crypto = require('crypto');
 
 /**
- * File storage. S3 configure ho to S3, warna local disk — dono ka interface
- * same hai, isliye upload code ko farak nahi padta.
+ * File storage. S3 when configured, otherwise the local disk — the interface for both
+ * is the same, so the upload code does not change.
  *
  * .env:
  *   S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY
  *   S3_ENDPOINT       (optional — DigitalOcean Spaces / MinIO ke liye)
  *   CDN_BASE_URL      (optional — CloudFront domain)
- *   MEDIA_PUBLIC_READ (default true — false karo to signed URLs chahiye honge)
+ *   MEDIA_PUBLIC_READ (default true — set false and signed URLs will be required)
  */
 
 let s3Client = null;
@@ -33,7 +33,7 @@ function getClient() {
 
   const c = config();
   if (!c.bucket || !process.env.S3_ACCESS_KEY_ID) {
-    initError = 'S3 configure nahi hai — local disk use ho rahi hai';
+    initError = 'S3 is not configured — falling back to local disk';
     return null;
   }
 
@@ -61,7 +61,7 @@ function isS3Enabled() {
   return !!getClient();
 }
 
-/** Unique key banao — collision na ho aur original naam ka hint rahe */
+/** Build a unique key — avoid collisions while keeping a hint of the original name */
 function buildKey(folder, originalName) {
   const ext = path.extname(originalName || '').toLowerCase() || '.jpg';
   const base = path.basename(originalName || 'file', ext)
@@ -86,8 +86,8 @@ function mimeFor(key) {
 }
 
 /**
- * Buffer upload karo.
- * @returns {{ key, url, storage }} — url wahi hai jo DB me store hoga
+ * Upload the buffer.
+ * @returns {{ key, url, storage }} — url is exactly what gets stored in the DB
  */
 async function upload(buffer, { folder = 'misc', filename, contentType } = {}) {
   const key = buildKey(folder, filename);
@@ -105,14 +105,14 @@ async function upload(buffer, { folder = 'misc', filename, contentType } = {}) {
     Key: key,
     Body: buffer,
     ContentType: type,
-    // Ek saal ka cache — filename me hash hai, to content badalne pe key badal jaati hai
+    // One year of cache — the filename contains a hash, so the key changes when the content changes
     CacheControl: 'public, max-age=31536000, immutable',
   }));
 
   return { key, url: publicUrl(key), storage: 's3' };
 }
 
-/** S3 na ho to local disk — dev me flow chalta rahe */
+/** Fall back to the local disk when S3 is absent — so the flow keeps working in dev */
 function uploadLocal(buffer, key, contentType) {
   const dir = path.join(__dirname, '..', '..', 'uploads', path.dirname(key));
   fs.mkdirSync(dir, { recursive: true });
@@ -120,12 +120,12 @@ function uploadLocal(buffer, key, contentType) {
   return { key, url: `/uploads/${key}`, storage: 'local', contentType };
 }
 
-/** DB me jaane wala URL. CDN ho to CDN, warna S3 direct, warna local. */
+/** The URL that goes into the DB. CDN if available, otherwise S3 direct, otherwise local. */
 function publicUrl(key) {
   const c = config();
   if (!c.bucket) return `/uploads/${key}`;
 
-  // Proxy mode: apne server se serve karo taaki cache layer beech me aaye
+  // Proxy mode: serve from our own server so the cache layer sits in the middle
   if (process.env.MEDIA_SERVE_MODE === 'proxy') return `/media/${key}`;
 
   if (c.cdn) return `${c.cdn}/${key}`;
@@ -133,7 +133,7 @@ function publicUrl(key) {
   return `https://${c.bucket}.s3.${c.region}.amazonaws.com/${key}`;
 }
 
-/** S3 se object laao — proxy route aur migration verify dono use karte hain */
+/** Fetch an object from S3 — used by both the proxy route and migration verification */
 async function getObject(key) {
   const client = getClient();
   if (!client) {
@@ -189,10 +189,10 @@ async function exists(key) {
   }
 }
 
-/** Health check ke liye — bucket tak pahunch ban rahi hai? */
+/** For health checks — is the bucket reachable? */
 async function ping() {
   const client = getClient();
-  if (!client) return { ok: false, reason: initError || 'S3 configure nahi hai' };
+  if (!client) return { ok: false, reason: initError || 'S3 is not configured' };
 
   // eslint-disable-next-line global-require, import/no-extraneous-dependencies
   const { HeadBucketCommand } = require('@aws-sdk/client-s3');
@@ -200,7 +200,7 @@ async function ping() {
     await client.send(new HeadBucketCommand({ Bucket: config().bucket }));
     return { ok: true, bucket: config().bucket, region: config().region };
   } catch (err) {
-    return { ok: false, reason: err.name === 'Forbidden' ? 'Bucket pe access nahi hai' : err.message };
+    return { ok: false, reason: err.name === 'Forbidden' ? 'No access to the bucket' : err.message };
   }
 }
 

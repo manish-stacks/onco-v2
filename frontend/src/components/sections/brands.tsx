@@ -21,7 +21,7 @@ export function Brands({ brands }: { brands: BrandTag[] }) {
         </div>
 
         <Link
-          href="/shop"
+          href="/brands"
           className="flex items-center gap-1 font-semibold text-[#063b67]"
         >
           All Brands

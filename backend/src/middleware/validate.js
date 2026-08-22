@@ -1,7 +1,7 @@
 const { fail } = require('../utils/response');
 
 /**
- * Halka-phulka validator — koi bhaari library nahi.
+ * A lightweight validator — no heavy library.
  *
  *   validate({
  *     customer_name: { required: true, maxLength: 100 },
@@ -26,7 +26,7 @@ function validate(schema, source = 'body') {
       const isEmpty = value === undefined || value === null || value === '';
 
       if (rules.required && isEmpty) {
-        errors[field] = rules.message || `${field} zaroori hai`;
+        errors[field] = rules.message || `${field} is required`;
         continue;
       }
       if (isEmpty) continue; // optional aur khaali — skip
@@ -34,26 +34,26 @@ function validate(schema, source = 'body') {
       if (rules.type === 'int' || rules.type === 'number') {
         const num = Number(value);
         if (Number.isNaN(num) || (rules.type === 'int' && !Number.isInteger(num))) {
-          errors[field] = rules.message || `${field} number hona chahiye`;
+          errors[field] = rules.message || `${field} must be a number`;
           continue;
         }
         if (rules.min !== undefined && num < rules.min) {
-          errors[field] = rules.message || `${field} minimum ${rules.min} hona chahiye`;
+          errors[field] = rules.message || `${field} must be at least ${rules.min}`;
           continue;
         }
         if (rules.max !== undefined && num > rules.max) {
-          errors[field] = rules.message || `${field} maximum ${rules.max} ho sakta hai`;
+          errors[field] = rules.message || `${field} can be at most ${rules.max}`;
           continue;
         }
       }
 
       if (rules.type === 'array') {
         if (!Array.isArray(value)) {
-          errors[field] = rules.message || `${field} array hona chahiye`;
+          errors[field] = rules.message || `${field} must be an array`;
           continue;
         }
         if (rules.minItems && value.length < rules.minItems) {
-          errors[field] = rules.message || `${field} me kam se kam ${rules.minItems} item chahiye`;
+          errors[field] = rules.message || `${field} needs at least ${rules.minItems} item(s)`;
           continue;
         }
       }
@@ -72,19 +72,19 @@ function validate(schema, source = 'body') {
       }
 
       if (rules.pattern && !rules.pattern.test(String(value))) {
-        errors[field] = rules.message || `${field} ka format galat hai`;
+        errors[field] = rules.message || `${field} has an invalid format`;
         continue;
       }
       if (rules.minLength && String(value).length < rules.minLength) {
-        errors[field] = rules.message || `${field} kam se kam ${rules.minLength} characters ka ho`;
+        errors[field] = rules.message || `${field} must be at least ${rules.minLength} characters`;
         continue;
       }
       if (rules.maxLength && String(value).length > rules.maxLength) {
-        errors[field] = rules.message || `${field} zyada se zyada ${rules.maxLength} characters ka ho`;
+        errors[field] = rules.message || `${field} can be at most ${rules.maxLength} characters`;
         continue;
       }
       if (rules.enum && !rules.enum.includes(value)) {
-        errors[field] = rules.message || `${field} in me se ek hona chahiye: ${rules.enum.join(', ')}`;
+        errors[field] = rules.message || `${field} must be one of: ${rules.enum.join(', ')}`;
       }
     }
 

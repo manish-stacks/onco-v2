@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
 
-/** Search box ke liye — har keystroke pe API hit na ho */
+/** For the search box — so the API is not hit on every keystroke */
 export function useDebounced(value, delay = 350) {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -13,7 +13,7 @@ export function useDebounced(value, delay = 350) {
 }
 
 /**
- * Paginated list + filters. Har list page yahi use karta hai.
+ * Paginated list + filters. Every list page uses this.
  *   const { rows, pagination, filters, setFilter, loading, reload } = useList('/admin/orders');
  */
 export function useList(path, initialFilters = {}, { immediate = true } = {}) {
@@ -51,7 +51,7 @@ export function useList(path, initialFilters = {}, { immediate = true } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filters), path]);
 
-  /** Filter badalne pe page 1 pe wapas — warna khaali page dikhta hai */
+  /** Go back to page 1 when a filter changes — otherwise an empty page is shown */
   const setFilter = useCallback((key, value) => {
     setFilters((f) => ({ ...f, [key]: value, page: key === 'page' ? value : 1 }));
   }, []);
@@ -125,7 +125,7 @@ export function useResource(
 }
 /**
  * Mutation — submit buttons ke liye. Loading state + toast automatic.
- *   const save = useMutation((body) => api.post('/admin/products', body), { success: 'Product ban gaya' });
+ *   const save = useMutation((body) => api.post('/admin/products', body), { success: 'Product created' });
  *   await save.run(payload);
  */
 export function useMutation(fn, { success, onSuccess, onError } = {}) {

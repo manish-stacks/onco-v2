@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/DataTable';
 
 /**
- * Web aur app orders ek hi list me. Tab se filter hota hai —
- * backend me ?orderFrom=web|app jaata hai.
+ * Web and app orders in one list. Filtering happens via tabs —
+ * ?orderFrom=web|app is sent to the backend.
  */
 const SOURCE_TABS = [
   { value: '', label: 'All orders' },
@@ -48,7 +48,7 @@ export default function OrderList() {
     setExporting(true);
     try {
       await api.download('/admin/orders/export', filters, `orders-${Date.now()}.csv`);
-      toast.success('Export download ho gaya');
+      toast.success('Export downloaded');
     } catch (e) {
       toast.error(e.message);
     } finally {
@@ -116,7 +116,7 @@ export default function OrderList() {
     <>
       <PageHeader
         title="Orders"
-        subtitle="Website aur app dono ke orders — ek hi jagah"
+        subtitle="Orders from both the website and app — all in one place."
         actions={can(P.ORDERS_EXPORT) && (
           <Button icon={Download} onClick={exportCsv} loading={exporting}>Export CSV</Button>
         )}
@@ -162,8 +162,8 @@ export default function OrderList() {
           rowTone={(o) => toneOf(o.status)}
           onRowClick={(o) => navigate(`/orders/${o.order_id}`)}
           emptyIcon={ShoppingCart}
-          emptyTitle="Koi order nahi mila"
-          emptyDescription={hasFilters ? 'Filters hata ke dekho.' : 'Naye orders yahan dikhenge.'}
+          emptyTitle="No orders found"
+          emptyDescription={hasFilters ? 'Try removing the filters.' : 'New orders will appear here.'}
         />
 
         <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />

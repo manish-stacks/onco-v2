@@ -29,11 +29,11 @@ interface Breakdown {
 const PAGE_SIZE = 5;
 
 /**
- * Backend rule (`customerHasPurchased`): review sirf tabhi allowed hai jab
- * customer ka koi order 'Completed' status me ho aur usme ye product ho.
- * Backend hi ye enforce karta hai — yahan ka check sirf UX ke liye hai
- * (order_id dhoondhne ke liye jo review row ke saath tag hota hai), security
- * boundary backend pe hai.
+ * Backend rule (`customerHasPurchased`): a review is allowed only when
+ * the customer has an order in 'Completed' status containing this product.
+ * The backend enforces this — the check here is only for UX
+ * (used to find the order_id tagged with the review row), security
+ * the boundary lives on the backend.
  */
 type Eligibility = { checked: false } | { checked: true; eligible: true; orderId: number } | { checked: true; eligible: false };
 
@@ -96,11 +96,11 @@ export function ProductReviews({ productId, slug }: { productId: string; slug: s
   }
 
   /**
-   * Customer ke Completed orders me se ye product dhoondhte hain — mile to
-   * uska order_id review ke saath save hota hai. Backend ka asli gate
-   * `customerHasPurchased` hai (product + Completed status), ye sirf ek
-   * matching order_id nikalne ke liye hai. Bounded to 30 orders taaki
-   * bahut zyada API calls na ho.
+   * We look for this product in the customer's Completed orders — if found
+   * its order_id is saved with the review. The backend's real gate
+   * `customerHasPurchased` exists (product + Completed status), this is only a
+   * to find the matching order_id. Bounded to 30 orders so that
+   * so that far too many API calls are not made.
    */
   async function checkEligibility() {
     setCheckingEligibility(true);

@@ -2,14 +2,14 @@
 const multer = require('multer');
 
 function notFound(req, res, next) {
-  res.status(404).json({ success: false, message: `Route nahi mila: ${req.method} ${req.originalUrl}` });
+  res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });
 }
 
 function errorHandler(err, req, res, next) {
-  // multer ke apne errors
+  // multer's own errors
   if (err instanceof multer.MulterError) {
     const map = {
-      LIMIT_FILE_SIZE: 'File bahut badi hai',
+      LIMIT_FILE_SIZE: 'The file is too large',
       LIMIT_FILE_COUNT: 'Bahut saari files',
       LIMIT_UNEXPECTED_FILE: 'Unexpected file field',
     };
@@ -18,10 +18,10 @@ function errorHandler(err, req, res, next) {
 
   // mysql ke common errors -> readable message
   if (err.code === 'ER_DUP_ENTRY') {
-    return res.status(409).json({ success: false, message: 'Ye record pehle se maujood hai (duplicate entry)' });
+    return res.status(409).json({ success: false, message: 'This record already exists (duplicate entry)' });
   }
   if (err.code === 'ER_NO_REFERENCED_ROW_2' || err.code === 'ER_ROW_IS_REFERENCED_2') {
-    return res.status(409).json({ success: false, message: 'Ye record kisi aur record se juda hua hai, pehle wo hatao' });
+    return res.status(409).json({ success: false, message: 'This record is linked to another record, remove that one first' });
   }
 
   const status = err.status || 500;

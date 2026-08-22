@@ -11,7 +11,7 @@ import { DataTable } from '@/components/ui/DataTable';
 import { SimpleFormModal } from '@/components/ui/SimpleFormModal';
 import { ConfirmDialog } from '@/components/ui/Modal';
 
-/** Mobile app me dikhne wale offer cards */
+/** Offer cards shown in the mobile app */
 export default function Offers() {
   const { can } = useAuth();
   const { data: rows, loading, reload } = useResource('/admin/offers');
@@ -20,7 +20,7 @@ export default function Offers() {
 
   const del = useMutation(
     (id) => api.del(`/admin/offers/${id}`),
-    { success: 'Offer delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } }
+    { success: 'Offer deleted', onSuccess: () => { setToDelete(null); reload(); } }
   );
 
   const canManage = can(P.SETTINGS_MANAGE);
@@ -29,7 +29,7 @@ export default function Offers() {
     <>
       <PageHeader
         title="Offer cards"
-        subtitle="Mobile app ke home screen pe jo offer cards dikhte hain"
+        subtitle="The offer cards shown on the mobile app home screen"
         actions={canManage && (
           <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add offer card</Button>
         )}
@@ -80,8 +80,8 @@ export default function Offers() {
               ),
             },
           ]}
-          emptyIcon={Ticket} emptyTitle="Koi offer card nahi"
-          emptyDescription="App me jo offer cards dikhte hain wo yahan se bante hain."
+          emptyIcon={Ticket} emptyTitle="No offer cards"
+          emptyDescription="The offer cards shown in the app are created here."
           emptyAction={canManage && (
             <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add offer card</Button>
           )}
@@ -93,7 +93,7 @@ export default function Offers() {
         idKey="id" path="/admin/offers" title="offer" onDone={reload} json
         fields={[
           { key: 'title', label: 'Title', required: true },
-          { key: 'CODE', label: 'Coupon code', mono: true, hint: 'Coupons page wala code yahan daalo' },
+          { key: 'CODE', label: 'Coupon code', mono: true, hint: 'Enter the code from the Coupons page' },
           { key: 'desc_code', label: 'Description' },
           { key: 'discount_type', label: 'Discount type', type: 'select',
             options: ['Percentage', 'Fixed'], default: 'Percentage' },
@@ -109,7 +109,7 @@ export default function Offers() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
         title="Delete offer" confirmLabel="Delete"
-        message={`"${toDelete?.title}" app se hat jayega. Coupon khud active rahega.`}
+        message={`"${toDelete?.title}" will be removed from the app. The coupon itself stays active.`}
       />
     </>
   );

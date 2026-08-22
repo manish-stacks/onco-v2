@@ -39,22 +39,22 @@ export default function ShippingPanel({ order, onChanged }) {
   const track = useMutation(
     () => api.get(`/admin/orders/${order.order_id}/tracking`),
     {
-      success: 'Tracking update ho gayi',
+      success: 'Tracking updated',
       onSuccess: (res) => { setScans(res.data?.scans || []); onChanged?.(); },
     }
   );
 
   const cancel = useMutation(
     () => api.del(`/admin/orders/${order.order_id}/ship`),
-    { success: 'Booking cancel ho gayi', onSuccess: () => { setCancelOpen(false); onChanged?.(); } }
+    { success: 'Booking cancelled', onSuccess: () => { setCancelOpen(false); onChanged?.(); } }
   );
 
   const canManage = can(P.SHIPPING_MANAGE);
   const booked = !!order.awb_number;
 
   /**
-   * Label PDF ko naye tab me kholna hai, lekin request me auth header chahiye.
-   * window.open header nahi bhej sakti, isliye blob laa ke object URL banate hain.
+   * The label PDF must open in a new tab, but the request needs an auth header.
+   * window.open cannot send headers, so we fetch a blob and build an object URL.
    */
   const openLabel = async () => {
     const res = await fetch(`${BASE}/api/admin/shipments/${order.awb_number}/label`, {
@@ -70,7 +70,7 @@ export default function ShippingPanel({ order, onChanged }) {
       title="Shipping"
       subtitle={config?.configured
         ? `DTDC · ${config.mode} mode`
-        : 'DTDC credentials .env me set nahi hain'}
+        : 'DTDC credentials are not set in .env'}
       action={booked && (
         <StatusPill status={order.tracking_status || 'Booked'} size="xs" />
       )}
@@ -81,8 +81,8 @@ export default function ShippingPanel({ order, onChanged }) {
           {config?.configured ? (
             <EmptyState
               icon={Truck}
-              title="Abhi ship nahi hua"
-              description="DTDC pe book karo — AWB milega aur customer ko WhatsApp pe tracking chali jayegi."
+              title="Not shipped yet"
+              description="Book it with DTDC — you get an AWB and the customer gets tracking on WhatsApp."
               action={canManage && (
                 <Button variant="primary" icon={Package} onClick={() => setBookOpen(true)}>
                   Book with DTDC
@@ -93,8 +93,8 @@ export default function ShippingPanel({ order, onChanged }) {
             <div className="flex items-start gap-2.5 text-2xs text-signal-warn bg-signal-warnBg border border-signal-warn/20 rounded p-3">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <p>
-                DTDC configure nahi hai. <Code className="text-2xs">DTDC_API_KEY</Code> aur{' '}
-                <Code className="text-2xs">DTDC_CUSTOMER_CODE</Code> backend ki .env me daalo.
+                DTDC is not configured. Set <Code className="text-2xs">DTDC_API_KEY</Code> and{' '}
+                <Code className="text-2xs">DTDC_CUSTOMER_CODE</Code> in the backend .env.
               </p>
             </div>
           )}
@@ -169,7 +169,7 @@ export default function ShippingPanel({ order, onChanged }) {
         open={cancelOpen} onClose={() => setCancelOpen(false)}
         onConfirm={cancel.run} loading={cancel.loading}
         title="Cancel DTDC booking" confirmLabel="Cancel booking"
-        message={`AWB ${order.awb_number} DTDC pe cancel ho jayega aur order wapas Processing me chala jayega. Order khud cancel nahi hoga.`}
+        message={`AWB ${order.awb_number} will be cancelled at DTDC and the order goes back to Processing. The order itself is not cancelled.`}
       />
     </Card>
   );
@@ -188,7 +188,7 @@ function BookModal({ open, onClose, order, config, onDone }) {
   const book = useMutation(
     () => api.post(`/admin/orders/${order.order_id}/ship`, form),
     {
-      success: (res) => `Book ho gaya — AWB ${res.data.awb}`,
+      success: (res) => `Booked — AWB ${res.data.awb}`,
       onSuccess: () => { onClose(); onDone?.(); },
     }
   );
@@ -224,7 +224,7 @@ function BookModal({ open, onClose, order, config, onDone }) {
           </p>
           {isCod && (
             <p className="text-signal-warn font-medium pt-1.5 mt-1.5 border-t border-line">
-              COD — courier {inr(order.amount)} collect karega
+              COD — the courier will collect {inr(order.amount)}
             </p>
           )}
         </div>
@@ -259,7 +259,7 @@ function BookModal({ open, onClose, order, config, onDone }) {
         </Field>
 
         <p className="text-2xs text-ink-500">
-          Book hote hi order Shipped ho jayega aur customer ko WhatsApp pe AWB + tracking link chala jayega.
+          As soon as it is booked the order becomes Shipped and the customer gets the AWB + tracking link on WhatsApp.
         </p>
       </div>
     </Modal>

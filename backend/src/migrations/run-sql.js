@@ -5,8 +5,8 @@
  *   npm run migrate:002        -> 002_integrations.sql
  *   node src/migrations/run-sql.js 002_integrations.sql
  *
- * Wahi resumable behaviour jo run-migration.js me hai — har statement alag,
- * "pehle se ho chuka" wale errors skip, bade ALTER clause-by-clause.
+ * The same resumable behaviour as run-migration.js — each statement separately,
+ * "already exists" errors are skipped, large ALTERs run clause-by-clause.
  */
 require('dotenv').config();
 const fs = require('fs');
@@ -14,12 +14,16 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 
 const ALREADY_DONE = {
-  1050: 'table pehle se maujood hai',
-  1051: 'table nahi mili (rename ho chuka hoga)',
-  1060: 'column pehle se maujood hai',
-  1061: 'index pehle se maujood hai',
-  1091: 'column/key pehle se hat chuka hai',
-  1146: 'table nahi mili (rename ho chuka hoga)',
+  1050: 'table already exists',
+  1051: 'table not found (it may already be renamed)',
+  1060: 'column already exists',
+  1061: 'index already exists',
+  1091: 'column/key has already been dropped',
+  1146: 'table not found (it may already be renamed)',
+  // A foreign key with this exact name is already on the table, which only
+  // happens when this migration has already added it on an earlier run.
+  1826: 'foreign key constraint already exists',
+  1022: 'duplicate key name',
 };
 
 function splitStatements(sql) {
@@ -81,7 +85,7 @@ async function runAlterClauseByClause(conn, stmt, indent = '        ') {
   const parsed = splitAlterClauses(stmt);
   if (!parsed || parsed.clauses.length < 2) return false;
 
-  console.log(`${indent}ALTER ko ${parsed.clauses.length} clauses me tod ke chala rahe hain...`);
+  console.log(`${indent}Splitting the ALTER into ${parsed.clauses.length} clauses and running them...`);
   let applied = 0;
   for (const clause of parsed.clauses) {
     const short = clause.replace(/\s+/g, ' ').slice(0, 52);
@@ -103,7 +107,7 @@ async function main() {
   const filePath = path.join(__dirname, file);
 
   if (!fs.existsSync(filePath)) {
-    console.error(`[migrate] File nahi mili: ${file}`);
+    console.error(`[migrate] File not found: ${file}`);
     process.exit(1);
   }
 
@@ -156,7 +160,7 @@ async function main() {
 
       if (err.errno === 1205 || err.code === 'ER_LOCK_WAIT_TIMEOUT') {
         console.log('LOCKED');
-        console.error('\n  Table lock. Backend band karo, ya: npm run db:locks -- --kill\n');
+        console.error('\n  Table lock. Stop the backend, or run: npm run db:locks -- --kill\n');
         await conn.end(); process.exit(1);
       }
 

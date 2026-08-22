@@ -61,7 +61,7 @@ function resolvePlatform(req, decoded) {
 
 /**
  * Required authentication
- * Token nahi hai / invalid hai => 401
+ * No token / invalid token => 401
  */
 function customerAuth(req, res, next) {
   const token = extractToken(req);
@@ -94,7 +94,7 @@ function customerAuth(req, res, next) {
 /**
  * Optional authentication
  * Guest browsing allowed.
- * Valid token mila to req.customer set hoga.
+ * If the token is valid, req.customer is set.
  */
 function optionalAuth(req, res, next) {
   const token = extractToken(req);
@@ -109,7 +109,7 @@ function optionalAuth(req, res, next) {
       req.customer = decoded;
       req.token = token;
     } catch (err) {
-      // Invalid/expired token ko guest treat karo
+      // Treat an invalid/expired token as a guest
       req.customer = null;
       req.token = null;
     }

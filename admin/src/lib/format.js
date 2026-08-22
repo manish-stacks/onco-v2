@@ -3,7 +3,7 @@ export const inr = (n) => {
   return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 };
 
-/** Bade numbers ko chhota karo — dashboard cards ke liye */
+/** Shorten large numbers — for the dashboard cards */
 export const compactInr = (n) => {
   const num = Number(n || 0);
   if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
@@ -30,18 +30,18 @@ export const dateTime = (d) => {
   });
 };
 
-/** "2 ghante pehle" type relative time */
+/** Relative time such as "2 hours ago" */
 export const ago = (d) => {
   if (!d) return '—';
   const diff = Date.now() - new Date(d).getTime();
   if (Number.isNaN(diff)) return '—';
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'abhi';
-  if (mins < 60) return `${mins}m pehle`;
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h pehle`;
+  if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d pehle`;
+  if (days < 30) return `${days}d ago`;
   return date(d);
 };
 

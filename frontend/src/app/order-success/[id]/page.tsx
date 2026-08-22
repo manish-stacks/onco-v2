@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { CheckCircle2, Package, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// Private, order-specific page — Google ko index karne ki koi zaroorat nahi,
-// aur URL me order ID bhi hai isliye search results me nahi aana chahiye.
+// Private, order-specific page — there is no reason for Google to index it,
+// and the URL contains the order ID, so it must not appear in search results.
 export const metadata: Metadata = {
   title: "Order Placed",
   robots: { index: false, follow: false },
@@ -25,7 +25,7 @@ export default async function OrderSuccessPage({ params }: { params: Promise<{ i
       </p>
       <div className="flex flex-wrap justify-center gap-3">
         <Button href={`/account/orders/${id}`} icon={<Package size={16} />}>Track this order</Button>
-        <Button href="/search" variant="outline" icon={<ArrowRight size={16} />}>Continue Shopping</Button>
+        <Button href="/shop" variant="outline" icon={<ArrowRight size={16} />}>Continue Shopping</Button>
       </div>
       <p className="mt-8 text-xs text-[var(--ink-soft)]">
         You can view all your orders anytime in{" "}

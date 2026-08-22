@@ -1,11 +1,11 @@
 import type { PayuSession } from "@/lib/api";
 
 /**
- * PayU React se nahi chalta — signed hidden form banake browser ko seedha
- * PayU ke endpoint pe POST karna padta hai. Backend `endpoint` + `params`
- * (hash included) deta hai. PayU customer ko wapas `/payment/success` ya
- * `/payment/failed` pe redirect karta hai (backend verify karke), isliye is
- * call ke baad kuch return nahi karna — page navigate ho jaayega.
+ * PayU does not work from React — we build a signed hidden form and send the browser
+ * We have to POST to the PayU endpoint. The backend returns `endpoint` + `params`
+ * (hash included). PayU redirects the customer back to `/payment/success` or
+ * redirects to `/payment/failed` (after backend verification), so this
+ * return nothing after the call — the page will navigate away.
  */
 export function submitToPayu({ endpoint, params }: PayuSession): void {
   const form = document.createElement("form");

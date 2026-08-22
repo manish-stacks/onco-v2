@@ -4,10 +4,10 @@ const axios = require('axios');
 /**
  * PayU Money / PayU Biz integration.
  *
- * Razorpay se alag kaam karta hai: PayU me SDK call nahi hoti, hum ek
- * signed form banate hain aur browser usko PayU pe POST karta hai. Wapas
- * aane pe PayU humare surl/furl pe POST karta hai, jahan hum reverse hash
- * verify karte hain.
+ * Works differently from Razorpay: PayU has no SDK call, instead we
+ * build a signed form and the browser POSTs it to PayU. On the way back
+ * PayU POSTs to our surl/furl, where we compute the reverse hash
+ * we verify.
  *
  * .env:
  *   PAYU_MODE=test | live
@@ -48,9 +48,9 @@ function isConfigured() {
 const sha512 = (s) => crypto.createHash('sha512').update(s).digest('hex');
 
 /**
- * Request hash — PayU ko bhejne se pehle.
- * Sequence PayU ne fix kiya hua hai, ek pipe bhi idhar-udhar hua to
- * "hash mismatch" aata hai:
+ * Request hash — before sending to PayU.
+ * The sequence is fixed by PayU; one misplaced pipe and
+ * a "hash mismatch" occurs:
  *   key|txnid|amount|productinfo|firstname|email|udf1|...|udf5||||||salt
  */
 function requestHash({ key, txnid, amount, productinfo, firstname, email, udf = [], salt }) {
@@ -60,26 +60,26 @@ function requestHash({ key, txnid, amount, productinfo, firstname, email, udf = 
 }
 
 /**
- * Response hash — PayU se wapas aane pe. Sequence ULTA hota hai,
- * aur `status` salt ke turant baad aata hai.
+ * Response hash — when coming back from PayU. The sequence is REVERSED,
+ * and `status` comes right after the salt.
  */
 function responseHash({ salt, status, udf = [], email, firstname, productinfo, amount, txnid, key, additionalCharges }) {
   const u = Array.from({ length: 5 }, (_, i) => udf[i] || '');
   const seq = [salt, status, '', '', '', '', '', ...u.slice().reverse(),
     email, firstname, productinfo, amount, txnid, key];
   const base = seq.join('|');
-  // additionalCharges aaya ho to wo sabse aage lagta hai
+  // If additionalCharges is present it goes first
   return sha512(additionalCharges ? `${additionalCharges}|${base}` : base);
 }
 
 /**
- * Checkout ke liye form data banao. Frontend isko PayU ke endpoint pe
- * POST karega (hidden form + auto submit).
+ * Build the form data for checkout. The frontend POSTs it to the PayU endpoint
+ * will POST (hidden form + auto submit).
  */
 function buildPaymentRequest(order, customer) {
   const c = config();
   if (!isConfigured()) {
-    throw Object.assign(new Error('PayU credentials .env me set nahi hain'), { status: 500 });
+    throw Object.assign(new Error('PayU credentials are not set in .env'), { status: 500 });
   }
 
   const txnid = order.databaseOrderID || `OHM${order.order_id}`;
@@ -119,9 +119,9 @@ function buildPaymentRequest(order, customer) {
 }
 
 /**
- * PayU ke callback ko verify karo.
- * Sirf `status === 'success'` dekhna kaafi nahi — hash verify karna zaroori
- * hai, warna koi bhi humare surl pe fake POST karke order paid mark kar sakta hai.
+ * Verify the PayU callback.
+ * Checking `status === 'success'` alone is not enough — hash verification is mandatory
+ * otherwise anyone could fake a POST to our surl and mark an order paid.
  */
 function verifyCallback(body) {
   const c = config();
@@ -161,8 +161,8 @@ function verifyCallback(body) {
 }
 
 /**
- * Server-to-server verify. Callback miss ho jaye (customer ne tab band kar
- * diya) to isse actual status pata chalta hai.
+ * Server-to-server verification. If the callback is missed (the customer closed the tab
+ * they gave), this reveals the actual status.
  */
 async function verifyPayment(txnid) {
   const c = config();

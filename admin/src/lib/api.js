@@ -7,7 +7,7 @@ export const tokenStore = {
   clear: () => localStorage.removeItem(TOKEN_KEY),
 };
 
-/** 401 aane pe AuthContext isse subscribe karke logout karta hai */
+/** On a 401, AuthContext subscribes to this and logs out */
 const listeners = new Set();
 export const onUnauthorized = (fn) => {
   listeners.add(fn);
@@ -47,12 +47,12 @@ async function request(path, { method = 'GET', body, params, isForm } = {}) {
       body: isForm ? body : body ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError('Server se connect nahi ho paaya. Network check karo.', 0);
+    throw new ApiError('Could not connect to the server. Please check your network.', 0);
   }
 
   if (res.status === 401) {
     listeners.forEach((fn) => fn());
-    throw new ApiError('Session khatam ho gaya. Dobara login karo.', 401);
+    throw new ApiError('Your session has expired. Please log in again.', 401);
   }
 
   let json = null;
@@ -75,17 +75,17 @@ export const api = {
   patch: (path, body) => request(path, { method: 'PATCH', body }),
   del: (path, body) => request(path, { method: 'DELETE', body }),
 
-  /** FormData bhejne ke liye — images wagairah */
+  /** For sending FormData — images and so on */
   form: (path, formData, method = 'POST') =>
     request(path, { method, body: formData, isForm: true }),
 
-  /** CSV export — browser me download trigger karta hai */
+  /** CSV export — triggers a download in the browser */
   async download(path, params, filename) {
     const token = tokenStore.get();
     const res = await fetch(buildUrl(path, params), {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
-    if (!res.ok) throw new ApiError('Export fail hua', res.status);
+    if (!res.ok) throw new ApiError('Export failed', res.status);
 
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -99,7 +99,7 @@ export const api = {
   },
 };
 
-/** Uploaded image ka full URL (backend relative path deta hai) */
+/** Full URL of an uploaded image (the backend returns a relative path) */
 export const mediaUrl = (p) => {
   if (!p) return null;
   if (p.startsWith('http')) return p;

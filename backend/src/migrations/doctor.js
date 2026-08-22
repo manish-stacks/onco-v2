@@ -1,15 +1,15 @@
 /**
- * Setup doctor — "admin me naya kuch dikh nahi raha" ka jawab.
+ * Setup doctor — the answer to "nothing new is showing up in admin".
  *
  *   npm run doctor
- *   npm run doctor -- --fix     (missing permissions apne aap daal deta hai)
+ *   npm run doctor -- --fix     (automatically inserts missing permissions)
  *
- * Check karta hai:
- *   1. Migration tables bani hain ya nahi
- *   2. Permissions DB me seed hui hain ya nahi
- *   3. Har admin ke role me kaunsi permissions hain
- *   4. .env me kya set hai, kya nahi
- *   5. Redis me RBAC cache purana to nahi pada
+ * Checks:
+ *   1. Whether the migration tables exist
+ *   2. Whether permissions are seeded in the DB
+ *   3. Which permissions each admin role has
+ *   4. What is and is not set in .env
+ *   5. Whether a stale RBAC cache is left in Redis
  */
 require('dotenv').config();
 const mysql = require('mysql2/promise');
@@ -28,7 +28,7 @@ function parseArgs() {
   return args;
 }
 
-/** Ye tables kaunsi migration se aati hain */
+/** Which migration these tables come from */
 const EXPECTED_TABLES = {
   '001 (schema refactor)': ['orders', 'order_items', 'prescriptions', 'inventory_logs',
     'order_status_logs', 'coupon_usages', 'wishlists', 'product_reviews', 'admin_activity_logs'],
@@ -36,12 +36,12 @@ const EXPECTED_TABLES = {
   '003 (media storage)': ['media_migration_items'],
 };
 
-/** Ye permissions kaunse feature ke liye chahiye */
+/** Which permissions this feature requires */
 const FEATURE_PERMS = {
   'System page (health, cache clear, media migration)': ['system.view', 'system.manage'],
   'Notifications page (message logs)': ['notifications.view'],
   'OTP logs tab': ['otp.view'],
-  'Shipping panel (DTDC) order detail pe': ['shipping.view', 'shipping.manage'],
+  'Shipping panel (DTDC) on order detail': ['shipping.view', 'shipping.manage'],
 };
 
 async function main() {
@@ -86,24 +86,24 @@ async function main() {
   // -------------------------------------------------------------------------
   // 2. Permissions catalog
   // -------------------------------------------------------------------------
-  console.log('\n2. PERMISSIONS (DB me seed hui hain?)\n');
+  console.log('\n2. PERMISSIONS (are they seeded in the DB?)\n');
 
   const [permRows] = await conn.query(`SELECT DISTINCT permission FROM role_permissions`);
   const inDb = new Set(permRows.map((r) => r.permission));
   const missingPerms = ALL_PERMISSIONS.filter((p) => !inDb.has(p));
 
   if (missingPerms.length) {
-    console.log(`${BAD}${missingPerms.length} permissions DB me nahi hain`);
+    console.log(`${BAD}${missingPerms.length} permissions are missing from the DB`);
     console.log(`         ${missingPerms.join(', ')}`);
     problems.push('npm run seed');
   } else {
-    console.log(`${OK}Saari ${ALL_PERMISSIONS.length} permissions maujood hain`);
+    console.log(`${OK}All ${ALL_PERMISSIONS.length} permissions are present`);
   }
 
   // -------------------------------------------------------------------------
-  // 3. Feature-wise — kaunsa page kis role ko dikhega
+  // 3. Feature-wise — which page is visible to which role
   // -------------------------------------------------------------------------
-  console.log('\n3. NAYE FEATURES — kaunse role ko dikhenge\n');
+  console.log('\n3. NEW FEATURES — which roles will see them\n');
 
   const [roles] = await conn.query(`SELECT type_id, name FROM roles ORDER BY type_id`);
 
@@ -117,7 +117,7 @@ async function main() {
 
     if (!holders.length) {
       console.log(`${BAD}${feature}`);
-      console.log('         Kisi bhi role ke paas nahi — isliye sidebar me nahi dikh raha');
+      console.log('         No role has it — that is why it is not showing in the sidebar');
     } else {
       console.log(`${OK}${feature}`);
       console.log(`         roles: ${holders.map((h) => h.name).join(', ')}`);
@@ -125,7 +125,7 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // 4. Admins — tumhara apna account kya dekh sakta hai
+  // 4. Admins — what your own account can see
   // -------------------------------------------------------------------------
   console.log('\n4. ADMIN ACCOUNTS\n');
 
@@ -144,7 +144,7 @@ async function main() {
   // -------------------------------------------------------------------------
   // 5. Env
   // -------------------------------------------------------------------------
-  console.log('\n5. ENV — kya configure hai\n');
+  console.log('\n5. ENV — what is configured\n');
 
   const envChecks = [
     ['S3 (media storage)', ['S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY']],
@@ -160,7 +160,7 @@ async function main() {
   for (const [label, keys] of envChecks) {
     const set = keys.filter((k) => process.env[k]);
     if (label === 'Firebase push') {
-      // dono me se koi ek kaafi hai
+      // either one of the two is enough
       console.log(`${set.length ? OK : WARN}${label.padEnd(24)} ${set.length ? 'configured' : 'not configured'}`);
       continue;
     }
@@ -177,7 +177,7 @@ async function main() {
   // FIX
   // -------------------------------------------------------------------------
   if (args.fix && missingPerms.length) {
-    console.log('\n--- FIX: missing permissions daal rahe hain ---\n');
+    console.log('\n--- FIX: inserting missing permissions ---\n');
 
     for (const role of DEFAULT_ROLES) {
       const [[row]] = await conn.query(`SELECT type_id FROM roles WHERE name = ?`, [role.name]);
@@ -197,7 +197,7 @@ async function main() {
         console.log(`  ${role.name}: +${toAdd.length} permissions`);
       }
     }
-    console.log('\n  Ho gaya. Ab admin panel me LOGOUT karke dobara LOGIN karo.\n');
+    console.log('\n  Done. Now LOG OUT of the admin panel and LOG IN again.\n');
   }
 
   // -------------------------------------------------------------------------
@@ -206,13 +206,13 @@ async function main() {
   console.log('\n=========== KYA KARNA HAI ===========\n');
 
   if (!problems.length) {
-    console.log('  Backend ki taraf sab theek hai.\n');
-    console.log('  Agar phir bhi admin me naya kuch nahi dikh raha:\n');
-    console.log('    1. Admin panel ki files replace hui hain? (System.jsx, Sidebar.jsx, App.jsx)');
-    console.log('    2. Admin panel dobara build/restart kiya? (npm run dev)');
-    console.log('    3. LOGOUT karke dobara LOGIN karo — permissions login pe load hoti hain');
+    console.log('  Everything looks fine on the backend side.\n');
+    console.log('  If nothing new still shows up in admin:\n');
+    console.log('    1. Have the admin panel files been replaced? (System.jsx, Sidebar.jsx, App.jsx)');
+    console.log('    2. Was the admin panel rebuilt/restarted? (npm run dev)');
+    console.log('    3. LOG OUT and LOG IN again — permissions are loaded at login');
     console.log('    4. Browser hard refresh: Ctrl+Shift+R');
-    console.log('    5. RBAC cache 5 min ka hota hai — ya to ruko, ya:  npm run db:locks');
+    console.log('    5. The RBAC cache lasts 5 min — either wait, or run:  npm run db:locks');
   } else {
     const unique = [...new Set(problems)];
     unique.forEach((cmd, i) => console.log(`  ${i + 1}. ${cmd}`));
@@ -225,6 +225,6 @@ async function main() {
 
 main().catch((err) => {
   console.error('\n[doctor] FAILED:', err.sqlMessage || err.message);
-  console.error('\n.env me DB credentials sahi hain? DB_NAME =', process.env.DB_NAME);
+  console.error('\nAre the DB credentials in .env correct? DB_NAME =', process.env.DB_NAME);
   process.exit(1);
 });

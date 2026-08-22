@@ -1,10 +1,10 @@
 /**
- * CMS rich-text editor se aata hai — kabhi Word/Google Docs se paste kiya
- * hua content hota hai jisme har paragraph pe inline `style="color:...;
- * font-family:..."` chipka hota hai. Wo hamare design se clash karta hai
- * (rangeen text, ajeeb fonts). Sirf structure (p/br/strong/ul/li) rakhte
- * hain, presentation attributes hata dete hain — content wahi rehta hai,
- * bas hamari typography apply hoti hai.
+ * Comes from the CMS rich-text editor — sometimes pasted from Word/Google Docs
+ * content where every paragraph carries an inline `style="color:...;
+ * font-family:..."` is attached. That clashes with our design
+ * (coloured text, odd fonts). Only the structure (p/br/strong/ul/li) is kept
+ * and strip presentation attributes — the content stays the same,
+ * only our typography is applied.
  */
 export function stripInlineFormatting(html: string): string {
   return html
@@ -16,7 +16,7 @@ export function stripInlineFormatting(html: string): string {
     .trim();
 }
 
-/** Plain text length nikaalo — HTML tags hata ke, "Read more" dikhana hai ya nahi decide karne ke liye */
+/** Get the plain-text length — strips HTML tags, used to decide whether to show "Read more" */
 export function htmlTextLength(html: string): number {
   return html.replace(/<[^>]+>/g, "").trim().length;
 }

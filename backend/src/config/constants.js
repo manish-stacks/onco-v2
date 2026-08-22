@@ -1,6 +1,6 @@
 /**
- * Ek hi jagah saare enums/statuses/permissions. Naya module add karna ho to
- * sirf yahan permission add karo, phir `npm run seed` chalao.
+ * All enums/statuses/permissions in one place. To add a new module,
+ * just add the permission here, then run `npm run seed`.
  */
 
 // ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ const PERMISSIONS = {
   SHIPPING_VIEW: 'shipping.view',
   SHIPPING_MANAGE: 'shipping.manage',
 
-  // ⚠ Live OTP dikhata hai — sirf usko do jise sach me chahiye
+  // ⚠ Shows the live OTP — grant it only to those who truly need it
   OTP_VIEW: 'otp.view',
   NOTIFICATIONS_VIEW: 'notifications.view',
 
@@ -69,18 +69,18 @@ const PERMISSIONS = {
 const ALL_PERMISSIONS = Object.values(PERMISSIONS);
 
 // ---------------------------------------------------------------------------
-// DEFAULT ROLES — seed script inko banata hai
+// DEFAULT ROLES — the seed script creates these
 // ---------------------------------------------------------------------------
 const DEFAULT_ROLES = [
   {
     name: 'Super Admin',
-    description: 'Full access — sab kuch',
+    description: 'Full access — everything',
     is_system: 1,
     permissions: ALL_PERMISSIONS,
   },
   {
     name: 'Sub Admin',
-    description: 'Admin ke zyada kaam, but settings/roles/admins/OTP nahi',
+    description: 'Most admin work, but not settings/roles/admins/OTP',
     is_system: 1,
     permissions: ALL_PERMISSIONS.filter(
       (p) => !p.startsWith('admins.') && !p.startsWith('roles.')
@@ -89,7 +89,7 @@ const DEFAULT_ROLES = [
   },
   {
     name: 'Order Manager',
-    description: 'Sirf orders + prescriptions handle karta hai',
+    description: 'Handles orders + prescriptions only',
     is_system: 1,
     permissions: [
       PERMISSIONS.DASHBOARD_VIEW,
@@ -103,7 +103,7 @@ const DEFAULT_ROLES = [
   },
   {
     name: 'Inventory Manager',
-    description: 'Products + stock manage karta hai',
+    description: 'Manages products + stock',
     is_system: 1,
     permissions: [
       PERMISSIONS.DASHBOARD_VIEW,
@@ -145,7 +145,7 @@ const ORDER_STATUS = {
 };
 const ORDER_STATUSES = Object.values(ORDER_STATUS);
 
-/** Kaun se status se kaun se status pe ja sakte hain */
+/** Which statuses can transition to which */
 const ORDER_STATUS_FLOW = {
   [ORDER_STATUS.PENDING]: [ORDER_STATUS.NEW, ORDER_STATUS.PRESCRIPTION_PENDING, ORDER_STATUS.CANCELLED],
   [ORDER_STATUS.PRESCRIPTION_PENDING]: [ORDER_STATUS.NEW, ORDER_STATUS.CANCELLED],

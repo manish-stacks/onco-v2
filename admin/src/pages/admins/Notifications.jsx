@@ -25,7 +25,7 @@ export default function Notifications() {
     <>
       <PageHeader
         title="Notifications"
-        subtitle="WhatsApp, SMS aur push ka record — kya gaya, kisko, kaam kiya ya nahi"
+        subtitle="A record of WhatsApp, SMS and push — what was sent, to whom, and whether it worked"
       />
       <Card dense>
         <Tabs tabs={tabs} value={tab} onChange={setTab} className="px-4 pt-1" />
@@ -129,8 +129,8 @@ function MessageLogs() {
       <DataTable
         columns={columns} rows={rows} loading={loading} rowKey="id" compact
         rowTone={(n) => (Number(n.success) ? 'ok' : 'danger')}
-        emptyIcon={MessageSquare} emptyTitle="Koi message record nahi"
-        emptyDescription="Order place hone pe WhatsApp/push jaane lagenge, phir yahan dikhega."
+        emptyIcon={MessageSquare} emptyTitle="No message records"
+        emptyDescription="WhatsApp/push messages start going out once orders are placed, and will show here."
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
     </>
@@ -214,9 +214,9 @@ function OtpLogs() {
         <div className="flex items-start gap-2.5 text-2xs text-signal-warn bg-signal-warnBg border border-signal-warn/20 rounded px-3 py-2 mb-3">
           <ShieldAlert size={14} className="mt-0.5 shrink-0" />
           <p>
-            Live OTP dikh raha hai — isse kisi bhi account me login kiya ja sakta hai.
-            Expire ya use ho chuke OTP mask ho jaate hain, aur har search activity log me
-            record hota hai. Ye permission sirf usko do jise sach me chahiye.
+            A live OTP is visible — it can be used to log into any account.
+            Expired or used OTPs are masked, and every search is recorded in the activity log
+            is recorded. Grant this permission only to those who truly need it.
           </p>
         </div>
 
@@ -247,7 +247,7 @@ function OtpLogs() {
           options={[{ value: 'web', label: 'Website' }, { value: 'app', label: 'Mobile app' }]}
           onChange={(v) => setFilter('source', v)} />
         <FilterSelect label="State" value={filters.active} placeholder="All"
-          options={[{ value: 'true', label: 'Abhi valid' }]}
+          options={[{ value: 'true', label: 'Currently valid' }]}
           onChange={(v) => setFilter('active', v)} />
         <FilterSelect label="Delivery" value={filters.delivered} placeholder="All"
           options={[{ value: 'true', label: 'Sent' }, { value: 'false', label: 'Failed' }]}
@@ -262,8 +262,8 @@ function OtpLogs() {
           if (o.is_expired) return 'idle';
           return 'warn';
         }}
-        emptyIcon={KeyRound} emptyTitle="Koi OTP record nahi"
-        emptyDescription="Customer login karenge to yahan history banegi."
+        emptyIcon={KeyRound} emptyTitle="No OTP records"
+        emptyDescription="History will build up here once customers log in."
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
     </>

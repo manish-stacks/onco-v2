@@ -2,8 +2,8 @@ const db = require('../config/db');
 const { QueryBuilder } = require('../utils/queryBuilder');
 
 /**
- * Saare reports yahan. Har function apna date-range + orderFrom filter leta hai
- * taaki admin panel me "web vs app" comparison bhi ho sake.
+ * All reports live here. Each function takes its own date range + orderFrom filter
+ * so that a "web vs app" comparison is possible in the admin panel too.
  */
 
 function dateFilter(alias, filters = {}) {
@@ -89,7 +89,7 @@ async function salesByPaymentMode(filters = {}) {
   return rows;
 }
 
-/** Sabse zyada order kis city/state se */
+/** Which city/state places the most orders */
 async function salesByLocation(filters = {}, by = 'city', limit = 20) {
   const column = by === 'state' ? 'customer_state' : 'customer_city';
   const { sql, params } = dateFilter('o', filters);
@@ -125,7 +125,7 @@ async function topProducts(filters = {}, limit = 20) {
   return rows;
 }
 
-/** Jo bilkul nahi bik rahe — dead stock */
+/** Products that are not selling at all — dead stock */
 async function nonMovingProducts(days = 90, limit = 50) {
   const [rows] = await db.query(
     `SELECT p.product_id, p.product_name, p.sku, p.stock_quantity, p.product_sp,

@@ -6,13 +6,13 @@ import {
 import { Button, cx } from './index';
 
 /**
- * Halka rich text editor — koi external library nahi.
- * contenteditable + document.execCommand pe chalta hai.
+ * A lightweight rich text editor — no external library.
+ * It runs on contenteditable + document.execCommand.
  *
- * execCommand technically deprecated hai, lekin har browser me kaam karta hai
- * aur iske liye 100KB ki library kheenchne ka matlab nahi banta. Content
- * seedha HTML string ke roop me aata-jaata hai, jo backend `content` column
- * me waise hi store hota hai.
+ * execCommand is technically deprecated, but it works in every browser
+ * and pulling in a 100KB library for it makes no sense. The content
+ * travels as a plain HTML string, which the backend `content` column
+ * stores it as-is.
  */
 
 const BLOCKS = [
@@ -37,8 +37,8 @@ export default function RichTextEditor({ value, onChange, rows = 12, placeholder
   const [showHtml, setShowHtml] = useState(false);
   const [active, setActive] = useState({});
 
-  // Bahar se value badle to andar sync karo — lekin sirf tab jab editor
-  // focused na ho, warna typing ke beech cursor jump kar jaata hai
+  // Sync inward when the value changes from outside — but only while the editor
+  // is not focused, otherwise the cursor jumps mid-typing
   useEffect(() => {
     const el = ref.current;
     if (!el || showHtml) return;
@@ -50,7 +50,7 @@ export default function RichTextEditor({ value, onChange, rows = 12, placeholder
     if (ref.current) onChange(ref.current.innerHTML);
   }, [onChange]);
 
-  /** Toolbar buttons ka on/off state — cursor jahan hai uske hisaab se */
+  /** On/off state of the toolbar buttons — based on where the cursor is */
   const refreshActive = useCallback(() => {
     const state = {};
     ['bold', 'italic', 'underline', 'insertUnorderedList', 'insertOrderedList'].forEach((c) => {
@@ -71,7 +71,7 @@ export default function RichTextEditor({ value, onChange, rows = 12, placeholder
     if (url) exec('createLink', url);
   };
 
-  /** Paste pe formatting strip — Word se copy karne pe gandi HTML aati hai */
+  /** Strip formatting on paste — copying from Word brings in messy HTML */
   const onPaste = (e) => {
     e.preventDefault();
     const text = e.clipboardData.getData('text/plain');
@@ -161,7 +161,7 @@ export default function RichTextEditor({ value, onChange, rows = 12, placeholder
           onKeyDown={onKeyDown}
           onKeyUp={refreshActive}
           onMouseUp={refreshActive}
-          data-placeholder={placeholder || 'Yahan likhna shuru karo…'}
+          data-placeholder={placeholder || 'Start typing here…'}
           style={{ minHeight: `${rows * 1.6}rem` }}
           className="prose-editor px-3 py-2.5 text-sm text-ink outline-none overflow-y-auto max-h-[28rem]"
         />

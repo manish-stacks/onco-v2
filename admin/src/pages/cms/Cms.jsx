@@ -26,7 +26,7 @@ export default function Cms() {
     <>
       <PageHeader
         title="Content"
-        subtitle="Static pages, blog posts aur customer enquiries"
+        subtitle="Static pages, blog posts and customer enquiries"
       />
       <Card dense>
         <Tabs tabs={TABS} value={tab} onChange={setTab} className="px-4 pt-1" />
@@ -48,7 +48,7 @@ function Pages() {
   const [toDelete, setToDelete] = useState(null);
 
   const del = useMutation((id) => api.del(`/admin/pages/${id}`),
-    { success: 'Page delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Page deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.CMS_MANAGE);
 
@@ -81,7 +81,7 @@ function Pages() {
             key: 'seo_title', label: 'SEO title',
             render: (p) => (
               <span className="text-2xs text-ink-500 truncate block max-w-[220px]">
-                {p.seo_title || <span className="text-signal-warn">set nahi hai</span>}
+                {p.seo_title || <span className="text-signal-warn">not set</span>}
               </span>
             ),
           },
@@ -96,8 +96,8 @@ function Pages() {
             ),
           },
         ]}
-        emptyIcon={FileText} emptyTitle="Koi page nahi"
-        emptyDescription="About us, privacy policy, terms — ye sab yahan se bante hain."
+        emptyIcon={FileText} emptyTitle="No pages"
+        emptyDescription="About us, privacy policy, terms — all of these are created here."
         emptyAction={canManage && <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>New page</Button>}
       />
 
@@ -106,7 +106,7 @@ function Pages() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.page_id)} loading={del.loading}
         title="Delete page" confirmLabel="Delete"
-        message={`"${toDelete?.name}" delete ho jaayega aur /${toDelete?.slug} pe 404 aayega.`} />
+        message={`"${toDelete?.name}" will be deleted and /${toDelete?.slug} will return a 404.`} />
     </>
   );
 }
@@ -131,7 +131,7 @@ function PageModal({ open, onClose, page, onDone }) {
 
   const save = useMutation(
     () => (isEdit ? api.put(`/admin/pages/${page.page_id}`, form) : api.post('/admin/pages', form)),
-    { success: isEdit ? 'Page update ho gaya' : 'Page ban gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Page updated' : 'Page created', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -160,11 +160,11 @@ function PageModal({ open, onClose, page, onDone }) {
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="URL slug" hint="Khaali chhodo to naam se ban jaayega">
+          <Field label="URL slug" hint="Leave empty to generate it from the name">
             <Input mono value={form.slug || ''} onChange={(e) => set('slug', e.target.value)}
               placeholder="privacy-policy" />
           </Field>
-          <Field label="Type" hint="Grouping ke liye — optional">
+          <Field label="Type" hint="Used for grouping — optional">
             <Input value={form.type || ''} onChange={(e) => set('type', e.target.value)}
               placeholder="legal" />
           </Field>
@@ -172,7 +172,7 @@ function PageModal({ open, onClose, page, onDone }) {
 
         <Field label="Content">
           <RichTextEditor rows={12} value={form.content} onChange={(v) => set('content', v)}
-            placeholder="Page ka content yahan likho…" />
+            placeholder="Write the page content here…" />
         </Field>
 
         <div className="grid sm:grid-cols-2 gap-3">
@@ -202,7 +202,7 @@ function News() {
   if (filters.search !== debounced) setFilter('search', debounced);
 
   const del = useMutation((id) => api.del(`/admin/news/${id}`),
-    { success: 'Post delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Post deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.CMS_MANAGE);
 
@@ -259,7 +259,7 @@ function News() {
             ),
           },
         ]}
-        emptyIcon={Newspaper} emptyTitle="Koi post nahi"
+        emptyIcon={Newspaper} emptyTitle="No posts"
         emptyAction={canManage && <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>New post</Button>}
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
@@ -268,7 +268,7 @@ function News() {
       <ConfirmDialog
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
-        title="Delete post" confirmLabel="Delete" message={`"${toDelete?.title}" delete ho jaayega.`} />
+        title="Delete post" confirmLabel="Delete" message={`"${toDelete?.title}" will be deleted.`} />
     </>
   );
 }
@@ -299,7 +299,7 @@ function NewsModal({ open, onClose, post, onDone }) {
       if (image) fd.append('image', image);
       return isEdit ? api.form(`/admin/news/${post.id}`, fd, 'PUT') : api.form('/admin/news', fd, 'POST');
     },
-    { success: isEdit ? 'Post update ho gaya' : 'Post publish ho gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Post updated' : 'Post published', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -347,13 +347,13 @@ function NewsModal({ open, onClose, post, onDone }) {
           </div>
         </Field>
 
-        <Field label="Excerpt" hint="Listing pe dikhne wali summary">
+        <Field label="Excerpt" hint="The summary shown on the listing">
           <Textarea rows={2} value={form.excerpt || ''} onChange={(e) => set('excerpt', e.target.value)} />
         </Field>
 
         <Field label="Content">
           <RichTextEditor rows={10} value={form.content} onChange={(v) => set('content', v)}
-            placeholder="Post ka content yahan likho…" />
+            placeholder="Write the post content here…" />
         </Field>
       </div>
     </Modal>
@@ -375,10 +375,10 @@ function Enquiries() {
 
   const resolve = useMutation(
     ({ id, solved }) => api.patch(`/admin/enquiries/${id}`, { solved }),
-    { success: 'Enquiry update ho gayi', onSuccess: reload }
+    { success: 'Enquiry updated', onSuccess: reload }
   );
   const del = useMutation((id) => api.del(`/admin/enquiries/${id}`),
-    { success: 'Enquiry delete ho gayi', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Enquiry deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.CMS_MANAGE);
 
@@ -442,8 +442,8 @@ function Enquiries() {
             ),
           },
         ]}
-        emptyIcon={Inbox} emptyTitle="Koi enquiry nahi"
-        emptyDescription="Contact form se aane wale messages yahan dikhenge."
+        emptyIcon={Inbox} emptyTitle="No enquiries"
+        emptyDescription="Messages from the contact form will appear here."
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
 
@@ -473,7 +473,7 @@ function Enquiries() {
             </div>
             <div className="bg-paper-sunk rounded p-3">
               <p className="text-[0.8125rem] text-ink-700 leading-relaxed whitespace-pre-wrap">
-                {reading.message || 'Koi message nahi likha.'}
+                {reading.message || 'No message was written.'}
               </p>
             </div>
           </div>
@@ -484,7 +484,7 @@ function Enquiries() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
         title="Delete enquiry" confirmLabel="Delete"
-        message={`${toDelete?.name} ki enquiry delete ho jaayegi.`} />
+        message={`${toDelete?.name} 's enquiry will be deleted.`} />
     </>
   );
 }

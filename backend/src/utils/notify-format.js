@@ -1,9 +1,9 @@
 /**
  * WhatsApp/SMS templates ke liye formatting.
  *
- * WhatsApp params me ₹ symbol aur comma dono dikkat karte hain — comma param
- * separator hai, aur ₹ kabhi-kabhi encoding me gadbad karta hai. Isliye plain
- * numbers bhejte hain; template me ₹ pehle se likha hua hai.
+ * Both the ₹ symbol and commas cause trouble in WhatsApp params — a comma
+ * is the separator, and ₹ sometimes breaks in encoding. So plain
+ * we send plain numbers; the template already contains ₹.
  */
 
 /** 1234.5 -> "1234.50" (no ₹, no comma) */
@@ -13,8 +13,8 @@ function inrPlain(value) {
 
 /**
  * Order items ko ek line me.
- * Comma use nahi kar sakte (param separator hai), isliye " | " se jodte hain.
- * 3 se zyada items ho to "+N more" — WhatsApp params ki apni length limit hai.
+ * Commas cannot be used (they are the param separator), so we join with " | ".
+ * If there are more than 3 items we add "+N more" — WhatsApp params have their own length limit.
  */
 function formatItems(items = [], max = 3) {
   if (!items.length) return 'Items';

@@ -1,12 +1,12 @@
 /**
- * Login se pehle bhi "Add to Cart" chalna chahiye — warna user checkout tak
- * pahunchne se pehle hi login wall pe atak jaata hai, jo conversion todta
- * hai. Cart backend me customer_id se judi hai (customerAuth required), to
- * guest ke liye local cart rakhte hain aur login hote hi server pe merge
- * kar dete hain (`cartApi.merge`).
+ * "Add to Cart" must work before login too — otherwise the user reaches checkout
+ * they hit a login wall before reaching it, which hurts conversion
+ * The cart is tied to customer_id on the backend (customerAuth required), so
+ * we keep a local cart for guests and merge it on the server as soon as they log in
+ * on the server (`cartApi.merge`).
  *
- * Snapshot me product ka basic display data (naam, image, price) bhi saath
- * rakhte hain, taaki guest cart page render karne ke liye alag se product
+ * The snapshot also carries the product's basic display data (name, image, price)
+ * so the guest cart page can render without a separate product
  * fetch na karni pade.
  */
 
@@ -71,7 +71,7 @@ export function guestCartAdd(snapshot: GuestProductSnapshot, quantity: number): 
 
   if (existing) {
     existing.quantity += quantity;
-    existing.snapshot = snapshot; // price/stock waagira refresh ho jaaye
+    existing.snapshot = snapshot; // refresh price/stock etc.
   } else {
     items.push({ product_id: snapshot.product_id, quantity, snapshot });
   }

@@ -3,8 +3,8 @@ const { QueryBuilder } = require('../utils/queryBuilder');
 const { parseJson, genRef } = require('../utils/helpers');
 
 /**
- * EK prescriptions table — web aur app dono. Images ek JSON array me hain,
- * to 1 image ho ya 8, sab fit ho jaati hai (pehle app me 5 fixed columns the).
+ * ONE prescriptions table — for both web and app. Images live in a JSON array,
+ * so whether there is 1 image or 8, everything fits (the app previously had 5 fixed columns).
  */
 
 /** DB row -> API shape (images hamesha proper array) */
@@ -83,10 +83,10 @@ async function updateStatus(prescriptionId, status, { reviewedBy, rejectionReaso
   );
 }
 
-/** Images array me aur images add karo (customer ne baad me aur bheji) */
+/** Add more images to the images array (the customer sent more later) */
 async function addImages(prescriptionId, newImages = []) {
   const [[row]] = await db.query(`SELECT images FROM prescriptions WHERE prescription_id = ?`, [prescriptionId]);
-  if (!row) throw Object.assign(new Error('Prescription nahi mila'), { status: 404 });
+  if (!row) throw Object.assign(new Error('Prescription not found'), { status: 404 });
 
   const merged = [...parseJson(row.images, []), ...newImages];
   await db.query(`UPDATE prescriptions SET images = ? WHERE prescription_id = ?`,
@@ -96,7 +96,7 @@ async function addImages(prescriptionId, newImages = []) {
 
 async function removeImage(prescriptionId, imagePath) {
   const [[row]] = await db.query(`SELECT images FROM prescriptions WHERE prescription_id = ?`, [prescriptionId]);
-  if (!row) throw Object.assign(new Error('Prescription nahi mila'), { status: 404 });
+  if (!row) throw Object.assign(new Error('Prescription not found'), { status: 404 });
 
   const remaining = parseJson(row.images, []).filter((img) => img !== imagePath);
   await db.query(`UPDATE prescriptions SET images = ? WHERE prescription_id = ?`,
@@ -104,7 +104,7 @@ async function removeImage(prescriptionId, imagePath) {
   return remaining;
 }
 
-/** Admin prescription dekh ke medicines suggest karta hai */
+/** The admin reviews the prescription and suggests medicines */
 async function setMedicines(prescriptionId, medicines = []) {
   return db.withTransaction(async (conn) => {
     await conn.query(`DELETE FROM prescription_medicines WHERE prescription_id = ?`, [prescriptionId]);

@@ -1,7 +1,7 @@
 /**
- * Chhota WHERE-clause builder. Har model me `const where=[]; const params=[]`
- * repeat karne se bachata hai, aur params hamesha placeholders se bind hote
- * hain (SQL injection safe).
+ * A small WHERE-clause builder. Every model used to repeat `const where=[]; const params=[]`
+ * avoids repeating it, and params are always bound via placeholders
+ * (SQL injection safe).
  *
  *   const qb = new QueryBuilder();
  *   qb.eq('status', filters.status)
@@ -90,7 +90,7 @@ class QueryBuilder {
   }
 }
 
-/** ORDER BY safely — column whitelist se hi aata hai */
+/** ORDER BY safely — the column can only come from a whitelist */
 function orderBy(column, direction = 'DESC', prefix = '') {
   if (!column) return '';
   const p = prefix ? `${prefix}.` : '';

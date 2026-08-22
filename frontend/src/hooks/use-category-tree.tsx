@@ -7,7 +7,7 @@ import type { Category, CategoryTreeNode } from "@/types";
 
 let cache: CategoryTreeNode[] | null = null;
 
-/** Nested parent/child category tree — mega-menu ke liye. `useCategories()` se alag: wo flat list deta hai. */
+/** Nested parent/child category tree — for the mega menu. Different from `useCategories()`, which returns a flat list. */
 export function useCategoryTree() {
   const [tree, setTree] = useState<CategoryTreeNode[]>(cache ?? []);
   const [loading, setLoading] = useState(!cache);

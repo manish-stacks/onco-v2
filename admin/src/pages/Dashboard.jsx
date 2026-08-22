@@ -21,8 +21,8 @@ export default function Dashboard() {
   const { can } = useAuth();
   const { data, loading } = useResource(`/admin/dashboard?preset=${preset}`);
 
-  if (loading && !data) return <PageLoader label="Dashboard load ho raha hai…" />;
-  if (!data) return <EmptyState icon={TrendingUp} title="Dashboard data nahi aaya" description="Page refresh karke dekho." />;
+  if (loading && !data) return <PageLoader label="Loading the dashboard…" />;
+  if (!data) return <EmptyState icon={TrendingUp} title="No dashboard data" description="Try refreshing the page." />;
 
   const c = data.cards || {};
 
@@ -41,10 +41,10 @@ export default function Dashboard() {
         }
       />
 
-      {/* System health — kuch down ho to sabse pehle dikhe */}
+      {/* System health — if something is down, show it first */}
       {can(P.SYSTEM_VIEW) && <Health compact />}
 
-      {/* Alerts — inpe action lena hota hai */}
+      {/* Alerts — these need action */}
       <AlertStrip cards={c} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
@@ -63,7 +63,7 @@ export default function Dashboard() {
           <TrendChart rows={data.sales_trend} />
         </Card>
 
-        <Card title="Web vs App" subtitle="Orders kahan se aa rahe hain" dense>
+        <Card title="Web vs App" subtitle="Where orders are coming from" dense>
           <SourceSplit rows={data.orders_by_source} />
         </Card>
       </div>
@@ -74,7 +74,7 @@ export default function Dashboard() {
         </Card>
 
         <Card
-          title="Top products" subtitle="Sabse zyada bike"
+          title="Top products" subtitle="Best sellers"
           action={<Link to="/reports" className="text-2xs text-teal hover:underline">Full report</Link>}
           className="lg:col-span-2" dense
         >
@@ -84,8 +84,8 @@ export default function Dashboard() {
 
       <div className="grid lg:grid-cols-2 gap-4">
         <Card
-          title="Stock khatam ho raha hai"
-          subtitle="Low stock alert se neeche"
+          title="Stock is running out"
+          subtitle="Below the low stock alert"
           action={<Link to="/inventory" className="text-2xs text-teal hover:underline">Inventory</Link>}
           dense
         >
@@ -110,7 +110,7 @@ function AlertStrip({ cards }) {
     { n: cards.out_of_stock_count, label: 'products out of stock', to: '/inventory?out_of_stock=true', tone: 'danger', icon: AlertTriangle },
     { n: cards.low_stock_count, label: 'products low on stock', to: '/inventory', tone: 'warn', icon: Package },
     { n: cards.expiring_soon, label: 'batches expiring in 90 days', to: '/inventory', tone: 'warn', icon: CalendarClock },
-    { n: cards.pending_prescriptions, label: 'prescriptions review ke liye', to: '/prescriptions?status=Pending', tone: 'info', icon: FileText },
+    { n: cards.pending_prescriptions, label: 'prescriptions awaiting review', to: '/prescriptions?status=Pending', tone: 'info', icon: FileText },
   ].filter((a) => a.n > 0);
 
   if (!alerts.length) return null;
@@ -157,7 +157,7 @@ function Stat({ label, value, foot, icon: Icon, accent }) {
 }
 
 function TrendChart({ rows = [] }) {
-  if (!rows.length) return <EmptyState icon={TrendingUp} title="Is period me koi order nahi" />;
+  if (!rows.length) return <EmptyState icon={TrendingUp} title="No orders in this period" />;
 
   return (
     <div className="p-3">
@@ -195,7 +195,7 @@ function ChartTip({ active, payload, label }) {
 
 function SourceSplit({ rows = [] }) {
   const total = rows.reduce((s, r) => s + Number(r.revenue || 0), 0);
-  if (!total) return <EmptyState icon={TrendingUp} title="Koi data nahi" />;
+  if (!total) return <EmptyState icon={TrendingUp} title="No data" />;
 
   return (
     <div className="p-4 space-y-4">
@@ -225,7 +225,7 @@ function SourceSplit({ rows = [] }) {
 }
 
 function StatusBreakdown({ rows = [] }) {
-  if (!rows.length) return <EmptyState icon={ShoppingCart} title="Koi order nahi" />;
+  if (!rows.length) return <EmptyState icon={ShoppingCart} title="No orders" />;
   const max = Math.max(...rows.map((r) => Number(r.count)));
 
   return (
@@ -255,7 +255,7 @@ function StatusBreakdown({ rows = [] }) {
 }
 
 function TopProducts({ rows = [] }) {
-  if (!rows.length) return <EmptyState icon={Package} title="Is period me kuch nahi bika" />;
+  if (!rows.length) return <EmptyState icon={Package} title="Nothing sold in this period" />;
 
   return (
     <div className="p-3">
@@ -295,7 +295,7 @@ function TopProducts({ rows = [] }) {
 
 function LowStockList({ rows = [] }) {
   if (!rows.length) {
-    return <EmptyState icon={Package} title="Sab stock theek hai" description="Koi product low stock pe nahi hai." />;
+    return <EmptyState icon={Package} title="All stock is fine" description="No product is low on stock." />;
   }
 
   return (
@@ -322,7 +322,7 @@ function LowStockList({ rows = [] }) {
 }
 
 function RecentOrders({ rows = [] }) {
-  if (!rows.length) return <EmptyState icon={ShoppingCart} title="Abhi koi order nahi" />;
+  if (!rows.length) return <EmptyState icon={ShoppingCart} title="No orders yet" />;
 
   return (
     <ul className="divide-y divide-line">

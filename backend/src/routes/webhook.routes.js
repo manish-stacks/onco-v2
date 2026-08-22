@@ -4,9 +4,9 @@ const router = express.Router();
 const shipping = require('../services/shipping.service');
 
 /**
- * Public webhooks — courier/gateway seedha hit karte hain, koi JWT nahi.
+ * Public webhooks — hit directly by the courier/gateway, no JWT.
  *
- * DTDC dashboard me ye URL daalo:
+ * Put this URL in the DTDC dashboard:
  *   https://api.oncohealthmart.com/api/webhooks/dtdc
  */
 router.post('/dtdc', async (req, res) => {
@@ -15,8 +15,8 @@ router.post('/dtdc', async (req, res) => {
     const result = await shipping.handleWebhook(req.body);
     return res.status(200).json({ status: 'received', ...result });
   } catch (err) {
-    // 200 hi bhejo — warna DTDC hamari bug pe retries hammer karega.
-    // Log dekh ke manually investigate karna.
+    // Always return 200 — otherwise DTDC will hammer retries because of our bug.
+    // Investigate manually by reading the log.
     console.error('[webhook:dtdc] error:', err);
     return res.status(200).json({ status: 'error', message: err.message });
   }

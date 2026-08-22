@@ -17,16 +17,18 @@ const {
 } = require('../config/constants');
 
 /**
- * Checkout ka poora logic. Web aur app dono yahi service use karte hain —
- * sirf `platform` ka farak hai, jo orders.orderFrom me chala jaata hai.
+ * The complete checkout logic. Web and app both use this service —
+ * only `platform` differs, and that goes into orders.orderFrom.
  *
- * Ek transaction ke andar sab kuch hota hai:
+ * Everything happens inside one transaction:
  *   stock lock+decrement -> coupon consume -> order insert -> items insert
- * Kahin bhi fail hua to poora rollback — aadha order kabhi nahi banta.
+ * If anything fails, everything is rolled back — a half-created order never exists.
  */
 
-/** Items ki server-side pricing — client ki bheji price kabhi trust nahi karte */
+/** Server-side pricing of the items — we never trust a price sent by the client */
 async function priceItems(conn, items) {
+  // Admin-controlled GST — read once, then applied to every line below
+  const taxConfig = await settingsModel.getTaxConfig();
   let subtotal = 0;
   let totalGst = 0;
   let requiresPrescription = false;
@@ -36,13 +38,13 @@ async function priceItems(conn, items) {
   for (const it of items) {
     const quantity = parseInt(it.unit_quantity || it.quantity, 10);
     if (!quantity || quantity < 1) {
-      throw Object.assign(new Error('Har item ki quantity kam se kam 1 honi chahiye'), { status: 422 });
+      throw Object.assign(new Error('Every item must have a quantity of at least 1'), { status: 422 });
     }
 
     const product = await productModel.getPricingInfo(it.product_id, conn);
-    if (!product) throw Object.assign(new Error(`Product ${it.product_id} nahi mila`), { status: 404 });
+    if (!product) throw Object.assign(new Error(`Product ${it.product_id} not found`), { status: 404 });
     if (product.status !== 'Active') {
-      throw Object.assign(new Error(`"${product.product_name}" abhi available nahi hai`), { status: 409 });
+      throw Object.assign(new Error(`"${product.product_name}" is not available right now`), { status: 409 });
     }
 
     if (product.presciption_required === 'Yes') requiresPrescription = true;
@@ -50,7 +52,7 @@ async function priceItems(conn, items) {
 
     const unitPrice = product.product_sp;
     const lineSubtotal = money(unitPrice * quantity);
-    const taxPercent = product.product_gst || 0;
+    const taxPercent = settingsModel.resolveGstPercent(product.product_gst, taxConfig);
     const taxAmount = money((lineSubtotal * taxPercent) / 100);
 
     subtotal += lineSubtotal;
@@ -82,8 +84,8 @@ async function priceItems(conn, items) {
 }
 
 /**
- * Checkout ka preview — order banaye bina totals dikhane ke liye.
- * Cart page pe "apply coupon" karte waqt yahi call hota hai.
+ * Checkout preview — shows the totals without creating an order.
+ * Called when "apply coupon" is used on the cart page.
  */
 async function quote({ items, coupon_code, payment_mode, customerId }) {
   const pricing = await priceItems(db, items);
@@ -121,28 +123,29 @@ async function quote({ items, coupon_code, payment_mode, customerId }) {
 }
 
 /**
- * Asli order place karo.
+ * Place the actual order.
  * @param {object} p  { customerId, platform, items, address fields, coupon_code, payment_mode, ... }
  */
 async function placeOrder(p) {
   const paymentMode = p.payment_mode === PAYMENT_MODE.COD ? PAYMENT_MODE.COD : PAYMENT_MODE.ONLINE;
 
-  // COD globally band ho to pehle hi rok do
-  if (paymentMode === PAYMENT_MODE.COD && !(await settingsModel.isCodEnabled())) {
-    throw Object.assign(new Error('COD abhi available nahi hai'), { status: 409 });
+  // If COD is disabled globally, stop right here.
+  // POS (admin-created) orders are exempt — cash is always accepted at the counter.
+  if (paymentMode === PAYMENT_MODE.COD && !p.isPos && !(await settingsModel.isCodEnabled())) {
+    throw Object.assign(new Error('COD is not available right now'), { status: 409 });
   }
 
   const databaseOrderID = genRef('OHM');
 
   const result = await db.withTransaction(async (conn) => {
-    // 1. pricing (products FOR UPDATE lock stock step me lagta hai)
+    // 1. pricing (the products FOR UPDATE lock is taken in the stock step)
     const pricing = await priceItems(conn, p.items);
 
-    if (paymentMode === PAYMENT_MODE.COD && !pricing.codAllowed) {
-      throw Object.assign(new Error('Cart me kuch items COD pe available nahi hain'), { status: 409 });
+    if (paymentMode === PAYMENT_MODE.COD && !p.isPos && !pricing.codAllowed) {
+      throw Object.assign(new Error('Some items in the cart are not available for COD'), { status: 409 });
     }
     // if (pricing.requiresPrescription && !p.prescription_id) {
-    //   throw Object.assign(new Error('In medicines ke liye prescription upload karna zaroori hai'), { status: 422 });
+    //   throw Object.assign(new Error('A prescription upload is required for these medicines'), { status: 422 });
     // }
 
     // 2. coupon validate + consume
@@ -160,20 +163,30 @@ async function placeOrder(p) {
       discount = check.discount;
     }
 
+    // Manual POS discount (flat amount or percentage), on top of any coupon.
+    // Capped so the discount can never exceed the item subtotal.
+    if (p.isPos && p.discount_value) {
+      const value = parseFloat(p.discount_value) || 0;
+      const manual = p.discount_type === 'percent'
+        ? (pricing.subtotal * Math.min(Math.max(value, 0), 100)) / 100
+        : Math.max(value, 0);
+      discount = money(Math.min(discount + manual, pricing.subtotal));
+    }
+
     // 3. charges + final total
     const charges = await settingsModel.calcCharges(pricing.subtotal, paymentMode);
     const amount = money(
       pricing.subtotal + pricing.gst - discount + charges.shipping_charge + charges.cod_fee
     );
 
-    // 4. stock lock + decrement (yahi jagah hai jahan out-of-stock pakda jaata hai)
+    // 4. stock lock + decrement (this is where out-of-stock is caught)
     for (const item of pricing.items) {
       await inventoryModel.decrementStock(conn, {
         productId: item.product_id,
         quantity: item.unit_quantity,
         referenceType: 'order',
-        referenceId: null, // order abhi bana nahi, neeche log me note se link ho jaata hai
-        changedBy: `customer:${p.customerId}`,
+        referenceId: null, // the order does not exist yet; it is linked via the note in the log below
+        changedBy: p.isPos ? `admin:${p.created_by || 'pos'}` : `customer:${p.customerId}`,
         note: `Order ${databaseOrderID}`,
       });
     }
@@ -181,12 +194,12 @@ async function placeOrder(p) {
     // 5. order row
     const orderId = await orderModel.create(conn, {
       databaseOrderID,
-      razorpayOrderID: null, // neeche set hoga
+      razorpayOrderID: null, // set below
       order_date: new Date(),
       prescription_id: p.prescription_id || null,
       customer_id: p.customerId,
       customer_name: p.customer_name,
-      patient_name: p.customer_name,
+      patient_name: p.patient_name || p.customer_name,
       doctor_name: p.doctor_name,
       hospital_name: p.hospital_name,
       customer_email: p.customer_email,
@@ -223,10 +236,10 @@ async function placeOrder(p) {
     // 6. items
     await orderModel.addItems(conn, orderId, pricing.items);
 
-    // 7. coupon use consume (order id ke saath, taaki cancel pe wapas kar sakein)
+    // 7. consume the coupon use (with the order id, so it can be restored on cancel)
     if (couponId) {
       const consumed = await couponModel.consumeUse(conn, couponId, p.customerId, orderId, discount);
-      if (!consumed) throw Object.assign(new Error('Ye coupon abhi-abhi khatam ho gaya'), { status: 409 });
+      if (!consumed) throw Object.assign(new Error('This coupon just ran out'), { status: 409 });
     }
 
     // 8. total_sold counter
@@ -238,7 +251,8 @@ async function placeOrder(p) {
     await orderModel.logStatus(
       conn, orderId, null,
       paymentMode === PAYMENT_MODE.COD ? ORDER_STATUS.NEW : ORDER_STATUS.PENDING,
-      'system', `Order place hua — ${p.platform} | ${paymentMode}`
+      p.isPos ? `admin:${p.created_by || 'pos'}` : 'system',
+      `Order placed — ${p.isPos ? 'POS' : p.platform} | ${paymentMode}`
     );
     await conn.query(`UPDATE orders SET invoice_number = ? WHERE order_id = ?`,
       [genInvoiceNumber(orderId), orderId]);
@@ -246,10 +260,31 @@ async function placeOrder(p) {
     return { orderId, amount, pricing, discount, charges };
   });
 
-  // ---- transaction ke bahar: payment session banao (external API, DB lock nahi rokna) ----
+  // ---- outside the transaction: create the payment session (external API, must not hold a DB lock) ----
   let payment = null;
-  if (paymentMode === PAYMENT_MODE.ONLINE) {
-    const gateway = paymentService.resolve(p.payment_gateway);
+  if (p.isPos) {
+    // POS order — money is collected at the counter, so no gateway session is created
+    await db.query(`UPDATE orders SET payment_gateway = ? WHERE order_id = ?`,
+      [p.payment_gateway || 'offline', result.orderId]);
+    if (p.mark_paid) {
+      await orderModel.updatePayment(result.orderId, {
+        payment_status: PAYMENT_STATUS.PAID,
+        transaction_number: p.transaction_number || `POS-${databaseOrderID}`,
+      });
+    }
+  } else if (paymentMode === PAYMENT_MODE.ONLINE) {
+    let gateway = paymentService.resolve(p.payment_gateway);
+
+    // A gateway the admin has disabled is never allowed — whatever the client
+    // sends, Settings is the single source of truth.
+    const { list } = await paymentService.availableGatewaysLive();
+    if (list.length && !list.some((g) => g.id === gateway)) {
+      gateway = list[0].id;
+    }
+    if (!list.length) {
+      throw Object.assign(new Error('Online payment is not available right now'), { status: 409 });
+    }
+
     try {
       const session = await paymentService.createPaymentSession(gateway, {
         order_id: result.orderId,
@@ -270,7 +305,7 @@ async function placeOrder(p) {
       );
       payment = session;
     } catch (err) {
-      // gateway fail — order Pending/Unpaid pada rahega, customer retry kar sakta hai
+      // gateway failure — the order stays Pending/Unpaid and the customer can retry
       console.error('[order] payment session fail:', err.message);
       await orderModel.updateStatus(result.orderId, ORDER_STATUS.PENDING, 'system',
         `Payment session fail: ${err.message}`);
@@ -285,17 +320,17 @@ async function placeOrder(p) {
         context: 'payment session create',
         error: err.message,
       });
-      throw Object.assign(new Error('Payment gateway se connect nahi ho paaya, dobara try karo'), { status: 502 });
+      throw Object.assign(new Error('Could not connect to the payment gateway, please try again'), { status: 502 });
     }
   } else {
     await db.query(`UPDATE orders SET payment_gateway = 'cod' WHERE order_id = ?`, [result.orderId]);
   }
 
-  await cartModel.clear(p.customerId);
+  if (!p.isPos) await cartModel.clear(p.customerId);
   await cache.invalidate.orders();
   await cache.invalidate.products();
 
-  // admin panel ko live batao — naya order aaya
+  // tell the admin panel live — a new order has arrived
   events.emit('order.created', {
     order_id: result.orderId,
     reference: databaseOrderID,
@@ -306,7 +341,7 @@ async function placeOrder(p) {
     item_count: result.pricing.items.length,
   }, 'orders.view');
 
-  // stock alert — kaunsa product khatam ya kam ho gaya is order se
+  // stock alert — which product ran out or got low because of this order
   for (const item of result.pricing.items) {
     const left = await productModel.getPricingInfo(item.product_id);
     if (left && left.stock_quantity <= 0) {
@@ -318,7 +353,7 @@ async function placeOrder(p) {
 
   const order = await orderModel.findById(result.orderId);
 
-  // COD order turant confirm hai. Online ka confirmation payment ke baad jaata hai.
+  // A COD order is confirmed immediately. Online confirmation is sent after payment.
   if (paymentMode === PAYMENT_MODE.COD) {
     notify.orderPlaced(order, order.items);
   }
@@ -326,16 +361,16 @@ async function placeOrder(p) {
   return {
     order,
     payment,
-    // purane clients ke liye — pehle response me `razorpay` key aati thi
+    // for older clients — the response used to contain a `razorpay` key
     razorpay: payment?.razorpay || null,
   };
 }
 
-/** Payment confirm hone pe — verify-payment endpoint aur webhook dono se */
+/** Called once payment is confirmed — from both the verify-payment endpoint and the webhook */
 async function markOrderPaid(orderId, paymentId, changedBy = 'system') {
   const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
-  if (!order) throw Object.assign(new Error('Order nahi mila'), { status: 404 });
-  if (order.payment_status === PAYMENT_STATUS.PAID) return order; // pehle se paid, dobara mat karo
+  if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
+  if (order.payment_status === PAYMENT_STATUS.PAID) return order; // already paid, do not repeat
 
   await orderModel.updatePayment(orderId, {
     payment_status: PAYMENT_STATUS.PAID,
@@ -343,7 +378,7 @@ async function markOrderPaid(orderId, paymentId, changedBy = 'system') {
   });
 
   if (order.status === ORDER_STATUS.PENDING) {
-    await orderModel.updateStatus(orderId, ORDER_STATUS.NEW, changedBy, 'Payment confirm hua');
+    await orderModel.updateStatus(orderId, ORDER_STATUS.NEW, changedBy, 'Payment confirmed');
   }
 
   await cache.invalidate.orders();
@@ -367,22 +402,22 @@ async function markOrderPaymentFailed(orderId, paymentId) {
 }
 
 /**
- * Cancel — customer aur admin dono yahi use karte hain.
- * Stock wapas, coupon use wapas, aur paid tha to Razorpay refund.
+ * Cancel — used by both the customer and the admin.
+ * Restore stock, restore the coupon use, and refund via Razorpay if it was paid.
  */
 async function cancelOrder(orderId, { changedBy, reason, refundPayment = true }) {
   const order = await orderModel.findById(orderId);
-  if (!order) throw Object.assign(new Error('Order nahi mila'), { status: 404 });
+  if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
 
   if (!CANCELLABLE_STATUSES.includes(order.status)) {
     throw Object.assign(
-      new Error(`'${order.status}' status ka order cancel nahi ho sakta`),
+      new Error(`An order with status '${order.status}' cannot be cancelled`),
       { status: 409 }
     );
   }
 
   await db.withTransaction(async (conn) => {
-    // 1. stock wapas
+    // 1. restore stock
     for (const item of order.items) {
       await inventoryModel.incrementStock(conn, {
         productId: item.product_id,
@@ -391,7 +426,7 @@ async function cancelOrder(orderId, { changedBy, reason, refundPayment = true })
         referenceType: 'order',
         referenceId: orderId,
         changedBy,
-        note: `Order ${order.databaseOrderID} cancel hua`,
+        note: `Order ${order.databaseOrderID} cancelled`,
       });
       await conn.query(
         `UPDATE products SET total_sold = GREATEST(total_sold - ?, 0) WHERE product_id = ?`,
@@ -399,7 +434,7 @@ async function cancelOrder(orderId, { changedBy, reason, refundPayment = true })
       );
     }
 
-    // 2. coupon use wapas
+    // 2. restore the coupon use
     if (order.coupon_id) {
       await couponModel.refundUse(order.coupon_id, orderId, conn);
     }
@@ -412,7 +447,7 @@ async function cancelOrder(orderId, { changedBy, reason, refundPayment = true })
     await orderModel.logStatus(conn, orderId, order.status, ORDER_STATUS.CANCELLED, changedBy, reason);
   });
 
-  // 4. refund (transaction ke bahar — external API)
+  // 4. refund (outside the transaction — external API)
   let refundInfo = null;
   if (refundPayment && order.payment_status === PAYMENT_STATUS.PAID && order.transaction_number) {
     try {
@@ -427,16 +462,16 @@ async function cancelOrder(orderId, { changedBy, reason, refundPayment = true })
         refund_reference: r.id,
       });
       refundInfo = { refund_id: r.id, amount: order.amount, status: 'initiated' };
-      await orderModel.updateStatus(orderId, ORDER_STATUS.CANCELLED, 'system', `Refund shuru — ${r.id}`)
-        .catch(() => {}); // status already Cancelled hai, sirf log ke liye
+      await orderModel.updateStatus(orderId, ORDER_STATUS.CANCELLED, 'system', `Refund started — ${r.id}`)
+        .catch(() => {}); // status is already Cancelled, this is only for logging
     } catch (err) {
       console.error('[order] refund fail', orderId, err.message);
       refundInfo = { failed: true, error: err.message };
-      // cancel phir bhi valid hai — bas manual review ke liye flag kar do
+      // the cancel is still valid — just flag it for manual review
       await db.query(
         `INSERT INTO order_status_logs (order_id, old_status, new_status, changed_by, note) VALUES (?,?,?,?,?)`,
         [orderId, ORDER_STATUS.CANCELLED, ORDER_STATUS.CANCELLED, 'system',
-          `REFUND FAIL — manual review chahiye: ${err.message}`]
+          `REFUND FAILED — manual review required: ${err.message}`]
       );
     }
   }
@@ -454,10 +489,10 @@ async function cancelOrder(orderId, { changedBy, reason, refundPayment = true })
   return { order: await orderModel.findById(orderId), refund: refundInfo };
 }
 
-/** Order ka status aage badhao (admin) — flow validation ke saath */
+/** Move an order's status forward (admin) — with flow validation */
 async function changeStatus(orderId, newStatus, { changedBy, note }) {
   const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
-  if (!order) throw Object.assign(new Error('Order nahi mila'), { status: 404 });
+  if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
 
   if (newStatus === ORDER_STATUS.CANCELLED) {
     return cancelOrder(orderId, { changedBy, reason: note });
@@ -465,14 +500,14 @@ async function changeStatus(orderId, newStatus, { changedBy, note }) {
 
   await orderModel.updateStatus(orderId, newStatus, changedBy, note);
 
-  // COD order deliver hua -> paid mark karo
+  // COD order delivered -> mark it paid
   if (newStatus === ORDER_STATUS.COMPLETED
       && order.payment_mode === PAYMENT_MODE.COD
       && order.payment_status === PAYMENT_STATUS.UNPAID) {
     await orderModel.updatePayment(orderId, { payment_status: PAYMENT_STATUS.PAID });
   }
 
-  // Shipped ka message shipping service bhejti hai (AWB ke saath), yahan nahi
+  // The shipping service sends the Shipped message (with the AWB), not this one
   if (newStatus !== ORDER_STATUS.SHIPPED) {
     notify.orderStatusChanged(order, newStatus);
   }

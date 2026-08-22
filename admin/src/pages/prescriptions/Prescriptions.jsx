@@ -62,7 +62,7 @@ export function PrescriptionList() {
             {imgs.length > 3 && (
               <span className="text-2xs text-ink-500 tabular-nums ml-0.5">+{imgs.length - 3}</span>
             )}
-            {!imgs.length && <span className="text-2xs text-ink-300">koi image nahi</span>}
+            {!imgs.length && <span className="text-2xs text-ink-300">no images</span>}
           </div>
         );
       },
@@ -99,7 +99,7 @@ export function PrescriptionList() {
     <>
       <PageHeader
         title="Prescriptions"
-        subtitle="Web aur app dono ke prescriptions — ek hi list"
+        subtitle="Prescriptions from both the web and app — all in one list."
       />
 
       <Card dense>
@@ -126,8 +126,8 @@ export function PrescriptionList() {
           rowTone={(p) => toneOf(p.status)}
           onRowClick={(p) => navigate(`/prescriptions/${p.prescription_id}`)}
           emptyIcon={FileText}
-          emptyTitle="Koi prescription nahi mila"
-          emptyDescription="Customer upload karenge to yahan aayenge."
+          emptyTitle="No prescriptions found"
+          emptyDescription="These will appear here once customers upload them."
         />
         <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
       </Card>
@@ -147,7 +147,7 @@ export function PrescriptionDetail() {
   const [lightbox, setLightbox] = useState(null);
 
   if (loading && !presc) return <PageLoader />;
-  if (!presc) return <EmptyState icon={FileText} title="Prescription nahi mila" />;
+  if (!presc) return <EmptyState icon={FileText} title="Prescription not found" />;
 
   const images = Array.isArray(presc.images) ? presc.images : [];
   const canManage = can(P.PRESCRIPTIONS_MANAGE);
@@ -176,7 +176,7 @@ export function PrescriptionDetail() {
         <div className="lg:col-span-2 space-y-4">
           <Card
             title="Uploaded images"
-            subtitle="Images ek JSON array me store hoti hain — jitni chahiye utni"
+            subtitle="Images are stored in a JSON array — as many as you need"
             dense
           >
             {images.length ? (
@@ -195,13 +195,13 @@ export function PrescriptionDetail() {
                 ))}
               </div>
             ) : (
-              <EmptyState icon={FileText} title="Koi image nahi" />
+              <EmptyState icon={FileText} title="No images" />
             )}
           </Card>
 
           <Card
             title="Suggested medicines"
-            subtitle="Customer inhe seedha cart me daal sakta hai"
+            subtitle="Customers can add these straight to the cart"
             action={canManage && (
               <Button size="xs" icon={Plus} onClick={() => setMedOpen(true)}>Edit</Button>
             )}
@@ -225,8 +225,8 @@ export function PrescriptionDetail() {
               </ul>
             ) : (
               <EmptyState
-                icon={Pill} title="Abhi koi medicine suggest nahi ki"
-                description="Prescription padh ke medicines add karo, customer ko order karne me aasani hogi."
+                icon={Pill} title="No medicines suggested yet"
+                description="Read the prescription and add medicines, so ordering is easier for the customer."
               />
             )}
           </Card>
@@ -239,7 +239,7 @@ export function PrescriptionDetail() {
               <DRow label="Doctor" value={presc.doctor_name} />
               <DRow label="Hospital" value={presc.hospital_name} />
               <DRow label="Contact" value={presc.contact_number} mono />
-              <DRow label="Type" value={presc.direct_upload ? 'Direct upload' : 'Order ke saath'} />
+              <DRow label="Type" value={presc.direct_upload ? 'Direct upload' : 'With an order'} />
               {presc.customer_id && (
                 <div className="pt-2 border-t border-line">
                   <Link to={`/customers/${presc.customer_id}`}
@@ -310,7 +310,7 @@ function DRow({ label, value, mono }) {
   );
 }
 
-function ReviewModal({ open, onClose, presc, onDone }) {
+export function ReviewModal({ open, onClose, presc, onDone }) {
   const [status, setStatus] = useState(presc.status);
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
@@ -319,7 +319,7 @@ function ReviewModal({ open, onClose, presc, onDone }) {
     () => api.patch(`/admin/prescriptions/${presc.prescription_id}/status`, {
       status, rejection_reason: reason, notes,
     }),
-    { success: 'Status update ho gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: 'Status updated', onSuccess: () => { onClose(); onDone(); } }
   );
 
   return (
@@ -352,22 +352,22 @@ function ReviewModal({ open, onClose, presc, onDone }) {
         </Field>
 
         {status === 'Rejected' && (
-          <Field label="Rejection reason" required hint="Customer ko yahi message dikhega">
+          <Field label="Rejection reason" required hint="This message is shown to the customer">
             <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)}
-              placeholder="Image saaf nahi hai / doctor signature missing / 6 mahine purana hai" />
+              placeholder="Image is unclear / doctor's signature missing / it is 6 months old" />
           </Field>
         )}
 
         <Field label="Internal note">
           <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
-            placeholder="Team ke liye — customer ko nahi dikhega" />
+            placeholder="For the team — not shown to the customer" />
         </Field>
       </div>
     </Modal>
   );
 }
 
-function MedicinesModal({ open, onClose, presc, onDone }) {
+export function MedicinesModal({ open, onClose, presc, onDone }) {
   const [meds, setMeds] = useState(presc.medicines?.length
     ? presc.medicines.map((m) => ({
       product_id: m.product_id || '', medicine_name: m.medicine_name || '',
@@ -379,7 +379,7 @@ function MedicinesModal({ open, onClose, presc, onDone }) {
     () => api.put(`/admin/prescriptions/${presc.prescription_id}/medicines`, {
       medicines: meds.filter((m) => m.medicine_name || m.product_id),
     }),
-    { success: 'Medicines save ho gayi', onSuccess: () => { onClose(); onDone(); } }
+    { success: 'Medicines saved', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const update = (i, k, v) => setMeds((m) => m.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
@@ -387,7 +387,7 @@ function MedicinesModal({ open, onClose, presc, onDone }) {
   return (
     <Modal
       open={open} onClose={onClose} title="Suggest medicines" size="lg"
-      subtitle="Prescription padh ke jo medicines chahiye wo list karo"
+      subtitle="Read the prescription and list the medicines needed"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>

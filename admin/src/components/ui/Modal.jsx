@@ -99,7 +99,7 @@ export function ConfirmDialog({
   );
 }
 
-/** Right side se aane wala panel — order detail wagairah ke liye */
+/** A panel sliding in from the right — for order detail and similar */
 export function Drawer({ open, onClose, title, subtitle, children, footer, width = 'max-w-2xl' }) {
   const onKey = useCallback((e) => { if (e.key === 'Escape') onClose?.(); }, [onClose]);
 

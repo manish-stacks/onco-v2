@@ -10,11 +10,11 @@ const login = asyncHandler(async (req, res) => {
   const { username, password } = req.body;
 
   const admin = await adminModel.findByUsername(username);
-  if (!admin) return fail(res, 'Username ya password galat hai', 401);
-  if (admin.status !== 'Active') return fail(res, 'Aapka account inactive hai', 403);
+  if (!admin) return fail(res, 'Username or password is incorrect', 401);
+  if (admin.status !== 'Active') return fail(res, 'Your account is inactive', 403);
 
   const match = await bcrypt.compare(password, admin.admin_password || '');
-  if (!match) return fail(res, 'Username ya password galat hai', 401);
+  if (!match) return fail(res, 'Username or password is incorrect', 401);
 
   const token = jwt.sign(
     {
@@ -48,13 +48,13 @@ const login = asyncHandler(async (req, res) => {
       role_name: admin.role_name,
     },
     permissions,
-  }, 'Login ho gaya');
+  }, 'Logged in');
 });
 
-/** GET /admin/auth/me — permissions ke saath (frontend menu isse render hota hai) */
+/** GET /admin/auth/me — with permissions (the frontend menu is rendered from this) */
 const me = asyncHandler(async (req, res) => {
   const admin = await adminModel.findById(req.admin.admin_id);
-  if (!admin) return fail(res, 'Admin nahi mila', 404);
+  if (!admin) return fail(res, 'Admin not found', 404);
   const permissions = await getRolePermissions(admin.user_type);
   return ok(res, { ...admin, permissions });
 });
@@ -67,7 +67,7 @@ const updateProfile = asyncHandler(async (req, res) => {
   if (req.file) payload.avatar = await storeFile(req.file, 'avatars');
 
   await adminModel.update(req.admin.admin_id, payload);
-  return ok(res, await adminModel.findById(req.admin.admin_id), 'Profile update ho gaya');
+  return ok(res, await adminModel.findById(req.admin.admin_id), 'Profile updated');
 });
 
 /** POST /admin/auth/change-password */
@@ -76,7 +76,7 @@ const changePassword = asyncHandler(async (req, res) => {
 
   const admin = await adminModel.findByUsername(req.admin.admin_username);
   const match = await bcrypt.compare(old_password, admin.admin_password || '');
-  if (!match) return fail(res, 'Purana password galat hai', 401);
+  if (!match) return fail(res, 'Old password is incorrect', 401);
 
   await adminModel.updatePassword(req.admin.admin_id, await bcrypt.hash(new_password, 10));
   await adminModel.logActivity({
@@ -84,7 +84,7 @@ const changePassword = asyncHandler(async (req, res) => {
     action: 'change_password', module: 'auth', ip_address: req.ip,
   });
 
-  return ok(res, null, 'Password badal gaya');
+  return ok(res, null, 'Password changed');
 });
 
 /** POST /admin/auth/logout — activity log ke liye */
@@ -93,7 +93,7 @@ const logout = asyncHandler(async (req, res) => {
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
     action: 'logout', module: 'auth', ip_address: req.ip,
   });
-  return ok(res, null, 'Logout ho gaya');
+  return ok(res, null, 'Logged out');
 });
 
 module.exports = { login, me, updateProfile, changePassword, logout };

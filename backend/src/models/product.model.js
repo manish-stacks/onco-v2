@@ -4,7 +4,7 @@ const { slugify, pickDefined } = require('../utils/helpers');
 
 const SORTABLE = ['product_id', 'product_name', 'product_sp', 'product_mrp', 'stock_quantity', 'total_sold', 'adding_date', 'created_at'];
 
-/** Jo columns client se accept karenge — baaki ignore (mass-assignment se bachao) */
+/** Columns we accept from the client — everything else is ignored (mass-assignment protection) */
 const WRITABLE = [
   'product_name', 'short_description', 'long_description', 'sku', 'hsn_code',
   'company_name', 'brand_id',
@@ -18,7 +18,7 @@ const WRITABLE = [
   'storage', 'isCOD', 'status',
 ];
 
-/** Merchandising flags — admin inhe list page se toggle karta hai */
+/** Merchandising flags — the admin toggles these from the list page */
 const FLAGS = ['is_featured', 'deal_of_the_day', 'top_selling', 'latest_product'];
 
 function buildFilters(filters = {}) {
@@ -36,7 +36,7 @@ function buildFilters(filters = {}) {
     .flag('latest_product', filters.latest_product)
     .flag('is_featured', filters.is_featured);
 
-  // "koi bhi flag laga hua" / "koi flag nahi" — merchandising cleanup ke liye
+  // "any flag set" / "no flags set" — for merchandising cleanup
   if (filters.has_flag === 'true') {
     qb.raw("(p.`is_featured`='1' OR p.`deal_of_the_day`='1' OR p.`top_selling`='1' OR p.`latest_product`='1')");
   }
@@ -170,7 +170,7 @@ async function findBySlug(slug) {
   return { ...product, categories, ...ratings };
 }
 
-/** Checkout ke waqt pricing ke liye — client ki bheji hui price kabhi trust nahi karte */
+/** For pricing at checkout — we never trust a price sent by the client */
 async function getPricingInfo(productId, conn = db) {
   const [[row]] = await conn.query(
     `SELECT product_id, product_name, sku, hsn_code, image_1, product_sp, product_mrp, product_gst,
@@ -197,7 +197,7 @@ async function slugExists(slug, excludeId = null) {
   return rows.length > 0;
 }
 
-/** Slug unique banao — collision pe -2, -3 lagta jaayega */
+/** Make the slug unique — on a collision it appends -2, -3 and so on */
 async function generateUniqueSlug(name, excludeId = null) {
   const base = slugify(name);
   let slug = base;
@@ -230,7 +230,7 @@ async function remove(productId) {
   await db.query(`DELETE FROM products WHERE product_id = ?`, [productId]);
 }
 
-/** Soft delete — history wale products delete karne se orders toot sakte hain */
+/** Soft delete — deleting products with history could break orders */
 async function setStatus(productId, status) {
   await db.query(`UPDATE products SET status = ? WHERE product_id = ?`, [status, productId]);
 }
@@ -244,8 +244,8 @@ async function bulkSetStatus(productIds = [], status) {
 }
 
 /**
- * Bulk flag toggle — admin ek saath 20 products ko "top selling" bana sake.
- * Sirf FLAGS list wale columns accept hote hain.
+ * Bulk flag toggle — lets an admin mark 20 products as "top selling" at once.
+ * Only columns in the FLAGS list are accepted.
  */
 async function bulkSetFlags(productIds = [], flags = {}) {
   const keys = Object.keys(flags).filter((k) => FLAGS.includes(k));
@@ -276,7 +276,7 @@ async function toggleFlag(productId, flag) {
   return row?.value === '1';
 }
 
-/** Har flag pe kitne products hain — admin ko overview */
+/** How many products carry each flag — an overview for the admin */
 async function flagCounts() {
   const [[row]] = await db.query(
     `SELECT
@@ -299,7 +299,7 @@ async function setCategories(productId, categoryIds = [], conn = db) {
   }
 }
 
-/** Kisi product ke saath milte-julte products (same category) */
+/** Products similar to a given product (same category) */
 async function related(productId, limit = 8) {
   const [rows] = await db.query(
     `SELECT DISTINCT p.* FROM products p

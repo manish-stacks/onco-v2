@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Interactive 1-5 star picker — Rating component sirf display ke liye hai, ye input ke liye */
+/** Interactive 1-5 star picker — the Rating component is display-only, this one is for input */
 export function StarRatingInput({
   value,
   onChange,

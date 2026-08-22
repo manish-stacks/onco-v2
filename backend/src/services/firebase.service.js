@@ -5,12 +5,12 @@ const db = require('../config/db');
  *
  * Setup:
  *   1. Firebase console > Project settings > Service accounts > Generate new
- *      private key. JSON file download hogi.
+ *      private key. A JSON file will be downloaded.
  *   2. .env me path do:  FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json
- *      Ya poora JSON ek line me: FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+ *      Or the whole JSON on one line: FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
  *
- * Config na ho to sab kuch console pe log hota hai — local dev me app flow
- * tootta nahi.
+ * If it is not configured everything is logged to the console — in local dev the app flow
+ * does not break.
  */
 
 let admin = null;
@@ -24,7 +24,7 @@ function init() {
   const jsonEnv = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const pathEnv = process.env.FIREBASE_SERVICE_ACCOUNT;
   if (!jsonEnv && !pathEnv) {
-    initError = 'FIREBASE_SERVICE_ACCOUNT set nahi hai';
+    initError = 'FIREBASE_SERVICE_ACCOUNT is not set';
     return null;
   }
 
@@ -60,11 +60,11 @@ function isConfigured() {
 // Token management
 // ---------------------------------------------------------------------------
 
-/** App/panel login pe token register karo */
+/** Register the token on app/panel login */
 async function registerToken({ token, customerId, adminId, platform, deviceInfo }) {
   if (!token) return null;
 
-  // Ek hi device dobara login kare to purani row update ho, nayi na bane
+  // If the same device logs in again, update the old row instead of creating a new one
   await db.query(
     `INSERT INTO device_tokens (token, customer_id, admin_id, platform, device_info, is_active, last_used_at)
      VALUES (?,?,?,?,?,1,NOW())
@@ -99,7 +99,7 @@ async function tokensForAdmins() {
   return rows.map((r) => r.token);
 }
 
-/** FCM ne bola token dead hai — DB se hata do, warna har baar fail hoga */
+/** FCM reported the token is dead — remove it from the DB, otherwise it fails every time */
 async function deactivateTokens(tokens = []) {
   if (!tokens.length) return;
   await db.query(
@@ -127,14 +127,14 @@ async function logPush({ recipient, template, customerId, orderId, success, resp
 }
 
 /**
- * Tokens pe notification bhejo.
+ * Send a notification to the tokens.
  * @param {string[]} tokens
  * @param {object} notification { title, body, image }
  * @param {object} data         extra payload — app deep-link ke liye
  */
 async function sendToTokens(tokens, notification, data = {}, meta = {}) {
   const clean = [...new Set((tokens || []).filter(Boolean))];
-  if (!clean.length) return { skipped: 'koi active token nahi' };
+  if (!clean.length) return { skipped: 'no active tokens' };
 
   const fb = init();
   if (!fb) {
@@ -143,7 +143,7 @@ async function sendToTokens(tokens, notification, data = {}, meta = {}) {
     return { dev: true, tokens: clean.length };
   }
 
-  // FCM data payload me sab values string honi chahiye
+  // Every value in an FCM data payload must be a string
   const stringData = {};
   Object.entries(data).forEach(([k, v]) => {
     stringData[k] = v === null || v === undefined ? '' : String(v);
@@ -170,7 +170,7 @@ async function sendToTokens(tokens, notification, data = {}, meta = {}) {
       },
     });
 
-    // dead tokens saaf karo
+    // clean up dead tokens
     const dead = [];
     res.responses.forEach((r, i) => {
       const code = r.error?.code;

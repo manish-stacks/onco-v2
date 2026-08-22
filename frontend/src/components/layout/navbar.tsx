@@ -3,13 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Heart,
   ShoppingBag,
-  Package,
   User,
   Menu,
   X,
@@ -26,12 +25,11 @@ import {
   Newspaper,
   Phone,
   List,
-  LogOut,
+  Check,
 } from "lucide-react";
 import { useCategories } from "@/hooks/use-categories";
 import { useStore } from "@/hooks/use-store";
 import { useAuth } from "@/context/auth-context";
-import { orderApi } from "@/lib/api";
 import { formatINR } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { MegaMenu } from "./MegaMenu";
@@ -56,29 +54,42 @@ const FEATURES = [
 
 export function Navbar() {
   const { cartCount, cartSubtotal, wishlistIds } = useStore();
-  const { user, isLoggedIn, logout } = useAuth();
+  const { user, isLoggedIn } = useAuth();
   const { categories } = useCategories();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [megaOpen, setMegaOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [orderCount, setOrderCount] = useState(0);
 
-  function handleSearch() {
-    if (query.trim()) router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-  }
+  // The "All Categories" dropdown to the left of the search box
+  const [catOpen, setCatOpen] = useState(false);
+  const [catSlug, setCatSlug] = useState<string>("");
+  const catRef = useRef<HTMLDivElement>(null);
 
-  // Header badge ke liye lightweight order count — poori list nahi, sirf total
+  const selectedCat = categories.find((c) => c.slug === catSlug) || null;
+
+  // close the dropdown on an outside click
   useEffect(() => {
-    if (!isLoggedIn) {
-      setOrderCount(0);
+    if (!catOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [catOpen]);
+
+  /** Respects both the search term and the selected category */
+  function runSearch(term?: string) {
+    const q = (term ?? query).trim();
+    if (!q && !catSlug) return;
+    if (!q && catSlug) {
+      router.push(`/category/${catSlug}`);
       return;
     }
-    orderApi
-      .list({ limit: 1 })
-      .then((res) => setOrderCount(res?.pagination?.total ?? 0))
-      .catch(() => setOrderCount(0));
-  }, [isLoggedIn]);
+    const params = new URLSearchParams({ q });
+    if (catSlug) params.set("category", catSlug);
+    router.push(`/search?${params.toString()}`);
+  }
 
   return (
     <header className="relative z-50 bg-white">
@@ -109,24 +120,70 @@ export function Navbar() {
         </Link>
 
         <div className="ml-6 hidden max-w-xl flex-1 items-center lg:flex">
-          <div className="flex h-12 w-full items-stretch overflow-visible rounded-full border border-line">
-            <button
-              type="button"
-              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-l-full border-r border-line bg-blue-50/60 px-4 text-sm font-medium text-ink-soft hover:bg-blue-50"
-            >
-              All Categories <ChevronDown size={14} className="shrink-0" />
-            </button>
+          <div className="flex h-12 w-full items-stretch rounded-full border border-line">
+            {/* ---- Category dropdown ---- */}
+            <div ref={catRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setCatOpen((s) => !s)}
+                className={cn(
+                  "flex h-full max-w-[190px] items-center gap-1 whitespace-nowrap rounded-l-full border-r border-line px-4 text-sm font-medium",
+                  catSlug ? "bg-blue-50 text-blue-700" : "bg-blue-50/60 text-ink-soft hover:bg-blue-50"
+                )}
+              >
+                <span className="truncate">{selectedCat ? selectedCat.name : "All Categories"}</span>
+                <ChevronDown size={14} className={cn("shrink-0 transition-transform", catOpen && "rotate-180")} />
+              </button>
+
+              <AnimatePresence>
+                {catOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-[calc(100%+8px)] z-50 max-h-80 w-64 overflow-y-auto rounded-xl border border-line bg-white py-2 shadow-[0_20px_45px_-20px_rgba(11,33,48,0.35)]"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { setCatSlug(""); setCatOpen(false); }}
+                      className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm text-ink hover:bg-blue-50"
+                    >
+                      All Categories
+                      {!catSlug && <Check size={14} className="text-blue-600" />}
+                    </button>
+
+                    {categories.length === 0 ? (
+                      <p className="px-4 py-3 text-sm text-ink-soft">Loading categories…</p>
+                    ) : (
+                      categories.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => { setCatSlug(c.slug); setCatOpen(false); }}
+                          className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm text-ink hover:bg-blue-50"
+                        >
+                          <span className="truncate">{c.name}</span>
+                          {catSlug === c.slug && <Check size={14} className="shrink-0 text-blue-600" />}
+                        </button>
+                      ))
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <div className="relative flex-1">
               <SearchSuggest
                 value={query}
                 onChange={setQuery}
-                onSubmit={(term) => router.push(`/search?q=${encodeURIComponent(term)}`)}
+                onSubmit={(term) => runSearch(term)}
                 inputClassName="h-12 w-full bg-transparent px-4 text-sm outline-none placeholder:text-ink-soft"
               />
             </div>
             <button
               type="button"
-              onClick={handleSearch}
+              onClick={() => runSearch()}
               className="flex w-14 shrink-0 items-center justify-center rounded-r-full bg-blue-500 text-white transition hover:bg-blue-600"
             >
               <Search size={18} />
@@ -136,19 +193,14 @@ export function Navbar() {
 
         <div className="ml-auto flex items-center gap-5">
           {isLoggedIn ? (
-            <div className="hidden items-center gap-2 sm:flex">
-              <Link href="/account" className="flex items-center gap-2">
-                <User size={22} className="text-blue-600" />
-                <span className="text-xs leading-tight text-ink-soft">
-                  Hi, {user?.customer_name?.split(" ")[0] || "Account"}
-                  <br />
-                  <span className="flex items-center gap-0.5 font-semibold text-ink">My Account <ChevronDown size={12} /></span>
-                </span>
-              </Link>
-              <button onClick={logout} title="Logout" className="text-ink-soft hover:text-coral-500">
-                <LogOut size={16} />
-              </button>
-            </div>
+            <Link href="/account" className="hidden items-center gap-2 sm:flex">
+              <User size={22} className="text-blue-600" />
+              <span className="text-xs leading-tight text-ink-soft">
+                Hi, {user?.customer_name?.split(" ")[0] || "Account"}
+                <br />
+                <span className="flex items-center gap-0.5 font-semibold text-ink">My Account <ChevronDown size={12} /></span>
+              </span>
+            </Link>
           ) : (
             <Link href="/login" className="hidden items-center gap-2 sm:flex">
               <User size={22} className="text-blue-600" />
@@ -171,22 +223,6 @@ export function Navbar() {
               My
               <br />
               <span className="font-semibold text-ink">Wishlist</span>
-            </span>
-          </Link>
-
-          <Link href="/account/orders" className="hidden items-center gap-2 sm:flex">
-            <span className="relative">
-              <Package size={22} className="text-blue-600" />
-              {orderCount > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
-                  {orderCount}
-                </span>
-              )}
-            </span>
-            <span className="text-xs leading-tight text-ink-soft">
-              My
-              <br />
-              <span className="font-semibold text-ink">Orders</span>
             </span>
           </Link>
 
@@ -222,7 +258,7 @@ export function Navbar() {
           <SearchSuggest
             value={query}
             onChange={setQuery}
-            onSubmit={(term) => router.push(`/search?q=${encodeURIComponent(term)}`)}
+            onSubmit={(term) => runSearch(term)}
             inputClassName="w-full bg-transparent text-sm outline-none placeholder:text-ink-soft"
           />
         </div>
@@ -242,7 +278,6 @@ export function Navbar() {
             <AnimatePresence>
               {megaOpen && categories.length > 0 && <MegaMenu />}
             </AnimatePresence>
-         
           </div>
 
           <nav className="flex items-center gap-1">
@@ -269,21 +304,6 @@ export function Navbar() {
               <TruckIcon size={16} /> Track My Order <ChevronDown size={14} className="-rotate-90" />
             </Link>
           </div>
-        </div>
-      </div>
-
-      {/* Feature strip */}
-      <div className="hidden border-t border-line bg-blue-50/30 lg:block">
-        <div className="mx-auto grid max-w-7xl grid-cols-5 divide-x divide-line px-4 py-4 sm:px-6 lg:px-8">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="flex items-center gap-3 px-4 first:pl-0">
-              <f.icon size={26} className="shrink-0 text-blue-500" strokeWidth={1.75} />
-              <div className="leading-tight">
-                <p className="text-sm font-bold text-ink">{f.title}</p>
-                <p className="text-xs text-ink-soft">{f.sub}</p>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -314,14 +334,9 @@ export function Navbar() {
 
               <div className="mb-4 flex items-center gap-3 border-b border-line pb-4">
                 {isLoggedIn ? (
-                  <>
-                    <Link href="/account" onClick={() => setMobileOpen(false)} className="flex flex-1 items-center gap-2 text-sm font-medium">
-                      <User size={16} /> {user?.customer_name || "My Account"}
-                    </Link>
-                    <button onClick={logout} className="text-ink-soft">
-                      <LogOut size={16} />
-                    </button>
-                  </>
+                  <Link href="/account" onClick={() => setMobileOpen(false)} className="flex flex-1 items-center gap-2 text-sm font-medium">
+                    <User size={16} /> {user?.customer_name || "My Account"}
+                  </Link>
                 ) : (
                   <Link href="/login" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 text-sm font-medium">
                     <User size={16} /> Sign In / Register
@@ -329,7 +344,7 @@ export function Navbar() {
                 )}
               </div>
 
-              <div className="mb-4 grid grid-cols-3 gap-2 border-b border-line pb-4">
+              <div className="mb-4 grid grid-cols-2 gap-2 border-b border-line pb-4">
                 <Link href="/wishlist" onClick={() => setMobileOpen(false)} className="flex flex-col items-center gap-1 rounded-lg py-2 text-center hover:bg-black/5">
                   <span className="relative">
                     <Heart size={20} className="text-blue-600" />
@@ -338,10 +353,6 @@ export function Navbar() {
                     </span>
                   </span>
                   <span className="text-[11px] font-medium text-ink-soft">Wishlist</span>
-                </Link>
-                <Link href="/account/orders" onClick={() => setMobileOpen(false)} className="flex flex-col items-center gap-1 rounded-lg py-2 text-center hover:bg-black/5">
-                  <Package size={20} className="text-blue-600" />
-                  <span className="text-[11px] font-medium text-ink-soft">Orders</span>
                 </Link>
                 <Link href="/cart" onClick={() => setMobileOpen(false)} className="flex flex-col items-center gap-1 rounded-lg py-2 text-center hover:bg-black/5">
                   <span className="relative">

@@ -3,7 +3,7 @@ const { QueryBuilder } = require('../utils/queryBuilder');
 const { pickDefined } = require('../utils/helpers');
 
 // ---------------------------------------------------------------------------
-// PRODUCT REVIEWS (customer ne diye hue — moderation ke saath)
+// PRODUCT REVIEWS (submitted by customers — with moderation)
 // ---------------------------------------------------------------------------
 async function listByProduct(productId, { limit = 10, offset = 0 } = {}) {
   const [rows] = await db.query(

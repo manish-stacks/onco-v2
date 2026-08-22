@@ -25,7 +25,7 @@ export default function Storefront() {
 
   return (
     <>
-      <PageHeader title="Storefront" subtitle="Site settings, homepage content aur delivery config" />
+      <PageHeader title="Storefront" subtitle="Site settings, homepage content and delivery config" />
       <Card dense>
         <Tabs tabs={TABS} value={tab} onChange={setTab} className="px-4 pt-1" />
         {tab === 'general' && <General />}
@@ -57,14 +57,14 @@ function General() {
       if (logo) fd.append('logo', logo);
       return api.form(`/admin/settings/${data.id}`, fd, 'PUT');
     },
-    { success: 'Settings save ho gayi', onSuccess: reload }
+    { success: 'Settings saved', onSuccess: reload }
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const canManage = can(P.SETTINGS_MANAGE);
 
   if (loading) return <div className="p-6 text-sm text-ink-500">Loading…</div>;
-  if (!data) return <EmptyState icon={SettingsIcon} title="Settings row nahi mili" />;
+  if (!data) return <EmptyState icon={SettingsIcon} title="Settings row not found" />;
 
   return (
     <div className="p-4">
@@ -161,7 +161,7 @@ function Banners() {
   const [toDelete, setToDelete] = useState(null);
 
   const del = useMutation((id) => api.del(`/admin/banners/${id}`),
-    { success: 'Banner delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Banner deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.SETTINGS_MANAGE);
 
@@ -200,8 +200,8 @@ function Banners() {
           ))}
         </div>
       ) : (
-        <EmptyState icon={Image} title="Koi banner nahi"
-          description="Homepage carousel ke liye banner add karo."
+        <EmptyState icon={Image} title="No banners"
+          description="Add a banner for the homepage carousel."
           action={canManage && <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add banner</Button>} />
       )}
 
@@ -210,14 +210,14 @@ function Banners() {
         idKey="banner_id" path="/admin/banners" title="banner" onDone={reload}
         fileField="banner_image"
         fields={[
-          { key: 'banner_link', label: 'Link URL', hint: 'Click karne pe kahan jaaye' },
+          { key: 'banner_link', label: 'Link URL', hint: 'Where it goes on click' },
           { key: 'status', label: 'Status', type: 'select', options: ['Active', 'Inactive'], default: 'Active' },
         ]}
       />
       <ConfirmDialog
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.banner_id)} loading={del.loading}
-        title="Delete banner" confirmLabel="Delete" message="Ye banner homepage se hat jaayega." />
+        title="Delete banner" confirmLabel="Delete" message="This banner will be removed from the homepage." />
     </div>
   );
 }
@@ -230,7 +230,7 @@ function Deals() {
   const [toDelete, setToDelete] = useState(null);
 
   const del = useMutation((id) => api.del(`/admin/deals/${id}`),
-    { success: 'Deal delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Deal deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.SETTINGS_MANAGE);
 
@@ -268,7 +268,7 @@ function Deals() {
               </div>
             ) },
         ]}
-        emptyIcon={Tag} emptyTitle="Koi deal nahi"
+        emptyIcon={Tag} emptyTitle="No deals"
       />
 
       <SimpleFormModal
@@ -286,7 +286,7 @@ function Deals() {
       <ConfirmDialog
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
-        title="Delete deal" confirmLabel="Delete" message={`"${toDelete?.title}" hat jaayega.`} />
+        title="Delete deal" confirmLabel="Delete" message={`"${toDelete?.title}" will be removed.`} />
     </>
   );
 }
@@ -299,7 +299,7 @@ function Offers() {
   const [toDelete, setToDelete] = useState(null);
 
   const del = useMutation((id) => api.del(`/admin/offers/${id}`),
-    { success: 'Offer delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Offer deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.SETTINGS_MANAGE);
 
@@ -341,8 +341,8 @@ function Offers() {
               </div>
             ) },
         ]}
-        emptyIcon={Tag} emptyTitle="Koi offer card nahi"
-        emptyDescription="App me jo offer cards dikhte hain wo yahan se bante hain."
+        emptyIcon={Tag} emptyTitle="No offer cards"
+        emptyDescription="The offer cards shown in the app are created here."
       />
 
       <SimpleFormModal
@@ -363,7 +363,7 @@ function Offers() {
       <ConfirmDialog
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
-        title="Delete offer" confirmLabel="Delete" message={`"${toDelete?.title}" hat jaayega.`} />
+        title="Delete offer" confirmLabel="Delete" message={`"${toDelete?.title}" will be removed.`} />
     </>
   );
 }
@@ -405,8 +405,8 @@ function Cities() {
               </div>
             ) },
         ]}
-        emptyIcon={MapPin} emptyTitle="Koi serviceable city nahi"
-        emptyDescription="Jahan delivery karte ho wo cities add karo — customer checkout pe check karta hai."
+        emptyIcon={MapPin} emptyTitle="No serviceable cities"
+        emptyDescription="Add the cities you deliver to — the customer's city is checked at checkout."
       />
 
       <SimpleFormModal
@@ -422,13 +422,13 @@ function Cities() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
         title="Remove city" confirmLabel="Remove"
-        message={`"${toDelete?.city}" me delivery band ho jaayegi.`} />
+        message={`Delivery to "${toDelete?.city}" will be stopped.`} />
     </>
   );
 }
 
 /* =========================================================================
- * Generic CRUD modal — banners/deals/offers/cities sab isse chalte hain
+ * Generic CRUD modal — banners/deals/offers/cities all run through it
  * ======================================================================= */
 export function SimpleFormModal({
   open, onClose, record, idKey, path, title, fields, onDone, fileField, json,
@@ -459,7 +459,7 @@ export function SimpleFormModal({
       return isEdit ? api.form(`${path}/${record[idKey]}`, fd, 'PUT') : api.form(path, fd, 'POST');
     },
     {
-      success: isEdit ? `${title} update ho gaya` : `${title} add ho gaya`,
+      success: isEdit ? `${title} updated` : `${title} added`,
       onSuccess: () => { onClose(); onDone(); },
     }
   );

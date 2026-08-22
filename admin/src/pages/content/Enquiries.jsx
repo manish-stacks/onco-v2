@@ -10,7 +10,7 @@ import { Card, Button, StatusPill, Code } from '@/components/ui';
 import { DataTable, Pagination, FilterBar, SearchInput, FilterSelect } from '@/components/ui/DataTable';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 
-/** Contact form se aane wale messages */
+/** Messages coming in from the contact form */
 export default function Enquiries() {
   const { can } = useAuth();
   const [search, setSearch] = useState('');
@@ -23,10 +23,10 @@ export default function Enquiries() {
 
   const resolve = useMutation(
     ({ id, solved }) => api.patch(`/admin/enquiries/${id}`, { solved }),
-    { success: 'Enquiry update ho gayi', onSuccess: reload }
+    { success: 'Enquiry updated', onSuccess: reload }
   );
   const del = useMutation((id) => api.del(`/admin/enquiries/${id}`),
-    { success: 'Enquiry delete ho gayi', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Enquiry deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.CMS_MANAGE);
 
@@ -34,7 +34,7 @@ export default function Enquiries() {
     <>
       <PageHeader
         title="Enquiries"
-        subtitle="Website ke contact form se aaye messages"
+        subtitle="Messages received from the website contact form"
       />
 
       <Card dense>
@@ -96,8 +96,8 @@ export default function Enquiries() {
             ),
           },
         ]}
-        emptyIcon={Inbox} emptyTitle="Koi enquiry nahi"
-        emptyDescription="Contact form se aane wale messages yahan dikhenge."
+        emptyIcon={Inbox} emptyTitle="No enquiries"
+        emptyDescription="Messages from the contact form will appear here."
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
       </Card>
@@ -128,7 +128,7 @@ export default function Enquiries() {
             </div>
             <div className="bg-paper-sunk rounded p-3">
               <p className="text-[0.8125rem] text-ink-700 leading-relaxed whitespace-pre-wrap">
-                {reading.message || 'Koi message nahi likha.'}
+                {reading.message || 'No message was written.'}
               </p>
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function Enquiries() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
         title="Delete enquiry" confirmLabel="Delete"
-        message={`${toDelete?.name} ki enquiry delete ho jaayegi.`} />
+        message={`${toDelete?.name} 's enquiry will be deleted.`} />
     </>
   );
 }

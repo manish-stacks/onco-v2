@@ -9,7 +9,7 @@ export function Tabs({
   onChange,
 }: {
   tabs: { label: string; content: ReactNode }[];
-  /** Diya to controlled ban jaata hai — "Be the first to review" jaisi jump-links ke liye */
+  /** If provided it becomes controlled — for jump links such as "Be the first to review" */
   active?: number;
   onChange?: (i: number) => void;
 }) {

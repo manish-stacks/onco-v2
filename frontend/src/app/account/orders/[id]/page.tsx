@@ -60,9 +60,9 @@ export default function OrderDetailPage() {
     try {
       const data = await orderApi.retryPayment(order.order_id);
       if (!data?.razorpay) {
-        // Order PayU se bana tha — abhi backend sirf Razorpay retry support
-        // karta hai. Customer ko support bhej do.
-        setError("Is order ka payment dobara try karne ke liye support se contact karo.");
+        // The order was created via PayU — the backend currently supports retry
+        // . Direct the customer to support.
+        setError("To retry the payment for this order, please contact support.");
         return;
       }
       await openRazorpayCheckout({
@@ -74,10 +74,10 @@ export default function OrderDetailPage() {
             const refreshed = await orderApi.detail<Order>(id);
             setOrder(refreshed);
           } catch {
-            setError("Payment verify nahi ho paya. Support se contact karo.");
+            setError("The payment could not be verified. Please contact support.");
           }
         },
-        onDismiss: () => setError("Payment cancel kar diya gaya."),
+        onDismiss: () => setError("The payment was cancelled."),
       });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not retry payment");

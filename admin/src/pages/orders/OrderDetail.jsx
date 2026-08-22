@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Truck, XCircle, CreditCard, Receipt, User, MapPin, Pill, Clock, PackageCheck, Printer,
+  Check, Eye, FileText, Plus, ExternalLink,
 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import ShippingPanel from './ShippingPanel';
+import { ReviewModal, MedicinesModal } from '@/pages/prescriptions/Prescriptions';
 
 export default function OrderDetail() {
   const { orderId } = useParams();
@@ -27,11 +29,11 @@ export default function OrderDetail() {
 
   const cancel = useMutation(
     (reason) => api.post(`/admin/orders/${orderId}/cancel`, { reason }),
-    { success: 'Order cancel ho gaya', onSuccess: () => { setCancelOpen(false); reload(); } }
+    { success: 'Order cancelled', onSuccess: () => { setCancelOpen(false); reload(); } }
   );
 
   if (loading && !order) return <PageLoader />;
-  if (!order) return <EmptyState icon={Receipt} title="Order nahi mila" />;
+  if (!order) return <EmptyState icon={Receipt} title="Order not found" />;
 
   const canManage = can(P.ORDERS_MANAGE);
   const canCancel = can(P.ORDERS_CANCEL) && order.allowed_next_statuses?.length > 0;
@@ -77,7 +79,7 @@ export default function OrderDetail() {
             <ItemsTable order={order} />
           </Card>
 
-          <Card title="Timeline" subtitle="Har status change record hota hai" dense>
+          <Card title="Timeline" subtitle="Every status change is recorded" dense>
             <Timeline history={order.history} />
           </Card>
         </div>
@@ -93,7 +95,9 @@ export default function OrderDetail() {
 
           <ShippingPanel order={order} onChanged={reload} />
 
-          {order.prescription && <PrescriptionBlock presc={order.prescription} />}
+          {order.prescription && (
+            <PrescriptionBlock presc={order.prescription} order={order} onChanged={reload} />
+          )}
 
           <Card title="Payment" dense>
             <PaymentBlock order={order} />
@@ -209,7 +213,7 @@ function Row({ label, value, bold, tone }) {
 }
 
 function Timeline({ history = [] }) {
-  if (!history.length) return <EmptyState icon={Clock} title="Koi history nahi" />;
+  if (!history.length) return <EmptyState icon={Clock} title="No history" />;
 
   return (
     <ol className="p-4 space-y-0">
@@ -316,31 +320,192 @@ function AddressBlock({ order }) {
   );
 }
 
-function PrescriptionBlock({ presc }) {
-  const images = Array.isArray(presc.images) ? presc.images : [];
+function PrescriptionBlock({ presc, order, onChanged }) {
+  const { can } = useAuth();
+  const canManage = can(P.PRESCRIPTIONS_MANAGE);
+
+  // The order row only carries a few prescription columns. Pull the full record
+  // so this card can show exactly what /prescriptions/:id shows — medicines,
+  // notes, review trail — instead of a cut-down version.
+  const { data: full, reload: reloadPresc } = useResource(
+    `/admin/prescriptions/${presc.prescription_id}`
+  );
+  const rx = full || presc;
+
+  const images = Array.isArray(rx.images) ? rx.images : [];
+  const [viewer, setViewer] = useState(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [medOpen, setMedOpen] = useState(false);
+
+  const refresh = () => { reloadPresc?.(); onChanged?.(); };
+
+  // Quick one-click approve. The Review dialog is for anything more involved.
+  const quickApprove = useMutation(
+    () => api.patch(`/admin/orders/${order.order_id}/prescription`, { status: 'Approved' }),
+    { success: 'Prescription approved', onSuccess: refresh }
+  );
+
   return (
     <Card
       title="Prescription"
-      action={<StatusPill status={presc.status} size="xs" />}
+      action={<StatusPill status={rx.status} size="xs" />}
       dense
     >
       <div className="p-4">
-        <Link to={`/prescriptions/${presc.prescription_id}`} className="inline-flex items-center gap-1.5 mb-2.5">
-          <Pill size={13} className="text-ink-300" />
-          <Code className="hover:text-teal transition-colors">{presc.reference_code}</Code>
-        </Link>
-        {images.length > 0 && (
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <Link to={`/prescriptions/${rx.prescription_id}`} className="inline-flex items-center gap-1.5">
+            <Pill size={13} className="text-ink-300" />
+            <Code className="hover:text-teal transition-colors">{rx.reference_code}</Code>
+          </Link>
+          <Link
+            to={`/prescriptions/${rx.prescription_id}`}
+            className="inline-flex items-center gap-1 text-2xs text-teal hover:underline shrink-0"
+          >
+            Full page <ExternalLink size={11} />
+          </Link>
+        </div>
+
+        {/* Patient / doctor / hospital */}
+        <dl className="space-y-1.5 text-[0.8125rem] mb-3">
+          <PrescRow label="Patient" value={rx.patient_name || order.patient_name} />
+          <PrescRow label="Doctor" value={rx.doctor_name || order.doctor_name} />
+          <PrescRow label="Hospital" value={rx.hospital_name || order.hospital_name} />
+          {rx.contact_number && <PrescRow label="Contact" value={rx.contact_number} />}
+          <PrescRow label="Type" value={rx.direct_upload ? 'Direct upload' : 'With an order'} />
+        </dl>
+
+        {rx.rejection_reason && (
+          <p className="mb-3 rounded border border-rose-200 bg-rose-50 px-2.5 py-2 text-2xs text-rose-700">
+            Rejected: {rx.rejection_reason}
+          </p>
+        )}
+
+        {images.length > 0 ? (
           <div className="grid grid-cols-3 gap-1.5">
             {images.slice(0, 6).map((img) => (
-              <a key={img} href={mediaUrl(img)} target="_blank" rel="noreferrer"
-                className="aspect-square rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors">
+              <button
+                key={img}
+                type="button"
+                onClick={() => setViewer(mediaUrl(img))}
+                className="relative aspect-square rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors group"
+              >
                 <img src={mediaUrl(img)} alt="" className="w-full h-full object-cover" />
-              </a>
+                <span className="absolute inset-0 hidden items-center justify-center bg-black/40 group-hover:flex">
+                  <Eye size={16} className="text-white" />
+                </span>
+              </button>
             ))}
+          </div>
+        ) : (
+          <p className="text-2xs text-ink-500">No image attached.</p>
+        )}
+
+        {/* Suggested medicines — same list as the prescriptions page */}
+        <div className="mt-4 border-t border-line pt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-2xs font-medium text-ink-500 uppercase tracking-wide">
+              Suggested medicines
+            </p>
+            {canManage && (
+              <Button size="xs" icon={Plus} onClick={() => setMedOpen(true)}>Edit</Button>
+            )}
+          </div>
+
+          {rx.medicines?.length ? (
+            <ul className="divide-y divide-line rounded border border-line">
+              {rx.medicines.map((m) => (
+                <li key={m.id} className="flex items-center gap-2.5 px-2.5 py-2">
+                  {m.image_1 && (
+                    <img src={mediaUrl(m.image_1)} alt=""
+                      className="w-8 h-8 rounded object-cover border border-line shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[0.8125rem] text-ink truncate">{m.medicine_name}</p>
+                    {m.product_id && <Code className="text-2xs">product #{m.product_id}</Code>}
+                  </div>
+                  <span className="text-2xs tabular-nums text-ink-500 shrink-0">×{m.quantity}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-2xs text-ink-500">
+              Nothing suggested yet — read the prescription and add the medicines.
+            </p>
+          )}
+        </div>
+
+        {rx.notes && (
+          <div className="mt-3 border-t border-line pt-3">
+            <p className="mb-1 text-2xs font-medium text-ink-500 uppercase tracking-wide">Notes</p>
+            <p className="text-[0.8125rem] text-ink-700 whitespace-pre-wrap leading-relaxed">{rx.notes}</p>
+          </div>
+        )}
+
+        {rx.reviewed_at && (
+          <p className="mt-3 border-t border-line pt-3 text-2xs text-ink-500">
+            Reviewed {dateTime(rx.reviewed_at)}
+            {rx.reviewed_by ? ` by admin #${rx.reviewed_by}` : ''}
+          </p>
+        )}
+
+        {canManage && (
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-3">
+            <Button
+              variant="primary"
+              icon={Check}
+              loading={quickApprove.loading}
+              disabled={rx.status === 'Approved'}
+              onClick={quickApprove.run}
+            >
+              Approve
+            </Button>
+            <Button icon={FileText} onClick={() => setReviewOpen(true)}>
+              Review
+            </Button>
+            <p className="w-full text-2xs text-ink-500 pt-1">
+              Any change here also shows on the Prescriptions page.
+            </p>
           </div>
         )}
       </div>
+
+      {/* Image viewer */}
+      <Modal open={!!viewer} onClose={() => setViewer(null)} title="Prescription">
+        {viewer && (
+          <div className="p-2">
+            <img src={viewer} alt="prescription" className="max-h-[70vh] w-full object-contain" />
+            <div className="pt-3">
+              <a href={viewer} target="_blank" rel="noreferrer"
+                className="text-xs font-semibold text-teal">Open original in a new tab</a>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* The exact same Review + Suggest medicines dialogs as /prescriptions/:id */}
+      <ReviewModal
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        presc={rx}
+        onDone={refresh}
+      />
+      <MedicinesModal
+        key={rx.medicines?.length || 0}
+        open={medOpen}
+        onClose={() => setMedOpen(false)}
+        presc={rx}
+        onDone={refresh}
+      />
     </Card>
+  );
+}
+
+function PrescRow({ label, value }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="text-ink-500 shrink-0">{label}</dt>
+      <dd className="text-ink-700 text-right">{value || '—'}</dd>
+    </div>
   );
 }
 
@@ -392,7 +557,7 @@ function StatusModal({ open, onClose, order, onDone }) {
 
   const save = useMutation(
     () => api.patch(`/admin/orders/${order.order_id}/status`, { status, note }),
-    { success: 'Status update ho gaya', onSuccess: () => { onClose(); onDone(); setStatus(''); setNote(''); } }
+    { success: 'Status updated', onSuccess: () => { onClose(); onDone(); setStatus(''); setNote(''); } }
   );
 
   const allowed = order.allowed_next_statuses || [];
@@ -400,7 +565,7 @@ function StatusModal({ open, onClose, order, onDone }) {
   return (
     <Modal
       open={open} onClose={onClose} title="Move order status"
-      subtitle={`Abhi: ${order.status}`}
+      subtitle={`Currently: ${order.status}`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -411,7 +576,7 @@ function StatusModal({ open, onClose, order, onDone }) {
       }
     >
       <div className="space-y-3">
-        <Field label="Next status" required hint="Sirf wahi options jo current status se allowed hain">
+        <Field label="Next status" required hint="Only the options allowed from the current status">
           <div className="grid grid-cols-2 gap-2">
             {allowed.map((s) => (
               <button
@@ -431,14 +596,14 @@ function StatusModal({ open, onClose, order, onDone }) {
 
         {status === 'Cancelled' && (
           <p className="text-2xs text-signal-warn bg-signal-warnBg border border-signal-warn/20 rounded px-3 py-2">
-            Cancel karne pe stock wapas aa jaayega, coupon use wapas ho jaayega, aur paid order ka
+            Cancelling restores the stock, gives back the coupon use, and for a paid order the
             Razorpay refund automatically start ho jaayega.
           </p>
         )}
 
-        <Field label="Note" hint="Timeline me dikhega">
+        <Field label="Note" hint="Shown in the timeline">
           <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)}
-            placeholder="Optional — kya hua, kyun" />
+            placeholder="Optional — what happened and why" />
         </Field>
       </div>
     </Modal>
@@ -453,13 +618,13 @@ function PaymentModal({ open, onClose, order, onDone }) {
 
   const save = useMutation(
     () => api.patch(`/admin/orders/${order.order_id}/payment`, form),
-    { success: 'Payment status update ho gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: 'Payment status updated', onSuccess: () => { onClose(); onDone(); } }
   );
 
   return (
     <Modal
       open={open} onClose={onClose} title="Payment status"
-      subtitle="Bank transfer ya manual collection mark karne ke liye"
+      subtitle="For marking a bank transfer or manual collection"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -474,7 +639,7 @@ function PaymentModal({ open, onClose, order, onDone }) {
             onChange={(e) => setForm({ ...form, payment_status: e.target.value })}
           />
         </Field>
-        <Field label="Transaction reference" hint="UTR, cheque number, ya gateway payment id">
+        <Field label="Transaction reference" hint="UTR, cheque number, or gateway payment ID">
           <Input mono value={form.transaction_number}
             onChange={(e) => setForm({ ...form, transaction_number: e.target.value })} />
         </Field>
@@ -492,26 +657,26 @@ function CancelModal({ open, onClose, order, onConfirm, loading }) {
       subtitle={order.databaseOrderID}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>Rakho as-is</Button>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>Keep as is</Button>
           <Button variant="danger" onClick={() => onConfirm(reason)} loading={loading}>Cancel order</Button>
         </>
       }
     >
       <div className="space-y-3">
         <div className="text-[0.8125rem] text-ink-700 space-y-1.5 bg-paper-sunk rounded p-3">
-          <p className="font-medium text-ink">Cancel karne pe ye hoga:</p>
+          <p className="font-medium text-ink">Cancelling will do the following:</p>
           <ul className="space-y-0.5 text-2xs">
-            <li>· {order.items?.length || 0} items ka stock wapas add ho jaayega</li>
-            {order.coupon_code && <li>· Coupon {order.coupon_code} ka use wapas mil jaayega</li>}
+            <li>· Stock for {order.items?.length || 0} item(s) will be restored</li>
+            {order.coupon_code && <li>· The use of coupon {order.coupon_code} will be restored</li>}
             {order.payment_status === 'Paid'
               ? <li className="text-signal-warn">· {inr(order.amount)} ka Razorpay refund start ho jaayega</li>
-              : <li>· Koi refund nahi (payment abhi tak nahi hua)</li>}
+              : <li>· No refund (no payment has been made yet)</li>}
           </ul>
         </div>
 
         <Field label="Cancellation reason" required>
           <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)}
-            placeholder="Customer ne maanga / stock nahi hai / duplicate order" />
+            placeholder="Customer requested / out of stock / duplicate order" />
         </Field>
       </div>
     </Modal>

@@ -9,15 +9,15 @@ import { Button, PageLoader, EmptyState, cx } from '@/components/ui';
 /**
  * /orders/:orderId/invoice
  *
- * Browser ka apna print-to-PDF use karta hai — koi PDF library nahi.
- * Ctrl+P ya "Print invoice" button se A4 pe saaf output aata hai
- * (print styles index.css me hain).
+ * Uses the browser's own print-to-PDF — no PDF library.
+ * Ctrl+P or the "Print invoice" button gives clean A4 output
+ * (the print styles live in index.css).
  */
 export default function Invoice() {
   const { orderId } = useParams();
   const { data, loading } = useResource(`/admin/orders/${orderId}/invoice`);
 
-  // page khulte hi title set — print pe filename isi se banta hai
+  // set the title as soon as the page opens — the print filename comes from it
   useEffect(() => {
     if (!data) return undefined;
     const prev = document.title;
@@ -26,11 +26,11 @@ export default function Invoice() {
   }, [data, orderId]);
 
   if (loading) return <PageLoader />;
-  if (!data) return <EmptyState icon={Receipt} title="Invoice nahi bana" description="Order shayad exist nahi karta." />;
+  if (!data) return <EmptyState icon={Receipt} title="Invoice could not be built" description="The order may not exist." />;
 
   const { seller, buyer, items = [], totals = {}, payment = {} } = data;
 
-  // GST ko HSN/rate wise group karo — accountant ko yahi chahiye
+  // Group GST by HSN/rate — that is what the accountant needs
   const taxGroups = items.reduce((acc, it) => {
     const key = `${it.hsn_code || '—'}|${it.tax_percent || 0}`;
     if (!acc[key]) {
@@ -43,7 +43,7 @@ export default function Invoice() {
 
   return (
     <>
-      {/* Screen-only toolbar — print pe gayab */}
+      {/* Screen-only toolbar — hidden when printing */}
       <div className="no-print flex items-center justify-between gap-3 mb-4">
         <Link
           to={`/orders/${orderId}`}
@@ -213,8 +213,8 @@ export default function Invoice() {
 
         <footer className="mt-8 pt-4 border-t border-line text-[0.625rem] text-ink-500 leading-relaxed">
           <p>
-            Ye computer-generated invoice hai, signature ki zaroorat nahi.
-            Medicines wapas nahi hoti — kharab ya galat item mile to 48 ghante ke andar batayein.
+            This is a computer-generated invoice; no signature is required.
+            Medicines are not returnable — if you receive a damaged or wrong item, tell us within 48 hours.
           </p>
           {seller?.email && <p className="mt-1">Kisi bhi sawaal ke liye: {seller.email}</p>}
         </footer>

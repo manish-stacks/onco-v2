@@ -2,13 +2,52 @@ const db = require('../config/db');
 const { pickDefined, money } = require('../utils/helpers');
 
 // ---------------------------------------------------------------------------
-// SETTINGS (site-wide config — ek hi row hoti hai)
+// SETTINGS (site-wide config — there is only one row)
 // ---------------------------------------------------------------------------
 const SETTINGS_FIELDS = ['organization', 'contact_address', 'contact_phone', 'contact_email', 'logo',
   'header_code', 'footer_code', 'copyright', 'mini_banner_1', 'mini_link_1', 'mini_banner_2', 'mini_link_2',
   'event_ad_url', 'event_ad_image', 'facebook_link', 'twitter_link', 'printinterest_link', 'instagram_link',
   'shipping_charge', 'shipping_threshold', 'is_cod', 'cod_fee', 'is_login_rules',
+  'default_gst', 'gst_override',
+  'is_razorpay', 'is_payu',
   'login_start_time', 'login_end_time', 'status'];
+
+/**
+ * Columns that were added later. On an old database they simply do not exist,
+ * and then `UPDATE settings SET default_gst = ...` blows up — which is exactly why
+ * the "GST is not saving" bug. So on first use we run the ALTER TABLE
+ * ourselves (idempotent, only once per process).
+ */
+const LATE_COLUMNS = {
+  default_gst: `DECIMAL(5,2) NOT NULL DEFAULT 0`,
+  gst_override: `TINYINT(1) NOT NULL DEFAULT 0`,
+  is_razorpay: `TINYINT(1) NOT NULL DEFAULT 1`,
+  is_payu: `TINYINT(1) NOT NULL DEFAULT 1`,
+};
+
+let columnsReady = null;
+
+async function ensureColumns() {
+  if (columnsReady) return columnsReady;
+  columnsReady = (async () => {
+    try {
+      const [cols] = await db.query(`SHOW COLUMNS FROM settings`);
+      const have = new Set(cols.map((c) => c.Field));
+      for (const [name, ddl] of Object.entries(LATE_COLUMNS)) {
+        if (have.has(name)) continue;
+        try {
+          await db.query(`ALTER TABLE settings ADD COLUMN \`${name}\` ${ddl}`);
+          console.log(`[settings] column added: ${name}`);
+        } catch (e) {
+          console.warn(`[settings] could not add column ${name}:`, e.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[settings] ensureColumns skipped:', e.message);
+    }
+  })();
+  return columnsReady;
+}
 
 async function get() {
   const [[row]] = await db.query(`SELECT * FROM settings ORDER BY id ASC LIMIT 1`);
@@ -16,15 +55,30 @@ async function get() {
 }
 
 async function update(id, data) {
+  await ensureColumns();
+
   const payload = pickDefined(data, SETTINGS_FIELDS);
+
+  // Checkbox/toggle fields — 0 is a valid value here, so they are normalised
+  // separately (pickDefined drops '' but keeps 0).
+  ['gst_override', 'is_cod', 'is_razorpay', 'is_payu', 'is_login_rules'].forEach((k) => {
+    if (data[k] !== undefined && data[k] !== null && data[k] !== '') {
+      payload[k] = (data[k] === true || data[k] === 1 || data[k] === '1' || data[k] === 'true') ? 1 : 0;
+    }
+  });
+
+  if (data.default_gst !== undefined && data.default_gst !== null && data.default_gst !== '') {
+    payload.default_gst = parseFloat(data.default_gst) || 0;
+  }
+
   if (!Object.keys(payload).length) return false;
   await db.query(`UPDATE settings SET ? WHERE id = ?`, [payload, id]);
   return true;
 }
 
 /**
- * Shipping charge nikalo — threshold se upar free, warna flat charge.
- * COD ho to cod_fee bhi add.
+ * Work out the shipping charge — free above the threshold, otherwise a flat charge.
+ * If it is COD, add cod_fee as well.
  */
 async function calcCharges(subtotal, paymentMode = 'online') {
   const s = await get();
@@ -39,9 +93,54 @@ async function calcCharges(subtotal, paymentMode = 'online') {
   return { shipping_charge: money(shipping), cod_fee: money(codFee) };
 }
 
+/**
+ * Tax configuration set by the admin under Settings.
+ *
+ *   default_gst   the GST percent to fall back on (e.g. 12 or 18)
+ *   gst_override  1 = force this rate on every product, ignoring product_gst
+ *                 0 = only use it when a product has no rate of its own
+ *
+ * Falls back to { default_gst: 0, gst_override: 0 } when the columns are absent,
+ * so the pricing code keeps working on an un-migrated database.
+ */
+async function getTaxConfig() {
+  await ensureColumns();
+  const s = await get();
+  return {
+    default_gst: parseFloat(s?.default_gst) || 0,
+    gst_override: Number(s?.gst_override) === 1,
+  };
+}
+
+/**
+ * Resolve the GST percent for one product against the tax config.
+ * Pass the config in so a loop over cart items does not re-query settings.
+ */
+function resolveGstPercent(productGst, taxConfig) {
+  const cfg = taxConfig || { default_gst: 0, gst_override: false };
+  if (cfg.gst_override) return cfg.default_gst;
+  const own = parseFloat(productGst);
+  return Number.isFinite(own) && own > 0 ? own : cfg.default_gst;
+}
+
 async function isCodEnabled() {
   const s = await get();
   return !!(s && s.is_cod);
+}
+
+/**
+ * Which payment options the checkout page should show.
+ * A missing / NULL column defaults to ON — the admin can turn it off any time.
+ */
+async function getPaymentConfig() {
+  await ensureColumns();
+  const s = await get();
+  const on = (v) => v === undefined || v === null ? true : !!Number(v);
+  return {
+    cod: !!(s && Number(s.is_cod)),
+    razorpay: on(s?.is_razorpay),
+    payu: on(s?.is_payu),
+  };
 }
 
 
@@ -251,6 +350,34 @@ async function listBrands({
     total: Number(countRows[0]?.total || 0),
   };
 }
+/**
+ * Public brand list for the storefront — every brand, no LIMIT.
+ *
+ * Old rows have status NULL / '' / 'Active' / 'active', so filtering on
+ * status = 'active' silently hid most of them and /brands only showed a
+ * handful. Here we only exclude rows explicitly marked inactive.
+ * live_product_count is computed so the storefront can show "N products".
+ */
+async function listPublicBrands() {
+  const [rows] = await db.query(
+    `
+      SELECT
+        b.*,
+        c.category_name,
+        c.slug AS category_slug,
+        (
+          SELECT COUNT(*) FROM products p
+          WHERE p.brand_id = b.id AND p.status = 'Active'
+        ) AS live_product_count
+      FROM brands b
+      LEFT JOIN categories c ON c.category_id = b.category_id
+      WHERE b.status IS NULL OR b.status = '' OR LOWER(b.status) <> 'inactive'
+      ORDER BY b.title ASC
+    `
+  );
+  return { rows, total: rows.length };
+}
+
 async function createBrand(data) {
   const [result] = await db.query(`INSERT INTO brands SET ?`, [pickDefined(data, BRAND_FIELDS)]);
   return result.insertId;
@@ -369,9 +496,10 @@ async function listCountries() {
 }
 
 module.exports = {
+  getTaxConfig, resolveGstPercent, ensureColumns, getPaymentConfig,
   get, update, calcCharges, isCodEnabled,
   listBanners, createBanner, updateBanner, removeBanner,
-  listBrands, createBrand, updateBrand, removeBrand,
+  listBrands, listPublicBrands, createBrand, updateBrand, removeBrand,
   listDeals, createDeal, updateDeal, removeDeal,
   listOffers, createOffer, updateOffer, removeOffer,
   listCities, checkCity, createCity, updateCity, removeCity,

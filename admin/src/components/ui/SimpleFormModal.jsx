@@ -5,11 +5,11 @@ import { Button, Field, Input, Select, Textarea } from './index';
 import { Modal } from './Modal';
 
 /**
- * Chhoti CRUD entities ke liye ek generic modal — banners, deals, offers,
- * cities sab isse chalti hain.
+ * A generic modal for small CRUD entities — banners, deals, offers,
+ * cities all run through it.
  *
- * Har ek ke liye alag modal likhne ka matlab nahi banta jab difference sirf
- * fields ka hai. Naya form chahiye to bas `fields` array pass kar do.
+ * Writing a separate modal for each one makes no sense when the only difference
+ * is the fields. For a new form just pass a `fields` array.
  *
  *   fields: [
  *     { key: 'title', label: 'Title', required: true },
@@ -35,7 +35,7 @@ export function SimpleFormModal({
 
   const save = useMutation(
     () => {
-      // File na ho to plain JSON bhejo — FormData har cheez ko string bana deta hai
+      // If there is no file, send plain JSON — FormData turns everything into a string
       if (json && !fileField) {
         return isEdit ? api.put(`${path}/${record[idKey]}`, form) : api.post(path, form);
       }
@@ -45,7 +45,7 @@ export function SimpleFormModal({
       return isEdit ? api.form(`${path}/${record[idKey]}`, fd, 'PUT') : api.form(path, fd, 'POST');
     },
     {
-      success: isEdit ? `${title} update ho gaya` : `${title} add ho gaya`,
+      success: isEdit ? `${title} updated` : `${title} added`,
       onSuccess: () => { onClose(); onDone(); },
     }
   );

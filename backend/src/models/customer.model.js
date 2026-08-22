@@ -17,7 +17,7 @@ async function findByEmail(email) {
   return row || null;
 }
 
-/** Password ke bina — API response me yahi jaata hai */
+/** Without the password — this is what goes into the API response */
 async function findById(customerId) {
   const [[row]] = await db.query(`SELECT ${SAFE_FIELDS} FROM customers WHERE customer_id = ?`, [customerId]);
   return row || null;
@@ -42,7 +42,7 @@ async function setOtp(customerId, otp, expiresMinutes = 10) {
   );
 }
 
-/** OTP match hone pe consume kar leta hai (dobara use na ho) */
+/** Consumes the OTP once it matches (so it cannot be reused) */
 async function verifyOtp(customerId, otp) {
   const [[row]] = await db.query(
     `SELECT customer_id FROM customers WHERE customer_id = ? AND otp = ? AND otp_expires >= NOW()`,
@@ -75,7 +75,7 @@ async function setStatus(customerId, status) {
   await db.query(`UPDATE customers SET status = ? WHERE customer_id = ?`, [status, customerId]);
 }
 
-/** Admin panel customer list — order count + lifetime value ke saath */
+/** Admin panel customer list — with order count + lifetime value */
 async function list(filters = {}, { limit = 20, offset = 0 } = {}) {
   const qb = new QueryBuilder('c');
   qb.eq('status', filters.status)
@@ -106,7 +106,7 @@ async function list(filters = {}, { limit = 20, offset = 0 } = {}) {
   return { rows, total };
 }
 
-/** Admin: ek customer ka poora 360 view */
+/** Admin: full 360 view of one customer */
 async function profile(customerId) {
   const customer = await findById(customerId);
   if (!customer) return null;

@@ -17,10 +17,10 @@ const updateSettings = asyncHandler(async (req, res) => {
   if (req.file) data.logo = await storeFile(req.file, 'settings');
 
   const updated = await settingsModel.update(req.params.id, data);
-  if (!updated) return fail(res, 'Koi valid field nahi mila', 422);
+  if (!updated) return fail(res, 'No valid field was provided', 422);
 
   await cache.invalidate.settings();
-  return ok(res, await settingsModel.get(), 'Settings update ho gayi');
+  return ok(res, await settingsModel.get(), 'Settings updated');
 });
 
 // ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ const createBanner = asyncHandler(async (req, res) => {
     {
       banner_id: id,
     },
-    'Banner add ho gaya'
+    'Banner added'
   );
 });
 
@@ -123,7 +123,7 @@ const updateBanner = asyncHandler(async (req, res) => {
   if (!updated) {
     return res.status(404).json({
       success: false,
-      message: 'Banner nahi mila',
+      message: 'Banner not found',
     });
   }
 
@@ -133,7 +133,7 @@ const updateBanner = asyncHandler(async (req, res) => {
   return ok(
     res,
     null,
-    'Banner update ho gaya'
+    'Banner updated'
   );
 });
 
@@ -146,7 +146,7 @@ const removeBanner = asyncHandler(async (req, res) => {
   if (!deleted) {
     return res.status(404).json({
       success: false,
-      message: 'Banner nahi mila',
+      message: 'Banner not found',
     });
   }
 
@@ -156,7 +156,7 @@ const removeBanner = asyncHandler(async (req, res) => {
   return ok(
     res,
     null,
-    'Banner delete ho gaya'
+    'Banner deleted'
   );
 });
 
@@ -170,7 +170,7 @@ const createDeal = asyncHandler(async (req, res) => {
   if (req.file) data.image = await storeFile(req.file, 'deals');
   const id = await settingsModel.createDeal(data);
   await cache.delByPrefix('home:');
-  return created(res, { id }, 'Deal add ho gaya');
+  return created(res, { id }, 'Deal added');
 });
 
 const updateDeal = asyncHandler(async (req, res) => {
@@ -178,13 +178,13 @@ const updateDeal = asyncHandler(async (req, res) => {
   if (req.file) data.image = await storeFile(req.file, 'deals');
   await settingsModel.updateDeal(req.params.dealId, data);
   await cache.delByPrefix('home:');
-  return ok(res, null, 'Deal update ho gaya');
+  return ok(res, null, 'Deal updated');
 });
 
 const removeDeal = asyncHandler(async (req, res) => {
   await settingsModel.removeDeal(req.params.dealId);
   await cache.delByPrefix('home:');
-  return ok(res, null, 'Deal delete ho gaya');
+  return ok(res, null, 'Deal deleted');
 });
 
 // ---------------------------------------------------------------------------
@@ -195,19 +195,19 @@ const listOffers = asyncHandler(async (req, res) => ok(res, await settingsModel.
 const createOffer = asyncHandler(async (req, res) => {
   const id = await settingsModel.createOffer(req.body);
   await cache.delByPrefix('home:');
-  return created(res, { id }, 'Offer add ho gaya');
+  return created(res, { id }, 'Offer added');
 });
 
 const updateOffer = asyncHandler(async (req, res) => {
   await settingsModel.updateOffer(req.params.offerId, req.body);
   await cache.delByPrefix('home:');
-  return ok(res, null, 'Offer update ho gaya');
+  return ok(res, null, 'Offer updated');
 });
 
 const removeOffer = asyncHandler(async (req, res) => {
   await settingsModel.removeOffer(req.params.offerId);
   await cache.delByPrefix('home:');
-  return ok(res, null, 'Offer delete ho gaya');
+  return ok(res, null, 'Offer deleted');
 });
 
 // ---------------------------------------------------------------------------
@@ -218,19 +218,19 @@ const listCities = asyncHandler(async (req, res) => ok(res, await settingsModel.
 const createCity = asyncHandler(async (req, res) => {
   const id = await settingsModel.createCity(req.body);
   await cache.delByPrefix('locations:');
-  return created(res, { id }, 'City add ho gayi');
+  return created(res, { id }, 'City added');
 });
 
 const updateCity = asyncHandler(async (req, res) => {
   await settingsModel.updateCity(req.params.cityId, req.body);
   await cache.delByPrefix('locations:');
-  return ok(res, null, 'City update ho gayi');
+  return ok(res, null, 'City updated');
 });
 
 const removeCity = asyncHandler(async (req, res) => {
   await settingsModel.removeCity(req.params.cityId);
   await cache.delByPrefix('locations:');
-  return ok(res, null, 'City delete ho gayi');
+  return ok(res, null, 'City deleted');
 });
 
 // ---------------------------------------------------------------------------
@@ -242,26 +242,26 @@ const listPages = asyncHandler(async (req, res) => {
 
 const pageDetail = asyncHandler(async (req, res) => {
   const page = await cmsModel.findPageById(req.params.pageId);
-  if (!page) return fail(res, 'Page nahi mila', 404);
+  if (!page) return fail(res, 'Page not found', 404);
   return ok(res, page);
 });
 
 const createPage = asyncHandler(async (req, res) => {
   const id = await cmsModel.createPage(req.body);
   await cache.invalidate.cms();
-  return created(res, { page_id: id }, 'Page ban gaya');
+  return created(res, { page_id: id }, 'Page created');
 });
 
 const updatePage = asyncHandler(async (req, res) => {
   await cmsModel.updatePage(req.params.pageId, req.body);
   await cache.invalidate.cms();
-  return ok(res, null, 'Page update ho gaya');
+  return ok(res, null, 'Page updated');
 });
 
 const removePage = asyncHandler(async (req, res) => {
   await cmsModel.removePage(req.params.pageId);
   await cache.invalidate.cms();
-  return ok(res, null, 'Page delete ho gaya');
+  return ok(res, null, 'Page deleted');
 });
 
 // ---------------------------------------------------------------------------
@@ -281,7 +281,7 @@ const createNews = asyncHandler(async (req, res) => {
   if (!data.date) data.date = new Date().toISOString().slice(0, 10);
   const id = await cmsModel.createNews(data);
   await cache.invalidate.cms();
-  return created(res, { id }, 'News add ho gayi');
+  return created(res, { id }, 'Article added');
 });
 
 const updateNews = asyncHandler(async (req, res) => {
@@ -289,13 +289,13 @@ const updateNews = asyncHandler(async (req, res) => {
   if (req.file) data.image = await storeFile(req.file, 'news');
   await cmsModel.updateNews(req.params.newsId, data);
   await cache.invalidate.cms();
-  return ok(res, null, 'News update ho gayi');
+  return ok(res, null, 'Article updated');
 });
 
 const removeNews = asyncHandler(async (req, res) => {
   await cmsModel.removeNews(req.params.newsId);
   await cache.invalidate.cms();
-  return ok(res, null, 'News delete ho gayi');
+  return ok(res, null, 'Article deleted');
 });
 
 // ---------------------------------------------------------------------------
@@ -314,12 +314,12 @@ const listEnquiries = asyncHandler(async (req, res) => {
 
 const resolveEnquiry = asyncHandler(async (req, res) => {
   await cmsModel.markEnquirySolved(req.params.enquiryId, req.body.solved === false ? 0 : 1);
-  return ok(res, null, 'Enquiry update ho gayi');
+  return ok(res, null, 'Enquiry updated');
 });
 
 const removeEnquiry = asyncHandler(async (req, res) => {
   await cmsModel.removeEnquiry(req.params.enquiryId);
-  return ok(res, null, 'Enquiry delete ho gayi');
+  return ok(res, null, 'Enquiry deleted');
 });
 
 module.exports = {

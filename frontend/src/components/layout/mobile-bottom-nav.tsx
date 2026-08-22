@@ -9,10 +9,10 @@ import { cn } from "@/lib/utils";
 
 /**
  * Mobile-only bottom tab bar. Desktop navbar already has these actions in
- * the header, isliye ye sirf `lg:hidden` par render hoti hai.
+ * the header, so this only renders at `lg:hidden`.
  *
- * `<main>` me bottom padding layout.tsx me add ki gayi hai taaki last
- * content is bar ke peeche na chhup jaaye.
+ * Bottom padding on `<main>` is added in layout.tsx so that the last
+ * content does not get hidden behind the bar.
  */
 export function MobileBottomNav() {
   const pathname = usePathname();

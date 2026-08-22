@@ -12,14 +12,14 @@ export function AuthProvider({ children }) {
     try {
       if (tokenStore.get()) await api.post('/admin/auth/logout');
     } catch {
-      /* logout best-effort hai */
+      /* logout is best-effort */
     }
     tokenStore.clear();
     setAdmin(null);
     setPermissions([]);
   }, []);
 
-  // token expire hua to api client yahan signal bhejta hai
+  // when the token expires, the api client signals here
   useEffect(() => onUnauthorized(() => {
     tokenStore.clear();
     setAdmin(null);
@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
     setPermissions(res.data.permissions || []);
   }, []);
 
-  /** Ek ya multiple permissions — koi ek bhi ho to true */
+  /** One or several permissions — true if any one of them matches */
   const can = useCallback((perm) => {
     if (!perm) return true;
     const list = Array.isArray(perm) ? perm : [perm];
@@ -79,6 +79,6 @@ export function AuthProvider({ children }) {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth ko AuthProvider ke andar use karo');
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
   return ctx;
 };

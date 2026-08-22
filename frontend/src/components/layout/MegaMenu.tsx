@@ -12,9 +12,9 @@ import { formatINR, cn } from "@/lib/utils";
 import type { ApiProduct, CategoryTreeNode, Medicine } from "@/types";
 
 /**
- * Root category ke liye koi real icon data backend se nahi aati, isliye
- * neutral icons ka pool rakha hai — index ke hisaab se cycle karte hain,
- * sirf visual variety ke liye, kisi specific meaning ke liye nahi.
+ * The backend sends no real icon data for a root category, so
+ * we keep a pool of neutral icons — cycled by index,
+ * purely for visual variety, not to convey any specific meaning.
  */
 const ROOT_ICONS = [
   LayoutGrid, Package, LayoutGrid, Package, LayoutGrid, Package, LayoutGrid, Package,
@@ -34,7 +34,7 @@ export function MegaMenu() {
     [roots, activeId]
   );
 
-  // Active root ke koi sub-categories nahi hain to uske products dikhao —
+  // If an active root has no sub-categories, show its products —
   // generic "browse products" text ki jagah asli preview.
   const [products, setProducts] = useState<Medicine[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -76,8 +76,8 @@ export function MegaMenu() {
     >
       <div className="overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
         <div className="grid grid-cols-[220px_1fr]">
-          {/* Left — root categories. Click seedha category page kholta hai,
-              hover sirf right panel ka preview badalta hai. */}
+          {/* Left — root categories. A click opens the category page directly,
+              hovering only changes the preview in the right panel. */}
           <div className="max-h-[480px] overflow-y-auto border-r border-line bg-[#F7F9FC] p-3">
             {roots.map((r, i) => {
               const Icon = ROOT_ICONS[i % ROOT_ICONS.length];

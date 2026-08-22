@@ -40,7 +40,7 @@ export default function Reports() {
     try {
       const path = type === 'gst' ? '/admin/reports/gst' : '/admin/reports/export';
       await api.download(path, { preset, orderFrom: source, type, format: 'csv' }, `${type}-report.csv`);
-      toast.success('Report download ho gayi');
+      toast.success('Report downloaded');
     } catch (e) { toast.error(e.message); } finally { setExporting(false); }
   };
 
@@ -48,7 +48,7 @@ export default function Reports() {
     <>
       <PageHeader
         title="Reports"
-        subtitle="Sales, products, customers — sab ka analysis"
+        subtitle="Sales, products and customers — full analysis"
         actions={
           <>
             <Select value={source} onChange={(e) => setSource(e.target.value)}
@@ -148,7 +148,7 @@ function SalesReport({ qs }) {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        ) : <EmptyState icon={TrendingUp} title="Is period me koi sale nahi" />}
+        ) : <EmptyState icon={TrendingUp} title="No sales in this period" />}
       </Card>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -227,7 +227,7 @@ function ProductsReport({ qs }) {
                 </span>
               ) },
           ]}
-          emptyIcon={Package} emptyTitle="Is period me kuch nahi bika"
+          emptyIcon={Package} emptyTitle="Nothing sold in this period"
         />
       </Card>
 
@@ -242,11 +242,11 @@ function ProductsReport({ qs }) {
               { key: 'revenue', label: 'Revenue', align: 'right',
                 render: (c) => <span className="tabular-nums font-medium text-ink">{compactInr(c.revenue)}</span> },
             ]}
-            emptyIcon={Package} emptyTitle="Koi data nahi"
+            emptyIcon={Package} emptyTitle="No data"
           />
         </Card>
 
-        <Card title="Dead stock" subtitle="90 din me ek bhi nahi bika" dense>
+        <Card title="Dead stock" subtitle="Not a single sale in 90 days" dense>
           <DataTable
             rowKey="product_id" rows={data.non_moving || []} compact rowTone={() => 'warn'}
             columns={[
@@ -257,8 +257,8 @@ function ProductsReport({ qs }) {
               { key: 'stock_value', label: 'Value locked', align: 'right',
                 render: (p) => <span className="tabular-nums font-medium text-signal-warn">{inr(p.stock_value)}</span> },
             ]}
-            emptyIcon={Package} emptyTitle="Sab kuch bik raha hai"
-            emptyDescription="Koi product 90 din se atka hua nahi hai."
+            emptyIcon={Package} emptyTitle="Everything is selling"
+            emptyDescription="No product has been stuck for 90 days."
           />
         </Card>
       </div>
@@ -308,10 +308,10 @@ function CustomersReport({ qs }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        ) : <EmptyState icon={Users} title="Koi data nahi" />}
+        ) : <EmptyState icon={Users} title="No data" />}
       </Card>
 
-      <Card title="Top customers" subtitle="Lifetime value ke hisaab se" dense>
+      <Card title="Top customers" subtitle="Ranked by lifetime value" dense>
         <DataTable
           rowKey="customer_id" rows={data.top_customers || []} compact
           columns={[
@@ -334,7 +334,7 @@ function CustomersReport({ qs }) {
             { key: 'last_order', label: 'Last order',
               render: (c) => <span className="text-2xs tabular-nums text-ink-500">{date(c.last_order)}</span> },
           ]}
-          emptyIcon={Users} emptyTitle="Koi customer nahi"
+          emptyIcon={Users} emptyTitle="No customers"
         />
       </Card>
     </div>
@@ -377,7 +377,7 @@ function LocationsReport({ qs }) {
             </li>
           ))}
         </ul>
-      ) : <EmptyState icon={MapPin} title="Koi location data nahi" />}
+      ) : <EmptyState icon={MapPin} title="No location data" />}
     </Card>
   );
 }
@@ -414,7 +414,7 @@ function PrescriptionsReport({ qs }) {
               </div>
             );
           })}
-          {!data.byStatus?.length && <EmptyState icon={FileText} title="Koi prescription nahi" />}
+          {!data.byStatus?.length && <EmptyState icon={FileText} title="No prescriptions" />}
         </div>
       </Card>
     </div>
@@ -442,7 +442,7 @@ function CouponsReport({ qs }) {
           { key: 'revenue_generated', label: 'Revenue driven', align: 'right',
             render: (c) => <span className="tabular-nums font-semibold text-signal-ok">{inr(c.revenue_generated)}</span> },
         ]}
-        emptyIcon={Ticket} emptyTitle="Is period me koi coupon use nahi hua"
+        emptyIcon={Ticket} emptyTitle="No coupon was used in this period"
       />
     </Card>
   );
@@ -464,7 +464,7 @@ function GstReport({ qs }) {
         <Metric label="Tax collected" value={compactInr(totalTax)} accent />
       </div>
 
-      <Card title="HSN-wise summary" subtitle="Accountant ko yahi chahiye hota hai" dense>
+      <Card title="HSN-wise summary" subtitle="This is what the accountant needs" dense>
         <DataTable
           rowKey="hsn_code" rows={rows} compact
           columns={[
@@ -478,7 +478,7 @@ function GstReport({ qs }) {
             { key: 'tax_amount', label: 'Tax', align: 'right',
               render: (r) => <span className="tabular-nums font-semibold text-ink">{inr(r.tax_amount)}</span> },
           ]}
-          emptyIcon={Receipt} emptyTitle="Is period me koi taxable sale nahi"
+          emptyIcon={Receipt} emptyTitle="No taxable sales in this period"
         />
       </Card>
     </div>

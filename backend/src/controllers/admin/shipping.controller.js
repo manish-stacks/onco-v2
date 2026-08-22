@@ -20,7 +20,7 @@ const bookShipment = asyncHandler(async (req, res) => {
     description: `DTDC AWB ${result.awb}`, ip_address: req.ip,
   });
 
-  return ok(res, result, `Ship ho gaya — AWB ${result.awb}`);
+  return ok(res, result, `Shipped — AWB ${result.awb}`);
 });
 
 /** DELETE /admin/orders/:orderId/ship — booking cancel */
@@ -35,13 +35,13 @@ const cancelShipment = asyncHandler(async (req, res) => {
     description: `AWB ${result.awb}`, ip_address: req.ip,
   });
 
-  return ok(res, result, 'DTDC booking cancel ho gayi');
+  return ok(res, result, 'DTDC booking cancelled');
 });
 
 /** GET /admin/orders/:orderId/tracking — live DTDC se */
 const refreshTracking = asyncHandler(async (req, res) => {
   const tracking = await shipping.refreshTracking(req.params.orderId);
-  return ok(res, tracking, 'Tracking update ho gayi');
+  return ok(res, tracking, 'Tracking updated');
 });
 
 /** GET /admin/orders/:orderId/shipments — booking history */
@@ -52,7 +52,7 @@ const shipments = asyncHandler(async (req, res) => {
 
 /**
  * GET /admin/shipments/:awb/label — PDF stream
- * Admin panel isse naye tab me kholta hai, print/download dono chal jaata hai.
+ * The admin panel opens this in a new tab; both print and download work.
  */
 const label = asyncHandler(async (req, res) => {
   const { awb } = req.params;
@@ -64,7 +64,7 @@ const label = asyncHandler(async (req, res) => {
   const pdf = await dtdc.fetchLabel(awb);
 
   if (!pdf || !Buffer.isBuffer(pdf)) {
-    return fail(res, 'DTDC label generate nahi hua', 502);
+    return fail(res, 'The DTDC label could not be generated', 502);
   }
 
   res.setHeader('Content-Type', 'application/pdf');
@@ -84,7 +84,7 @@ const scans = asyncHandler(async (req, res) => {
   return ok(res, rows);
 });
 
-/** GET /admin/shipping/config — panel ko batao DTDC ready hai ya nahi */
+/** GET /admin/shipping/config — tell the panel whether DTDC is ready */
 const config = asyncHandler(async (req, res) => {
   const c = dtdc.config();
   return ok(res, {

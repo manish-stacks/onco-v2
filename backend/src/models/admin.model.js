@@ -175,10 +175,10 @@ async function updateRole(roleId, { name, description, status, permissions }) {
 async function removeRole(roleId) {
   const [[{ count }]] = await db.query(`SELECT COUNT(*) AS count FROM admins WHERE user_type = ?`, [roleId]);
   if (count > 0) {
-    throw Object.assign(new Error(`Is role pe ${count} admin(s) hain — pehle unko dusre role me shift karo`), { status: 409 });
+    throw Object.assign(new Error(`${count} admin(s) are on this role — move them to another role first`), { status: 409 });
   }
   const [[role]] = await db.query(`SELECT is_system FROM roles WHERE type_id = ?`, [roleId]);
-  if (role?.is_system) throw Object.assign(new Error('System role delete nahi ho sakta'), { status: 403 });
+  if (role?.is_system) throw Object.assign(new Error('A system role cannot be deleted'), { status: 403 });
 
   await db.query(`DELETE FROM role_permissions WHERE role_id = ?`, [roleId]);
   await db.query(`DELETE FROM roles WHERE type_id = ?`, [roleId]);
@@ -197,7 +197,7 @@ async function logActivity({ admin_id, admin_username, action, module, record_id
         record_id ? String(record_id) : null, description || null, ip_address || null]
     );
   } catch (err) {
-    console.error('[activity-log] fail:', err.message); // logging kabhi request fail na kare
+    console.error('[activity-log] fail:', err.message); // logging must never fail a request
   }
 }
 

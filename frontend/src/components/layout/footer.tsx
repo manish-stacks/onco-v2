@@ -44,13 +44,6 @@ const socials = [
   { Icon: FaYoutube, href: "#" },
 ];
 
-const trustStrip = [
-  { icon: ShieldCheck, title: "100% Genuine Medicines", desc: "Sourced directly from licensed pharmacies" },
-  { icon: ClipboardCheck, title: "Prescription Verified", desc: "All prescriptions are verified by experts" },
-  { icon: Truck, title: "Fast & Safe Delivery", desc: "Medicines delivered safely to your doorstep" },
-  { icon: RotateCcw, title: "Easy Returns", desc: "Hassle-free return policy" },
-  { icon: Headphones, title: "Dedicated Support", desc: "We're here to help you 24x7" },
-];
 
 const paymentIcons = ["visa", "mastercard", "amex", "discover"];
 
@@ -151,7 +144,7 @@ export function Footer() {
             </div>
 
             <p className="mb-3 font-display text-sm font-bold text-[var(--ink)]">We Accept</p>
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div className="mb-4 flex gap-2">
               {paymentIcons.map((c) => (
                 <span key={c} className="flex h-8 items-center rounded-md border border-[var(--line)] bg-white px-2">
                   <Image src={`https://live.themewild.com/medion/assets/img/payment/${c}.svg`} alt={c} width={40} height={16} className="h-5 w-auto object-contain" />
@@ -171,20 +164,8 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Trust strip */}
-        <div className="mt-10 grid grid-cols-2 gap-4 rounded-[var(--radius-lg)] border border-[var(--line)] bg-white p-6 sm:grid-cols-3 lg:grid-cols-5">
-          {trustStrip.map(({ icon: Icon, title, desc }) => (
-            <div key={title} className="flex items-start gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
-                <Icon size={18} />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-[var(--ink)]">{title}</p>
-                <p className="text-xs text-[var(--ink-soft)]">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+      
+        
       </div>
 
       {/* Bottom bar */}

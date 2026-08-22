@@ -18,7 +18,7 @@ export default function Pages() {
   const [toDelete, setToDelete] = useState(null);
 
   const del = useMutation((id) => api.del(`/admin/pages/${id}`),
-    { success: 'Page delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Page deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.CMS_MANAGE);
 
@@ -54,7 +54,7 @@ export default function Pages() {
             key: 'seo_title', label: 'SEO title',
             render: (p) => (
               <span className="text-2xs text-ink-500 truncate block max-w-[220px]">
-                {p.seo_title || <span className="text-signal-warn">set nahi hai</span>}
+                {p.seo_title || <span className="text-signal-warn">not set</span>}
               </span>
             ),
           },
@@ -69,8 +69,8 @@ export default function Pages() {
             ),
           },
         ]}
-        emptyIcon={FileText} emptyTitle="Koi page nahi"
-        emptyDescription="About us, privacy policy, terms — ye sab yahan se bante hain."
+        emptyIcon={FileText} emptyTitle="No pages"
+        emptyDescription="About us, privacy policy, terms — all of these are created here."
         emptyAction={canManage && <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>New page</Button>}
       />
       </Card>
@@ -80,7 +80,7 @@ export default function Pages() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.page_id)} loading={del.loading}
         title="Delete page" confirmLabel="Delete"
-        message={`"${toDelete?.name}" delete ho jaayega aur /${toDelete?.slug} pe 404 aayega.`} />
+        message={`"${toDelete?.name}" will be deleted and /${toDelete?.slug} will return a 404.`} />
     </>
   );
 }
@@ -105,7 +105,7 @@ function PageModal({ open, onClose, page, onDone }) {
 
   const save = useMutation(
     () => (isEdit ? api.put(`/admin/pages/${page.page_id}`, form) : api.post('/admin/pages', form)),
-    { success: isEdit ? 'Page update ho gaya' : 'Page ban gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Page updated' : 'Page created', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -134,11 +134,11 @@ function PageModal({ open, onClose, page, onDone }) {
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="URL slug" hint="Khaali chhodo to naam se ban jaayega">
+          <Field label="URL slug" hint="Leave empty to generate it from the name">
             <Input mono value={form.slug || ''} onChange={(e) => set('slug', e.target.value)}
               placeholder="privacy-policy" />
           </Field>
-          <Field label="Type" hint="Grouping ke liye — optional">
+          <Field label="Type" hint="Used for grouping — optional">
             <Input value={form.type || ''} onChange={(e) => set('type', e.target.value)}
               placeholder="legal" />
           </Field>
@@ -146,7 +146,7 @@ function PageModal({ open, onClose, page, onDone }) {
 
         <Field label="Content">
           <RichTextEditor rows={12} value={form.content} onChange={(v) => set('content', v)}
-            placeholder="Page ka content yahan likho…" />
+            placeholder="Write the page content here…" />
         </Field>
 
         <div className="grid sm:grid-cols-2 gap-3">

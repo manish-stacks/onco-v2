@@ -149,7 +149,7 @@ export function Card({ title, subtitle, action, children, className, bodyClass, 
 }
 
 // ---------------------------------------------------------------------------
-// Status pill — TONE_CLASS constants.js se aata hai
+// Status pill — TONE_CLASS comes from constants.js
 // ---------------------------------------------------------------------------
 import { TONE_CLASS, toneOf } from '@/lib/constants';
 
@@ -183,7 +183,7 @@ export function SourceTag({ source }) {
   );
 }
 
-/** Signature element: har identifier mono me */
+/** Signature element: every identifier in mono */
 export function Code({ children, className, chip }) {
   if (!children) return <span className="text-ink-300">—</span>;
   return <span className={cx(chip ? 'code-chip' : 'code', className)}>{children}</span>;

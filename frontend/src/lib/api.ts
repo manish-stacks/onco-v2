@@ -1,15 +1,15 @@
 /**
  * Storefront API client.
  *
- * Backend ke `/api/app/*` endpoints ke liye. Admin panel wale client se alag
- * hai kyunki:
- *   • SSR-safe hona chahiye — Next.js server pe `window`/`localStorage` nahi hote
- *   • `X-Client-Platform: web` header bhejta hai (backend isse orderFrom set karta hai)
- *   • Server components me token manually pass karna padta hai
+ * For the backend `/api/app/*` endpoints. Separate from the admin panel client
+ * because:
+ *   • must be SSR-safe — `window`/`localStorage` do not exist on the Next.js server
+ *   • sends the `X-Client-Platform: web` header (backend uses it to set orderFrom)
+ *   • the token has to be passed manually in server components
  *
  * .env:
  *   NEXT_PUBLIC_API_BASE=https://api.oncohealthmart.com
- *   (khaali chhodo to same-origin /api use hoga)
+ *   (leave it empty to use the same-origin /api)
  */
 
 import type { Order } from '@/types';
@@ -48,7 +48,7 @@ export interface RequestOptions {
   body?: unknown;
   params?: QueryParams;
   isForm?: boolean;
-  /** Server component me manually pass karo */
+  /** Pass it manually inside a server component */
   token?: string | null;
   /** Next.js fetch cache */
   cache?: RequestCache;
@@ -63,11 +63,11 @@ export interface RequestOptions {
 // ---------------------------------------------------------------------------
 
 /**
- * localStorage me rakhte hain, cookie me nahi — customer token ki zaroorat
- * sirf client-side pe hai (cart, orders), aur cookie hoti to har SSR request
- * ke saath jaati.
+ * We keep it in localStorage, not a cookie — the customer token is only needed
+ * on the client side (cart, orders), and a cookie
+ * would be sent with every SSR request.
  *
- * Server component me token chahiye ho to `withToken()` se explicitly pass karo.
+ * If a server component needs the token, pass it explicitly via `withToken()`.
  */
 export const tokenStore = {
   get(): string | null {
@@ -107,8 +107,8 @@ type UnauthorizedHandler = () => void;
 const unauthorizedHandlers = new Set<UnauthorizedHandler>();
 
 /**
- * Session expire hone pe callback. AuthContext isse subscribe karke user ko
- * logout kar deta hai.
+ * Callback for when the session expires. AuthContext subscribes to this and
+ * logs the user out.
  *
  *   useEffect(() => onUnauthorized(() => setUser(null)), []);
  */
@@ -134,7 +134,7 @@ export class ApiError extends Error {
     this.data = data || null;
   }
 
-  /** Network fail vs server ne reject kiya — UI me alag message dikhana ho to */
+  /** Network failure vs the server rejecting it — for showing a different message in the UI */
   get isNetwork(): boolean {
     return this.status === 0;
   }
@@ -194,7 +194,7 @@ async function request<T = unknown>(path: string, opts: RequestOptions = {}): Pr
     signal,
   };
 
-  // Next.js fetch options — sirf tab lagao jab diye gaye hon
+  // Next.js fetch options — only applied when they are provided
   if (cache) init.cache = cache;
   if (revalidate !== undefined) init.next = { revalidate };
 
@@ -203,7 +203,7 @@ async function request<T = unknown>(path: string, opts: RequestOptions = {}): Pr
     res = await fetch(buildUrl(path, params), init);
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') throw err;
-    throw new ApiError('Server se connect nahi ho paaya. Internet check karo.', 0);
+    throw new ApiError('Could not connect to the server. Please check your internet connection.', 0);
   }
 
   if (res.status === 401) {
@@ -212,13 +212,13 @@ async function request<T = unknown>(path: string, opts: RequestOptions = {}): Pr
       try {
         fn();
       } catch {
-        /* handler ki galti se request na tootey */
+        /* a broken handler must not break the request */
       }
     });
-    throw new ApiError('Session khatam ho gaya. Dobara login karo.', 401);
+    throw new ApiError('Your session has expired. Please log in again.', 401);
   }
 
-  // 204 ya khaali body
+  // 204 or an empty body
   if (res.status === 204) return { success: true, data: null as T };
 
   let json: ApiEnvelope<T> | null = null;
@@ -230,7 +230,7 @@ async function request<T = unknown>(path: string, opts: RequestOptions = {}): Pr
 
   if (!res.ok) {
     throw new ApiError(
-      json?.message || `Request fail hui (${res.status})`,
+      json?.message || `Request failed (${res.status})`,
       res.status,
       (json as { errors?: Record<string, string[]> } | null)?.errors,
       json?.data
@@ -260,11 +260,11 @@ export const api = {
   del: <T = unknown>(path: string, body?: unknown, opts?: RequestOptions) =>
     request<T>(path, { ...opts, method: 'DELETE', body }),
 
-  /** FormData — prescription images wagairah */
+  /** FormData — prescription images and the like */
   form: <T = unknown>(path: string, formData: FormData, method: 'POST' | 'PUT' | 'PATCH' = 'POST', opts?: RequestOptions) =>
     request<T>(path, { ...opts, method, body: formData, isForm: true }),
 
-  /** Sirf `data` chahiye, poora envelope nahi */
+  /** Only `data` is needed, not the full envelope */
   async data<T = unknown>(path: string, params?: QueryParams, opts?: RequestOptions): Promise<T | null> {
     const res = await request<T>(path, { ...opts, params });
     return res?.data ?? null;
@@ -272,7 +272,7 @@ export const api = {
 };
 
 /**
- * Server component / route handler me token pass karne ke liye.
+ * For passing the token inside a server component / route handler.
  *
  *   const serverApi = withToken(cookies().get('token')?.value);
  *   const orders = await serverApi.get('/orders');
@@ -306,8 +306,8 @@ export function withToken(token: string | null | undefined) {
 // ---------------------------------------------------------------------------
 
 /**
- * Backend relative path deta hai (`/media/products/x.jpg` ya `/uploads/...`).
- * Absolute URL bana do — Next.js `<Image>` ko full URL chahiye.
+ * The backend returns a relative path (`/media/products/x.jpg` or `/uploads/...`).
+ * Build an absolute URL — Next.js `<Image>` needs a full URL.
  */
 export function mediaUrl(path: string | null | undefined, fallback = '/placeholder.png'): string {
   if (!path) return fallback;
@@ -367,19 +367,19 @@ export interface ChangePasswordPayload {
 /**
  * Customer auth.
  *
- * Do tarike hain login ke — password aur OTP. OTP flow me `requestOtp` naya
- * account bhi bana deta hai (agar number registered nahi hai), isliye alag
- * signup step ki zaroorat nahi.
+ * There are two ways to log in — password and OTP. In the OTP flow `requestOtp` is a new
+ * also creates an account (if the number is not registered), hence a separate
+ * no separate signup step is needed.
  */
 export const authApi = {
-  /** Password se signup */
+  /** Sign up with a password */
   async register(payload: RegisterPayload): Promise<AuthTokenPayload | null> {
     const res = await api.post<AuthTokenPayload>('/auth/register', payload);
     if (res?.data?.token) tokenStore.set(res.data.token);
     return res.data;
   },
 
-  /** Password se login */
+  /** Log in with a password */
   async login({ mobile, password }: LoginPayload): Promise<AuthTokenPayload | null> {
     const res = await api.post<AuthTokenPayload>('/auth/login', { mobile, password });
     if (res?.data?.token) tokenStore.set(res.data.token);
@@ -387,10 +387,10 @@ export const authApi = {
   },
 
   /**
-   * OTP bhejo. Number registered na ho to account bhi ban jaata hai —
-   * response me `is_new_user: true` aata hai.
+   * Send an OTP. If the number is not registered an account is created too —
+   * the response contains `is_new_user: true`.
    *
-   * Local dev me (Fast2SMS key na ho) response me `dev_otp` bhi aata hai.
+   * In local dev (no Fast2SMS key) the response also includes `dev_otp`.
    */
   requestOtp: ({ mobile, customer_name, allow_signup = true }: RequestOtpPayload) =>
     api.data<AuthTokenPayload>('/auth/otp/request', undefined, {
@@ -398,14 +398,14 @@ export const authApi = {
       body: { mobile, customer_name, allow_signup },
     }),
 
-  /** OTP verify — yahi login complete karta hai */
+  /** Verify the OTP — this is what completes the login */
   async verifyOtp({ customer_id, otp }: VerifyOtpPayload): Promise<AuthTokenPayload | null> {
     const res = await api.post<AuthTokenPayload>('/auth/otp/verify', { customer_id, otp });
     if (res?.data?.token) tokenStore.set(res.data.token);
     return res.data;
   },
 
-  /** Bhula hua password — pehle requestOtp, phir ye */
+  /** Forgotten password — requestOtp first, then this */
   resetPassword: ({ customer_id, otp, new_password }: ResetPasswordPayload) =>
     api.post('/auth/password/reset', { customer_id, otp, new_password }),
 
@@ -437,7 +437,7 @@ export interface ProductFilters {
   top_selling?: boolean;
   latest?: boolean;
   deals?: boolean;
-  /** Backend enum values hain — boolean nahi. 'Yes' bhejo, na chahiye ho to omit karo. */
+  /** These are backend enum values — not booleans. Send 'Yes', or omit it entirely. */
   prescription_required?: 'Yes' | 'No';
   in_stock?: boolean;
   sort_by?: string;
@@ -449,17 +449,17 @@ export interface ProductFilters {
 /**
  * Products, categories, search.
  *
- * Ye saare public hain — token optional hai. Login ho to product detail me
- * `in_wishlist` flag bhi aata hai.
+ * These are all public — the token is optional. When logged in, the product detail also
+ * includes the `in_wishlist` flag.
  *
- * Next.js me `revalidate` pass karke ISR use kar sakte ho:
+ * You can use ISR in Next.js by passing `revalidate`:
  *   catalogApi.product(slug, { revalidate: 300 })
  */
 export const catalogApi = {
   /**
-   * Homepage ka poora data ek call me — banners, categories, brands, deals,
+   * All homepage data in one call — banners, categories, brands, deals,
    * offers, testimonials, top selling, latest, deal of the day, settings.
-   * Backend pe cached hai, isliye alag-alag calls karne ki zaroorat nahi.
+   * It is cached on the backend, so separate calls are unnecessary.
    */
   home: <T = unknown>(opts?: RequestOptions) => api.data<T>('/home', undefined, { revalidate: 300, ...opts }),
 
@@ -483,18 +483,21 @@ export const catalogApi = {
 
   categories: <T = unknown>(opts?: RequestOptions) => api.data<T>('/categories', undefined, { revalidate: 600, ...opts }),
 
-  /** Nested tree — mega menu ke liye */
+  /** Every active brand — for the /brands page (the home feed only returns 6) */
+  brands: <T = unknown>(opts?: RequestOptions) => api.data<T>('/brands', undefined, { revalidate: 600, ...opts }),
+
+  /** Nested tree — for the mega menu */
   categoryTree: <T = unknown>(opts?: RequestOptions) =>
     api.data<T>('/categories/tree', undefined, { revalidate: 600, ...opts }),
 
   category: <T = unknown>(slug: string, opts?: RequestOptions) =>
     api.data<T>(`/categories/${slug}`, undefined, { revalidate: 600, ...opts }),
 
-  /** Search box ka autocomplete — products + categories dono */
+  /** Search box autocomplete — both products and categories */
   search: <T = unknown>(q: string, opts?: RequestOptions) =>
     api.data<T>('/search', { q }, { cache: 'no-store', ...opts }),
 
-  /** Checkout se pehle — is city me delivery hoti hai ya nahi */
+  /** Before checkout — whether delivery is available in this city */
   checkServiceability: <T = unknown>(city: string) => api.data<T>('/serviceable-city', { city }),
 };
 
@@ -521,16 +524,16 @@ export interface Address {
 }
 
 /**
- * Cart, wishlist, addresses — sab login ke baad ke hain.
+ * Cart, wishlist, addresses — all of these require login.
  *
- * Cart har response me updated totals ke saath aata hai (subtotal, GST,
- * out-of-stock items, COD allowed hai ya nahi), to add/update ke baad
- * alag se fetch karne ki zaroorat nahi.
+ * Every cart response includes updated totals (subtotal, GST,
+ * out-of-stock items, whether COD is allowed), so after an add/update
+ * no separate fetch is needed.
  */
 export const cartApi = {
   get: <T = unknown>() => api.data<T>('/cart'),
 
-  /** Header ke badge ke liye — poora cart nahi chahiye */
+  /** For the header badge — the full cart is not needed */
   count: async (): Promise<number> => {
     const data = await api.data<{ count?: number }>('/cart/count');
     return data?.count ?? 0;
@@ -542,7 +545,7 @@ export const cartApi = {
       body: { product_id, quantity },
     }),
 
-  /** quantity 0 bhejo to item hat jaata hai */
+  /** Send quantity 0 to remove the item */
   updateQuantity: <T = unknown>(cartId: string | number, quantity: number) =>
     api.data<T>(`/cart/${cartId}`, undefined, {
       method: 'PATCH',
@@ -554,9 +557,9 @@ export const cartApi = {
   clear: <T = unknown>() => api.del<T>('/cart'),
 
   /**
-   * Guest cart merge — login se pehle localStorage me pada cart server pe
-   * bhej do. Jo item add na ho paye (out of stock) wo silently skip ho jaata
-   * hai, poora merge fail nahi hota.
+   * Guest cart merge — the cart sitting in localStorage before login is pushed
+   * send them. Any item that cannot be added (out of stock) is silently skipped
+   * the whole merge does not fail.
    */
   merge: <T = unknown>(items: Array<{ product_id: string | number; quantity: number }>) =>
     api.data<T>('/cart/merge', undefined, {
@@ -564,14 +567,14 @@ export const cartApi = {
       body: { items },
     }),
 
-  /** Order banaye bina coupon check — cart page pe "Apply" button */
+  /** Validate a coupon without creating an order — the cart page "Apply" button */
   applyCoupon: <T = unknown>(coupon_code: string) =>
     api.data<T>('/cart/apply-coupon', undefined, {
       method: 'POST',
       body: { coupon_code },
     }),
 
-  /** Available offers — coupon list dikhane ke liye */
+  /** Available offers — used to show the coupon list */
   availableCoupons: <T = unknown>(opts?: RequestOptions) =>
     api.data<T>('/coupons', undefined, { revalidate: 300, ...opts }),
 };
@@ -579,7 +582,7 @@ export const cartApi = {
 export const wishlistApi = {
   list: <T = unknown>() => api.data<T>('/wishlist'),
 
-  /** Heart icon — add/remove dono, response me `{ added: true/false }` */
+  /** Heart icon — handles both add and remove, responds with `{ added: true/false }` */
   toggle: (product_id: string | number) =>
     api.data<{ added: boolean }>('/wishlist', undefined, {
       method: 'POST',
@@ -656,10 +659,10 @@ export interface PayuSession {
 /**
  * Response shape of orderApi.checkout().
  *
- * ⚠ Backend `payment` object NEST karta hai gateway ke hisaab se —
- * `payment.razorpay` ya `payment.payu`, kabhi bhi flat `payment.key` /
- * `payment.action_url` nahi hota. Isko flat maan lena hi wo bug tha jispe
- * dono gateways break ho rahe the.
+ * ⚠ The backend NESTS the `payment` object per gateway —
+ * `payment.razorpay` or `payment.payu`, never a flat `payment.key` /
+ * there is no `payment.action_url`. Treating it as flat was the bug that
+ * both gateways were breaking.
  */
 export interface CheckoutResult {
   order: Order;
@@ -681,9 +684,11 @@ export interface PaymentGatewayOption {
 export interface PaymentGatewaysResult {
   available: PaymentGatewayOption[];
   default: 'razorpay' | 'payu';
+  /** COD on/off from admin Settings — the checkout page follows this */
+  cod_enabled?: boolean;
 }
 
-/** `/orders/:id/retry-payment` — abhi sirf Razorpay support karta hai backend me */
+/** `/orders/:id/retry-payment` — the backend currently supports Razorpay only */
 export interface RetryPaymentResult {
   razorpay?: RazorpaySession;
 }
@@ -692,7 +697,7 @@ export interface RetryPaymentResult {
  * Orders + checkout.
  *
  * Flow: quote() -> totals preview (no order created) -> checkout() -> order
- * banta hai, online ho to payment session bhi milta hai.
+ * is created; if online, a payment session is returned as well.
  */
 export const orderApi = {
   quote: <T = unknown>(payload: QuotePayload = {}) =>
@@ -731,9 +736,9 @@ export const orderApi = {
   gateways: () => api.data<PaymentGatewaysResult>('/payments/gateways', undefined, { revalidate: 300 }),
 
   /**
-   * Login ke bina tracking — Order ID + registered mobile number dono match
-   * karne padte hain. Poora order object nahi, sirf tracking-safe fields
-   * (status, items, courier, city/state — koi full address/email nahi).
+   * Tracking without login — both the Order ID and the registered mobile number must match
+   * have to match. Not the full order object, only tracking-safe fields
+   * (status, items, courier, city/state — no full address/email).
    */
   trackPublic: <T = PublicTrackResult>(order_ref: string, phone: string) =>
     api.data<T>('/orders/track-public', undefined, { method: 'POST', body: { order_ref, phone } }),

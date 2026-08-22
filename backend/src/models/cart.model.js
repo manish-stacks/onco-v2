@@ -1,10 +1,11 @@
 const db = require('../config/db');
 const { money } = require('../utils/helpers');
 const { isProductCodEligible } = require('../utils/cod-eligibility');
+const settingsModel = require('./settings.model');
 
 /**
- * Cart hamesha server-side price se recalculate hota hai — jo price cart me
- * store hui thi wo sirf reference hai, checkout pe fresh product price li jaati hai.
+ * The cart is always recalculated from server-side prices — the price stored in the cart
+ * is only a reference; the fresh product price is taken at checkout.
  */
 
 async function getItems(customerId) {
@@ -21,9 +22,11 @@ async function getItems(customerId) {
   return rows;
 }
 
-/** Cart + live totals — frontend ko yahi bhejna hai */
+/** Cart + live totals — this is what the frontend needs */
 async function getCartWithTotals(customerId) {
   const items = await getItems(customerId);
+  // Admin-controlled GST — read once for the whole cart
+  const taxConfig = await settingsModel.getTaxConfig();
 
   let subtotal = 0;
   let totalGst = 0;
@@ -32,7 +35,8 @@ async function getCartWithTotals(customerId) {
 
   const detailed = items.map((it) => {
     const lineSubtotal = money(it.product_sp * it.product_quantity);
-    const taxAmount = money((lineSubtotal * (it.product_gst || 0)) / 100);
+    const taxPercent = settingsModel.resolveGstPercent(it.product_gst, taxConfig);
+    const taxAmount = money((lineSubtotal * taxPercent) / 100);
 
     subtotal += lineSubtotal;
     totalGst += taxAmount;
@@ -44,12 +48,13 @@ async function getCartWithTotals(customerId) {
     return {
       ...it,
       line_subtotal: lineSubtotal,
+      tax_percent: taxPercent,
       tax_amount: taxAmount,
       line_total: money(lineSubtotal + taxAmount),
       in_stock: it.stock_quantity >= it.product_quantity,
       available_quantity: it.stock_quantity,
       // Frontend ko batane ke liye ki YE specific item COD block kar raha
-      // hai (jaise "Cold chain — prepaid only" badge dikhana ho to)
+      // (for example to show a "Cold chain — prepaid only" badge)
       cod_eligible: itemCodEligible,
     };
   });
@@ -76,8 +81,8 @@ async function addItem(customerId, { product_id, quantity = 1 }) {
   const [[product]] = await db.query(
     `SELECT product_sp, product_gst, stock_quantity, status FROM products WHERE product_id = ?`, [product_id]
   );
-  if (!product) throw Object.assign(new Error('Product nahi mila'), { status: 404 });
-  if (product.status !== 'Active') throw Object.assign(new Error('Ye product abhi available nahi hai'), { status: 409 });
+  if (!product) throw Object.assign(new Error('Product not found'), { status: 404 });
+  if (product.status !== 'Active') throw Object.assign(new Error('This product is not available right now'), { status: 409 });
 
   const [[existing]] = await db.query(
     `SELECT cart_id, product_quantity FROM cart_items WHERE customer_id = ? AND product_id = ?`,
@@ -86,11 +91,12 @@ async function addItem(customerId, { product_id, quantity = 1 }) {
 
   const newQty = (existing?.product_quantity || 0) + quantity;
   if (newQty > product.stock_quantity) {
-    throw Object.assign(new Error(`Sirf ${product.stock_quantity} pieces available hain`), { status: 409 });
+    throw Object.assign(new Error(`Only ${product.stock_quantity} pieces are available`), { status: 409 });
   }
 
   const subTotal = money(product.product_sp * newQty);
-  const gst = money((subTotal * (product.product_gst || 0)) / 100);
+  const taxConfig = await settingsModel.getTaxConfig();
+  const gst = money((subTotal * settingsModel.resolveGstPercent(product.product_gst, taxConfig)) / 100);
 
   if (existing) {
     await db.query(
@@ -124,11 +130,12 @@ async function updateQuantity(cartId, customerId, quantity) {
     return true;
   }
   if (quantity > item.stock_quantity) {
-    throw Object.assign(new Error(`Sirf ${item.stock_quantity} pieces available hain`), { status: 409 });
+    throw Object.assign(new Error(`Only ${item.stock_quantity} pieces are available`), { status: 409 });
   }
 
   const subTotal = money(item.product_sp * quantity);
-  const gst = money((subTotal * (item.product_gst || 0)) / 100);
+  const taxConfig = await settingsModel.getTaxConfig();
+  const gst = money((subTotal * settingsModel.resolveGstPercent(item.product_gst, taxConfig)) / 100);
 
   await db.query(
     `UPDATE cart_items SET product_quantity = ?, product_price = ?, sub_total = ?, gst = ?,
@@ -148,7 +155,7 @@ async function clear(customerId, conn = db) {
   await conn.query(`DELETE FROM cart_items WHERE customer_id = ?`, [String(customerId)]);
 }
 
-/** App offline tha, local cart server pe merge karna hai */
+/** The app was offline; merge the local cart on the server */
 async function mergeCart(customerId, items = []) {
   for (const it of items) {
     try {

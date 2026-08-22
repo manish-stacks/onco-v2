@@ -20,38 +20,38 @@ const addToCart = asyncHandler(async (req, res) => {
     product_id: req.body.product_id,
     quantity: parseInt(req.body.quantity, 10) || 1,
   });
-  return created(res, await cartModel.getCartWithTotals(req.customer.customer_id), 'Cart me add ho gaya');
+  return created(res, await cartModel.getCartWithTotals(req.customer.customer_id), 'Added to the cart');
 });
 
 const updateCartItem = asyncHandler(async (req, res) => {
   const updated = await cartModel.updateQuantity(
     req.params.cartId, req.customer.customer_id, parseInt(req.body.quantity, 10)
   );
-  if (!updated) return fail(res, 'Cart item nahi mila', 404);
-  return ok(res, await cartModel.getCartWithTotals(req.customer.customer_id), 'Cart update ho gaya');
+  if (!updated) return fail(res, 'Cart item not found', 404);
+  return ok(res, await cartModel.getCartWithTotals(req.customer.customer_id), 'Cart updated');
 });
 
 const removeCartItem = asyncHandler(async (req, res) => {
   const removed = await cartModel.removeItem(req.params.cartId, req.customer.customer_id);
-  if (!removed) return fail(res, 'Cart item nahi mila', 404);
-  return ok(res, await cartModel.getCartWithTotals(req.customer.customer_id), 'Item hata diya');
+  if (!removed) return fail(res, 'Cart item not found', 404);
+  return ok(res, await cartModel.getCartWithTotals(req.customer.customer_id), 'Item removed');
 });
 
 const clearCart = asyncHandler(async (req, res) => {
   await cartModel.clear(req.customer.customer_id);
-  return ok(res, null, 'Cart khaali kar diya');
+  return ok(res, null, 'Cart cleared');
 });
 
-/** App offline tha, local cart server pe bhejna hai */
+/** The app was offline; push the local cart to the server */
 const mergeCart = asyncHandler(async (req, res) => {
   const items = Array.isArray(req.body.items) ? req.body.items : [];
-  return ok(res, await cartModel.mergeCart(req.customer.customer_id, items), 'Cart merge ho gaya');
+  return ok(res, await cartModel.mergeCart(req.customer.customer_id, items), 'Cart merged');
 });
 
 /** POST /cart/apply-coupon — order banaye bina coupon check */
 const applyCoupon = asyncHandler(async (req, res) => {
   const cart = await cartModel.getCartWithTotals(req.customer.customer_id);
-  if (!cart.items.length) return fail(res, 'Cart khaali hai', 409);
+  if (!cart.items.length) return fail(res, 'Your cart is empty', 409);
 
   const result = await couponModel.validateForCart({
     code: req.body.coupon_code,
@@ -61,7 +61,7 @@ const applyCoupon = asyncHandler(async (req, res) => {
   });
 
   if (!result.valid) return fail(res, result.reason, 409);
-  return ok(res, { coupon_code: req.body.coupon_code, discount: result.discount }, 'Coupon apply ho gaya');
+  return ok(res, { coupon_code: req.body.coupon_code, discount: result.discount }, 'Coupon applied');
 });
 
 /** GET /coupons — available offers */
@@ -78,12 +78,12 @@ const getWishlist = asyncHandler(async (req, res) => {
 
 const toggleWishlist = asyncHandler(async (req, res) => {
   const result = await wishlistModel.toggle(req.customer.customer_id, req.body.product_id);
-  return ok(res, result, result.added ? 'Wishlist me add ho gaya' : 'Wishlist se hata diya');
+  return ok(res, result, result.added ? 'Added to your wishlist' : 'Removed from your wishlist');
 });
 
 const removeFromWishlist = asyncHandler(async (req, res) => {
   await wishlistModel.remove(req.customer.customer_id, req.params.productId);
-  return ok(res, null, 'Wishlist se hata diya');
+  return ok(res, null, 'Removed from wishlist');
 });
 
 // ---------------------------------------------------------------------------
@@ -95,25 +95,25 @@ const listAddresses = asyncHandler(async (req, res) => {
 
 const createAddress = asyncHandler(async (req, res) => {
   const id = await addressModel.create(req.customer.customer_id, req.body);
-  return created(res, { ad_id: id }, 'Address save ho gaya');
+  return created(res, { ad_id: id }, 'Address saved');
 });
 
 const updateAddress = asyncHandler(async (req, res) => {
   const updated = await addressModel.update(req.params.addressId, req.customer.customer_id, req.body);
-  if (!updated) return fail(res, 'Address nahi mila', 404);
-  return ok(res, null, 'Address update ho gaya');
+  if (!updated) return fail(res, 'Address not found', 404);
+  return ok(res, null, 'Address updated');
 });
 
 const setDefaultAddress = asyncHandler(async (req, res) => {
   const done = await addressModel.setDefault(req.params.addressId, req.customer.customer_id);
-  if (!done) return fail(res, 'Address nahi mila', 404);
-  return ok(res, null, 'Default address set ho gaya');
+  if (!done) return fail(res, 'Address not found', 404);
+  return ok(res, null, 'Default address set');
 });
 
 const removeAddress = asyncHandler(async (req, res) => {
   const removed = await addressModel.remove(req.params.addressId, req.customer.customer_id);
-  if (!removed) return fail(res, 'Address nahi mila', 404);
-  return ok(res, null, 'Address hata diya');
+  if (!removed) return fail(res, 'Address not found', 404);
+  return ok(res, null, 'Address removed');
 });
 
 module.exports = {

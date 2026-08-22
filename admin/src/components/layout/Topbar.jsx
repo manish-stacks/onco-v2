@@ -93,13 +93,13 @@ function ChangePasswordModal({ open, onClose }) {
 
   const save = useMutation(
     (body) => api.post('/admin/auth/change-password', body),
-    { success: 'Password badal gaya', onSuccess: onClose }
+    { success: 'Password changed', onSuccess: onClose }
   );
 
   const submit = async () => {
     setErr('');
     if (form.new_password.length < 8) return setErr('Naya password kam se kam 8 characters ka ho');
-    if (form.new_password !== form.confirm) return setErr('Dono passwords match nahi kar rahe');
+    if (form.new_password !== form.confirm) return setErr('The two passwords do not match');
     const res = await save.run({ old_password: form.old_password, new_password: form.new_password });
     if (res) setForm({ old_password: '', new_password: '', confirm: '' });
     return null;
@@ -120,7 +120,7 @@ function ChangePasswordModal({ open, onClose }) {
           <Input type="password" value={form.old_password} autoComplete="current-password"
             onChange={(e) => setForm({ ...form, old_password: e.target.value })} />
         </Field>
-        <Field label="New password" required hint="Kam se kam 8 characters">
+        <Field label="New password" required hint="At least 8 characters">
           <Input type="password" value={form.new_password} autoComplete="new-password"
             onChange={(e) => setForm({ ...form, new_password: e.target.value })} />
         </Field>

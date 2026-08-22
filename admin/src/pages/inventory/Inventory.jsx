@@ -31,7 +31,7 @@ export default function Inventory() {
     <>
       <PageHeader
         title="Inventory"
-        subtitle="Stock levels, movements aur expiry — sab yahan"
+        subtitle="Stock levels, movements and expiry — all here"
         actions={can(P.INVENTORY_MANAGE) && (
           <Button icon={Upload} onClick={() => setBulkOpen(true)}>Bulk import</Button>
         )}
@@ -169,7 +169,7 @@ function StockTab({ onChanged }) {
             onClick={() => { setAdjusting(p); setMode('remove'); }}>
             <Minus size={13} />
           </Button>
-          <Button size="xs" variant="ghost" title="Exact count set karo"
+          <Button size="xs" variant="ghost" title="Set the exact count"
             onClick={() => { setAdjusting(p); setMode('set'); }}>
             <SlidersHorizontal size={13} />
           </Button>
@@ -200,7 +200,7 @@ function StockTab({ onChanged }) {
         columns={columns} rows={rows} loading={loading} rowKey="product_id"
         rowTone={(p) => (Number(p.stock_quantity) <= 0 ? 'danger'
           : Number(p.stock_quantity) <= Number(p.low_stock_alert) ? 'warn' : 'ok')}
-        emptyIcon={Boxes} emptyTitle="Koi product nahi mila"
+        emptyIcon={Boxes} emptyTitle="No products found"
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
 
@@ -231,7 +231,7 @@ function AdjustModal({ product, mode, onClose, onDone }) {
       });
     },
     {
-      success: 'Stock update ho gaya',
+      success: 'Stock updated',
       onSuccess: () => { onClose(); onDone(); setQty(''); setNote(''); },
     }
   );
@@ -241,7 +241,7 @@ function AdjustModal({ product, mode, onClose, onDone }) {
   const titles = {
     add: 'Stock aaya',
     remove: 'Stock nikaalo',
-    set: 'Exact stock set karo',
+    set: 'Set the exact stock',
   };
   const current = Number(product.stock_quantity);
   const after = mode === 'set' ? Number(qty || 0)
@@ -270,7 +270,7 @@ function AdjustModal({ product, mode, onClose, onDone }) {
       <div className="space-y-3">
         <div className="flex items-center justify-between bg-paper-sunk rounded p-3">
           <div>
-            <p className="label mb-0.5">Abhi</p>
+            <p className="label mb-0.5">Current</p>
             <p className="text-lg font-semibold tabular-nums text-ink">{num(current)}</p>
           </div>
           <span className="text-ink-300 text-lg">→</span>
@@ -288,7 +288,7 @@ function AdjustModal({ product, mode, onClose, onDone }) {
         <Field
           label={mode === 'set' ? 'New stock count' : 'Quantity'}
           required
-          hint={mode === 'set' ? 'Physical count ke baad exact number daalo' : undefined}
+          hint={mode === 'set' ? 'Enter the exact number after a physical count' : undefined}
         >
           <Input type="number" min="0" value={qty} onChange={(e) => setQty(e.target.value)} autoFocus />
         </Field>
@@ -298,9 +298,9 @@ function AdjustModal({ product, mode, onClose, onDone }) {
             onChange={(e) => setChangeType(e.target.value)} />
         </Field>
 
-        <Field label="Note" hint="Ledger me record hoga">
+        <Field label="Note" hint="Recorded in the ledger">
           <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)}
-            placeholder="Invoice number, supplier, ya jo bhi context ho" />
+            placeholder="Invoice number, supplier, or any other context" />
         </Field>
       </div>
     </Modal>
@@ -317,7 +317,7 @@ function MovementsTab() {
     setExporting(true);
     try {
       await api.download('/admin/inventory/export', filters, `inventory-${Date.now()}.csv`);
-      toast.success('Export download ho gaya');
+      toast.success('Export downloaded');
     } catch (e) { toast.error(e.message); } finally { setExporting(false); }
   };
 
@@ -412,8 +412,8 @@ function MovementsTab() {
       <DataTable
         columns={columns} rows={rows} loading={loading} rowKey="log_id" compact
         rowTone={(m) => (m.quantity_change > 0 ? 'ok' : 'danger')}
-        emptyIcon={Boxes} emptyTitle="Koi movement nahi"
-        emptyDescription="Stock change hone pe yahan record aa jaayega."
+        emptyIcon={Boxes} emptyTitle="No movements"
+        emptyDescription="A record will appear here whenever stock changes."
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
     </>
@@ -447,7 +447,7 @@ function ExpiringTab() {
               'text-2xs tabular-nums font-medium',
               daysLeft < 0 ? 'text-signal-danger' : daysLeft < 30 ? 'text-signal-danger' : 'text-signal-warn'
             )}>
-              {daysLeft < 0 ? `${Math.abs(daysLeft)} din pehle expire` : `${daysLeft} din bache`}
+              {daysLeft < 0 ? `expired ${Math.abs(daysLeft)} days ago` : `${daysLeft} days left`}
             </p>
           </div>
         );
@@ -481,8 +481,8 @@ function ExpiringTab() {
           return d < 30 ? 'danger' : 'warn';
         }}
         emptyIcon={CalendarClock}
-        emptyTitle="Kuch expire nahi ho raha"
-        emptyDescription={`Agle ${days} din me koi batch expire nahi ho rahi.`}
+        emptyTitle="Nothing is expiring"
+        emptyDescription={`No batch is expiring in the next ${days} days.`}
       />
     </>
   );

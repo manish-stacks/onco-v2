@@ -28,7 +28,7 @@ const stats = asyncHandler(async (req, res) => {
 /** GET /admin/customers/:customerId — 360 view */
 const detail = asyncHandler(async (req, res) => {
   const profile = await customerModel.profile(req.params.customerId);
-  if (!profile) return fail(res, 'Customer nahi mila', 404);
+  if (!profile) return fail(res, 'Customer not found', 404);
   return ok(res, profile);
 });
 
@@ -45,20 +45,20 @@ const customerOrders = asyncHandler(async (req, res) => {
 /** PATCH /admin/customers/:customerId */
 const update = asyncHandler(async (req, res) => {
   const updated = await customerModel.update(req.params.customerId, req.body);
-  if (!updated) return fail(res, 'Koi valid field nahi mila', 422);
+  if (!updated) return fail(res, 'No valid field was provided', 422);
 
   await adminModel.logActivity({
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
     action: 'update', module: 'customers', record_id: req.params.customerId, ip_address: req.ip,
   });
 
-  return ok(res, await customerModel.findById(req.params.customerId), 'Customer update ho gaya');
+  return ok(res, await customerModel.findById(req.params.customerId), 'Customer updated');
 });
 
 /** PATCH /admin/customers/:customerId/status — block / unblock */
 const setStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
-  if (!['Active', 'Inactive'].includes(status)) return fail(res, "status 'Active' ya 'Inactive' hona chahiye", 422);
+  if (!['Active', 'Inactive'].includes(status)) return fail(res, "status must be 'Active' or 'Inactive'", 422);
 
   await customerModel.setStatus(req.params.customerId, status);
   await adminModel.logActivity({
@@ -67,7 +67,7 @@ const setStatus = asyncHandler(async (req, res) => {
     record_id: req.params.customerId, ip_address: req.ip,
   });
 
-  return ok(res, null, status === 'Active' ? 'Customer unblock ho gaya' : 'Customer block ho gaya');
+  return ok(res, null, status === 'Active' ? 'Customer unblocked' : 'Customer blocked');
 });
 
 /** GET /admin/customers/export */

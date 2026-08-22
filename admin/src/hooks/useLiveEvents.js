@@ -6,11 +6,11 @@ const BASE = import.meta.env.VITE_API_BASE || '';
 /**
  * Backend ke SSE stream se live events.
  *
- * EventSource custom headers nahi bhej sakti, isliye token query param me
- * jaata hai — backend `/admin/events?token=` pe verify karta hai.
+ * EventSource cannot send custom headers, so the token goes in a query param
+ * — the backend verifies it at `/admin/events?token=`.
  *
- * Reconnect khud handle karte hain (EventSource ka default reconnect token
- * expire hone pe infinite loop bana deta hai), backoff ke saath.
+ * We handle reconnection ourselves (EventSource's default reconnect creates an
+ * infinite loop when the token expires), with backoff.
  */
 export function useLiveEvents({ onEvent, enabled = true } = {}) {
   const [connected, setConnected] = useState(false);
@@ -25,7 +25,7 @@ export function useLiveEvents({ onEvent, enabled = true } = {}) {
     const token = tokenStore.get();
     if (!token || !enabled) return;
 
-    // purana connection band karo
+    // close the old connection
     if (sourceRef.current) {
       sourceRef.current.close();
       sourceRef.current = null;
@@ -66,7 +66,7 @@ export function useLiveEvents({ onEvent, enabled = true } = {}) {
     if (!enabled) return undefined;
     connect();
 
-    // tab wapas visible hua aur connection toota hua tha to turant reconnect
+    // reconnect immediately when the tab becomes visible again and the connection had dropped
     const onVisible = () => {
       if (document.visibilityState === 'visible' && !sourceRef.current) {
         retryRef.current = 0;

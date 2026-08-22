@@ -23,7 +23,7 @@ export default function News() {
   if (filters.search !== debounced) setFilter('search', debounced);
 
   const del = useMutation((id) => api.del(`/admin/news/${id}`),
-    { success: 'Post delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } });
+    { success: 'Post deleted', onSuccess: () => { setToDelete(null); reload(); } });
 
   const canManage = can(P.CMS_MANAGE);
 
@@ -31,7 +31,7 @@ export default function News() {
     <>
       <PageHeader
         title="News & Blog"
-        subtitle="Health tips, announcements aur blog posts"
+        subtitle="Health tips, announcements and blog posts"
         actions={canManage && (
           <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>New post</Button>
         )}
@@ -87,7 +87,7 @@ export default function News() {
             ),
           },
         ]}
-        emptyIcon={Newspaper} emptyTitle="Koi post nahi"
+        emptyIcon={Newspaper} emptyTitle="No posts"
         emptyAction={canManage && <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>New post</Button>}
       />
       <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
@@ -97,7 +97,7 @@ export default function News() {
       <ConfirmDialog
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
-        title="Delete post" confirmLabel="Delete" message={`"${toDelete?.title}" delete ho jaayega.`} />
+        title="Delete post" confirmLabel="Delete" message={`"${toDelete?.title}" will be deleted.`} />
     </>
   );
 }
@@ -128,7 +128,7 @@ function NewsModal({ open, onClose, post, onDone }) {
       if (image) fd.append('image', image);
       return isEdit ? api.form(`/admin/news/${post.id}`, fd, 'PUT') : api.form('/admin/news', fd, 'POST');
     },
-    { success: isEdit ? 'Post update ho gaya' : 'Post publish ho gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Post updated' : 'Post published', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -176,13 +176,13 @@ function NewsModal({ open, onClose, post, onDone }) {
           </div>
         </Field>
 
-        <Field label="Excerpt" hint="Listing pe dikhne wali summary">
+        <Field label="Excerpt" hint="The summary shown on the listing">
           <Textarea rows={2} value={form.excerpt || ''} onChange={(e) => set('excerpt', e.target.value)} />
         </Field>
 
         <Field label="Content">
           <RichTextEditor rows={10} value={form.content} onChange={(v) => set('content', v)}
-            placeholder="Post ka content yahan likho…" />
+            placeholder="Write the post content here…" />
         </Field>
       </div>
     </Modal>

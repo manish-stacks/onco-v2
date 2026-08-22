@@ -9,12 +9,12 @@ const { INVENTORY_CHANGE_TYPE } = require('../../config/constants');
 
 const IMAGE_FIELDS = ['image_1', 'image_2', 'image_3', 'image_4', 'image_5'];
 
-/** multipart image fields ko S3 pe daal ke payload me merge karo */
+/** Push multipart image fields to S3 and merge them into the payload */
 async function mergeImages(body, files) {
   const data = { ...body };
   Object.assign(data, await fieldsToUrls(files, 'products', IMAGE_FIELDS));
 
-  // form-data se categories JSON string aa sakti hai
+  // categories may arrive as a JSON string from form-data
   if (typeof data.categories === 'string') {
     try { data.categories = JSON.parse(data.categories); } catch { data.categories = []; }
   }
@@ -49,18 +49,18 @@ const list = asyncHandler(async (req, res) => {
   return paginated(res, rows, total, page, limit);
 });
 
-/** GET /admin/products/flag-counts — har flag pe kitne products */
+/** GET /admin/products/flag-counts — how many products carry each flag */
 const flagCounts = asyncHandler(async (req, res) => ok(res, await productModel.flagCounts()));
 
 /**
  * PATCH /admin/products/:productId/flag
  * body: { flag: 'top_selling' }
- * Toggle karta hai — list page pe ek click me on/off.
+ * Toggles it — on/off in one click from the list page.
  */
 const toggleFlag = asyncHandler(async (req, res) => {
   const value = await productModel.toggleFlag(req.params.productId, req.body.flag);
   await cache.invalidate.products();
-  return ok(res, { flag: req.body.flag, value }, value ? 'Flag lag gaya' : 'Flag hata diya');
+  return ok(res, { flag: req.body.flag, value }, value ? 'Flag applied' : 'Flag removed');
 });
 
 /**
@@ -71,15 +71,15 @@ const bulkFlags = asyncHandler(async (req, res) => {
   const { product_ids: productIds, flags } = req.body;
 
   if (!Array.isArray(productIds) || !productIds.length) {
-    return fail(res, 'product_ids array chahiye', 422);
+    return fail(res, 'product_ids array is required', 422);
   }
   if (!flags || !Object.keys(flags).length) {
-    return fail(res, 'flags object chahiye', 422);
+    return fail(res, 'A flags object is required', 422);
   }
 
   const invalid = Object.keys(flags).filter((f) => !productModel.FLAGS.includes(f));
   if (invalid.length) {
-    return fail(res, `Ye flags valid nahi: ${invalid.join(', ')}`, 422);
+    return fail(res, `These flags are not valid: ${invalid.join(', ')}`, 422);
   }
 
   const updated = await productModel.bulkSetFlags(productIds, flags);
@@ -91,14 +91,14 @@ const bulkFlags = asyncHandler(async (req, res) => {
     description: `${updated} products · ${JSON.stringify(flags)}`, ip_address: req.ip,
   });
 
-  return ok(res, { updated }, `${updated} products update ho gaye`);
+  return ok(res, { updated }, `${updated} products updated`);
 });
 
-/** PATCH /admin/products/bulk-brand — chune hue products ko ek brand pe set karo */
+/** PATCH /admin/products/bulk-brand — set the selected products to one brand */
 const bulkBrand = asyncHandler(async (req, res) => {
   const { product_ids: productIds, brand_id: brandId } = req.body;
   if (!Array.isArray(productIds) || !productIds.length) {
-    return fail(res, 'product_ids array chahiye', 422);
+    return fail(res, 'product_ids array is required', 422);
   }
 
   const db = require('../../config/db');
@@ -111,13 +111,13 @@ const bulkBrand = asyncHandler(async (req, res) => {
   );
   await cache.invalidate.products();
 
-  return ok(res, { updated: result.affectedRows }, `${result.affectedRows} products ka brand set ho gaya`);
+  return ok(res, { updated: result.affectedRows }, `The brand was set on ${result.affectedRows} products`);
 });
 
 /** GET /admin/products/:productId */
 const detail = asyncHandler(async (req, res) => {
   const product = await productModel.findById(req.params.productId);
-  if (!product) return fail(res, 'Product nahi mila', 404);
+  if (!product) return fail(res, 'Product not found', 404);
 
   const { rows: movements } = await inventoryModel.listMovements(
     { product_id: req.params.productId }, { limit: 20, offset: 0 }
@@ -130,7 +130,7 @@ const create = asyncHandler(async (req, res) => {
   const data = await mergeImages(req.body, req.files);
   const { categories, stock_quantity, ...productData } = data;
 
-  if (!productData.product_name) return fail(res, 'product_name zaroori hai', 422);
+  if (!productData.product_name) return fail(res, 'product_name is required', 422);
 
   productData.slug = productData.slug
     ? await productModel.generateUniqueSlug(productData.slug)
@@ -146,7 +146,7 @@ const create = asyncHandler(async (req, res) => {
     await productModel.setCategories(productId, categories);
   }
 
-  // opening stock ko inventory log me record karo
+  // record the opening stock in the inventory log
   if (openingStock > 0) {
     const db = require('../../config/db');
     await inventoryModel.logMovement(db, {
@@ -168,14 +168,14 @@ const create = asyncHandler(async (req, res) => {
     description: productData.product_name, ip_address: req.ip,
   });
 
-  return created(res, await productModel.findById(productId), 'Product ban gaya');
+  return created(res, await productModel.findById(productId), 'Product created');
 });
 
 /** PUT /admin/products/:productId */
 const update = asyncHandler(async (req, res) => {
   const productId = req.params.productId;
   const existing = await productModel.findById(productId);
-  if (!existing) return fail(res, 'Product nahi mila', 404);
+  if (!existing) return fail(res, 'Product not found', 404);
 
   const data = await mergeImages(req.body, req.files);
   const { categories, stock_quantity, ...productData } = data;
@@ -184,7 +184,7 @@ const update = asyncHandler(async (req, res) => {
     productData.slug = await productModel.generateUniqueSlug(productData.slug, productId);
   }
 
-  // stock yahan se change nahi karte — inventory endpoint se karo (audit trail ke liye)
+  // do not change stock here — use the inventory endpoint (for the audit trail)
   await productModel.update(productId, productData);
 
   if (Array.isArray(categories)) {
@@ -198,24 +198,24 @@ const update = asyncHandler(async (req, res) => {
     description: existing.product_name, ip_address: req.ip,
   });
 
-  return ok(res, await productModel.findById(productId), 'Product update ho gaya');
+  return ok(res, await productModel.findById(productId), 'Product updated');
 });
 
 /** PATCH /admin/products/:productId/status */
 const setStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
-  if (!['Active', 'Inactive'].includes(status)) return fail(res, "status 'Active' ya 'Inactive' hona chahiye", 422);
+  if (!['Active', 'Inactive'].includes(status)) return fail(res, "status must be 'Active' or 'Inactive'", 422);
 
   await productModel.setStatus(req.params.productId, status);
   await cache.invalidate.products();
-  return ok(res, null, `Product ${status} kar diya`);
+  return ok(res, null, `Product ${status}`);
 });
 
 /** PATCH /admin/products/bulk-status */
 const bulkStatus = asyncHandler(async (req, res) => {
   const { product_ids, status } = req.body;
-  if (!Array.isArray(product_ids) || !product_ids.length) return fail(res, 'product_ids array chahiye', 422);
-  if (!['Active', 'Inactive'].includes(status)) return fail(res, "status 'Active' ya 'Inactive' hona chahiye", 422);
+  if (!Array.isArray(product_ids) || !product_ids.length) return fail(res, 'product_ids array is required', 422);
+  if (!['Active', 'Inactive'].includes(status)) return fail(res, "status must be 'Active' or 'Inactive'", 422);
 
   await productModel.bulkSetStatus(product_ids, status);
   await cache.invalidate.products();
@@ -225,7 +225,7 @@ const bulkStatus = asyncHandler(async (req, res) => {
 /** DELETE /admin/products/:productId */
 const remove = asyncHandler(async (req, res) => {
   const product = await productModel.findById(req.params.productId);
-  if (!product) return fail(res, 'Product nahi mila', 404);
+  if (!product) return fail(res, 'Product not found', 404);
 
   await productModel.remove(req.params.productId);
   await cache.invalidate.products();
@@ -235,7 +235,7 @@ const remove = asyncHandler(async (req, res) => {
     description: product.product_name, ip_address: req.ip,
   });
 
-  return ok(res, null, 'Product delete ho gaya');
+  return ok(res, null, 'Product deleted');
 });
 
 /** GET /admin/products/export — CSV */

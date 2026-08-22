@@ -15,9 +15,9 @@ const { validate } = require('../middleware/validate');
 const { uploadPrescription } = require('../middleware/upload');
 
 /**
- * Website aur mobile app DONO yahi routes use karte hain.
- * Client bas header bhejta hai:  X-Client-Platform: web  |  app
- * Usse orders.orderFrom aur prescriptions.source apne aap set ho jaata hai.
+ * BOTH the website and the mobile app use these routes.
+ * The client simply sends a header:  X-Client-Platform: web  |  app
+ * orders.orderFrom and prescriptions.source are set automatically from it.
  */
 
 // ===========================================================================
@@ -68,6 +68,7 @@ router.patch('/auth/me', customerAuth, auth.updateProfile);
 // ===========================================================================
 router.get('/home', optionalAuth, catalog.home);
 router.get('/search', catalog.search);
+router.get('/brands', catalog.listBrands);
 router.get('/products', optionalAuth, catalog.listProducts);
 router.get('/products/:slug', optionalAuth, catalog.productDetail);
 router.get('/products/:productId/reviews', catalog.productReviews);
@@ -106,21 +107,31 @@ router.delete('/wishlist/:productId', customerAuth, cart.removeFromWishlist);
 // ===========================================================================
 // ADDRESSES
 // ===========================================================================
+const ADDRESS_RULES = {
+  full_name: { required: true, minLength: 3, maxLength: 100,
+    message: 'Please enter the full name (at least 3 characters)' },
+  phone: { required: true, type: 'mobile',
+    message: 'Please enter a valid 10-digit mobile number' },
+  house_no: { required: true, message: 'House / Flat number is required' },
+  stree_address: { required: true, minLength: 3,
+    message: 'Please enter the street address' },
+  city: { required: true, message: 'City is required' },
+  state: { required: true, message: 'State is required' },
+  pincode: { required: true, type: 'pincode',
+    message: 'Please enter a valid 6-digit PIN code' },
+};
+
 router.get('/addresses', customerAuth, cart.listAddresses);
-router.post('/addresses', customerAuth, validate({
-  city: { required: true },
-  state: { required: true },
-  pincode: { required: true, type: 'pincode' },
-  house_no: { required: true },
-  stree_address: { required: true },
-  phone: { type: 'mobile' },
-}), cart.createAddress);
-router.patch('/addresses/:addressId', customerAuth, cart.updateAddress);
+router.post('/addresses', customerAuth, validate(ADDRESS_RULES), cart.createAddress);
+router.patch('/addresses/:addressId', customerAuth, validate({
+  phone: { type: 'mobile', message: 'Please enter a valid 10-digit mobile number' },
+  pincode: { type: 'pincode', message: 'Please enter a valid 6-digit PIN code' },
+}), cart.updateAddress);
 router.patch('/addresses/:addressId/default', customerAuth, cart.setDefaultAddress);
 router.delete('/addresses/:addressId', customerAuth, cart.removeAddress);
 
 // ===========================================================================
-// PRESCRIPTIONS — jitni images bhejo, sab ek JSON array me store hoti hain
+// PRESCRIPTIONS — however many images you send, they are all stored in one JSON array
 // ===========================================================================
 router.post('/prescriptions', customerAuth,
   uploadPrescription.array('images', 10), prescription.upload);
@@ -132,9 +143,9 @@ router.delete('/prescriptions/:id/images', customerAuth, prescription.removeImag
 router.delete('/prescriptions/:id', customerAuth, prescription.cancelPrescription);
 
 // ===========================================================================
-// ORDERS — web + app dono ke liye same
+// ORDERS — same endpoints for web and app
 // ===========================================================================
-// Public — login ke bina order track karne ke liye (order_ref + phone match)
+// Public — for tracking an order without logging in (order_ref + phone match)
 router.post('/orders/track-public', order.trackPublic);
 
 router.post('/orders/quote', customerAuth, order.quote);
@@ -159,17 +170,17 @@ router.post('/orders/:orderId/review', customerAuth, validate({
 // ===========================================================================
 router.get('/payments/gateways', payment.gateways);
 
-// Razorpay webhook — raw body parser server.js me sirf isi path pe laga hai
+// Razorpay webhook — the raw body parser is mounted only on this path in server.js
 router.post('/payments/razorpay/webhook', payment.razorpayWebhook);
 
-// PayU form-POST se wapas aata hai (browser redirect), isliye koi JWT nahi.
-// Hash verify controller ke andar hota hai.
+// PayU returns via a form POST (browser redirect), so there is no JWT.
+// The hash verification happens inside the controller.
 router.post('/payments/payu/success', payment.payuSuccess);
 router.post('/payments/payu/failure', payment.payuFailure);
 router.get('/payments/payu/success', payment.payuSuccess);
 router.get('/payments/payu/failure', payment.payuFailure);
 
-// Mobile app browser redirect handle nahi kar paati — wo seedha verify karti hai
+// The mobile app cannot handle a browser redirect — it verifies directly
 router.post('/payments/payu/verify', customerAuth, payment.payuVerify);
 
 // ===========================================================================

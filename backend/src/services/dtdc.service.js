@@ -34,7 +34,7 @@ const SERVICE_TYPES = {
 
 /**
  * DTDC scan codes -> humare order status.
- * Ye mapping webhook aur manual tracking dono use karte hain.
+ * This mapping is used by both the webhook and manual tracking.
  */
 const SCAN_TO_ORDER_STATUS = {
   DLV: 'Completed',
@@ -78,7 +78,7 @@ function originDetails() {
   };
 }
 
-/** Shipping address na ho to billing pe fallback */
+/** Fall back to the billing address when there is no shipping address */
 function destinationFrom(order) {
   return {
     name: order.customer_shipping_name || order.customer_name,
@@ -91,14 +91,14 @@ function destinationFrom(order) {
 }
 
 /**
- * Consignment book karo.
- * @param {object} order   poora order row
+ * Book the consignment.
+ * @param {object} order   the full order row
  * @param {object} opts    { serviceType, weight, dimensions, bookedBy }
  */
 async function bookShipment(order, opts = {}) {
   const c = config();
   if (!isConfigured()) {
-    throw Object.assign(new Error('DTDC credentials .env me set nahi hain'), { status: 500 });
+    throw Object.assign(new Error('DTDC credentials are not set in .env'), { status: 500 });
   }
 
   const serviceType = SERVICE_TYPES[opts.serviceType] || SERVICE_TYPES[2];
@@ -107,13 +107,13 @@ async function bookShipment(order, opts = {}) {
 
   const dest = destinationFrom(order);
   console.log("DTDC booking", { orderId: order.order_id, serviceType, isCod, dest, opts });
-  // pincode/phone missing ho to DTDC ka error samajhna mushkil hota hai —
-  // pehle hi saaf message de do
+  // when the pincode/phone is missing, DTDC's error is hard to interpret —
+  // give a clear message up front
   const missing = ['name', 'phone', 'address_line_1', 'pincode', 'city']
     .filter((k) => !dest[k]);
   if (missing.length) {
     throw Object.assign(
-      new Error(`Shipping address adhoora hai: ${missing.join(', ')} missing`),
+      new Error(`The shipping address is incomplete: ${missing.join(', ')} missing`),
       { status: 422 }
     );
   }
@@ -189,7 +189,7 @@ async function saveShipment(order, payload, response, awb, bookedBy, status) {
   return result.insertId;
 }
 
-/** Shipping label PDF — raw buffer return karta hai */
+/** Shipping label PDF — returns the raw buffer */
 async function fetchLabel(referenceNumber) {
   const url = process.env.DTDC_MODE === 'test' ? ENDPOINTS.test.label : ENDPOINTS.live.label;
 
@@ -286,7 +286,7 @@ async function fetchLabel(referenceNumber) {
   }
 }
 
-/** Live tracking — DTDC se scans laa ke DB me sync karta hai */
+/** Live tracking — pulls scans from DTDC and syncs them into the DB */
 async function trackShipment(awb) {
   const c = config();
 
@@ -321,7 +321,7 @@ function parseScanDate(dateStr, timeStr) {
   return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} ${t.slice(0, 2)}:${t.slice(2, 4)}:00`;
 }
 
-/** Scans DB me daalo — duplicate na ho */
+/** Insert scans into the DB — avoid duplicates */
 async function syncScans(awb, scans = []) {
   if (!scans.length) return;
 
@@ -346,7 +346,7 @@ async function syncScans(awb, scans = []) {
     );
   }
 
-  // sabse latest scan shipment row pe reflect karo
+  // reflect the latest scan on the shipment row
   const latest = scans[scans.length - 1];
   if (latest) {
     const shipStatus = SCAN_TO_SHIPMENT_STATUS[String(latest.action_code).toUpperCase()];
@@ -374,7 +374,7 @@ async function cancelShipment(awb) {
 
   const ok = data?.status === 'OK';
   if (!ok) {
-    const msg = data?.data?.[0]?.message || 'Cancel fail hua';
+    const msg = data?.data?.[0]?.message || 'Cancellation failed';
     throw Object.assign(new Error(`DTDC: ${msg}`), { status: 502 });
   }
 
@@ -383,7 +383,7 @@ async function cancelShipment(awb) {
 }
 
 /**
- * Webhook payload se order + shipment status nikaalo.
+ * Extract the order + shipment status from the webhook payload.
  * DTDC dashboard me webhook URL: POST /api/webhooks/dtdc
  */
 function parseWebhook(body) {

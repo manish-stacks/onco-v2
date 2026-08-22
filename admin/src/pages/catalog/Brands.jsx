@@ -37,7 +37,7 @@ export function Brands() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
 
-  // Query string — path badalta hai to useResource khud re-fetch karega
+  // Query string — when the path changes, useResource re-fetches on its own
   const queryParams = new URLSearchParams();
   if (search.trim()) queryParams.set('title', search.trim());
   if (status) queryParams.set('status', status);
@@ -63,7 +63,7 @@ export function Brands() {
     hasPrev: false,
   };
 
-  // Page/filters badalne par pehle se selected purani-page ids clear ho jaayen
+  // Clear previously selected ids from older pages when the page/filters change
   useEffect(() => {
     setSelected([]);
   }, [page, limit, search, status, homepage]);
@@ -83,11 +83,11 @@ export function Brands() {
   const del = useMutation(
     (id) => api.del(`/admin/brands/${id}`),
     {
-      success: 'Brand delete ho gaya',
+      success: 'Brand deleted',
       onSuccess: () => {
         setToDelete(null);
         setSelected((s) => s.filter((id) => id !== toDelete?.id));
-        // Agar current page ka last item delete hua ho to ek page peeche jao
+        // If the last item on the current page was deleted, step back one page
         if (rows.length === 1 && page > 1) {
           setPage((p) => p - 1);
         } else {
@@ -185,7 +185,7 @@ export function Brands() {
           </FilterBar>
         </div>
 
-        {/* Duplicate brands jodne ke liye — "Cipla" aur "Cipla Ltd" alag ban gaye ho to */}
+        {/* For merging duplicate brands — when "Cipla" and "Cipla Ltd" ended up separate */}
         {canManage && selected.length > 1 && (
           <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 bg-ink text-white">
             <span className="text-[0.8125rem] font-medium tabular-nums">
@@ -196,7 +196,7 @@ export function Brands() {
               onClick={() => setMergeOpen(true)}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-2xs bg-white/10 hover:bg-white/20 transition-colors"
             >
-              <Merge size={11} /> Ek me mila do
+              <Merge size={11} /> Merge into one
             </button>
             <div className="flex-1" />
             <button onClick={() => setSelected([])}
@@ -207,8 +207,8 @@ export function Brands() {
         <DataTable
           columns={columns} rows={rows} loading={loading} rowKey="id"
           emptyIcon={Building2}
-          emptyTitle={hasFilters ? 'No brands found' : 'Koi brand nahi'}
-          emptyDescription={hasFilters ? 'Search/filter ke according koi brand nahi mila.' : 'Homepage ke liye pehli brand banao.'}
+          emptyTitle={hasFilters ? 'No brands found' : 'No brands'}
+          emptyDescription={hasFilters ? 'No brand matched the search/filter.' : 'Create the first brand for the homepage.'}
           emptyAction={canManage && !hasFilters && (
             <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add brand</Button>
           )}
@@ -235,7 +235,7 @@ export function Brands() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
         title="Delete brand" confirmLabel="Delete"
-        message={`"${toDelete?.title}" homepage se hat jaayega.`}
+        message={`"${toDelete?.title}" will be removed from the homepage.`}
       />
     </>
   );
@@ -267,7 +267,7 @@ function BrandModal({ open, onClose, brand, categories, onDone }) {
       if (image) fd.append('image_url', image);
       return isEdit ? api.form(`/admin/brands/${brand.id}`, fd, 'PUT') : api.form('/admin/brands', fd, 'POST');
     },
-    { success: isEdit ? 'Brand update ho gaya' : 'Brand ban gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Brand updated' : 'Brand created', onSuccess: () => { onClose(); onDone(); } }
   );
 
   return (
@@ -297,7 +297,7 @@ function BrandModal({ open, onClose, brand, categories, onDone }) {
             />
           </div>
         </Field>
-        <Field label="Links to category" hint="Click karne pe kaunsi category khule">
+        <Field label="Links to category" hint="Which category opens on click">
           <Select
             value={form.category_id || ''} placeholder="— None"
             options={categories.map((c) => ({ value: c.category_id, label: c.category_name }))}
@@ -316,14 +316,14 @@ function BrandModal({ open, onClose, brand, categories, onDone }) {
 /**
  * Duplicate brands ko jodo.
  *
- * Brand mapping script naam normalize karke merge karti hai, par phir bhi
- * "Sun Pharma" aur "Sun Pharmaceutical Industries" jaise cases reh jaate hain
- * jo normalize se match nahi hote. Unko admin yahan se manually jod sakta hai.
+ * The brand mapping script normalizes names and merges them, but even so
+ * cases like "Sun Pharma" and "Sun Pharmaceutical Industries" are left over
+ * that do not match after normalization. The admin can link those manually here.
  */
 function MergeBrandsModal({ open, onClose, brands, onDone }) {
   const [targetId, setTargetId] = useState('');
 
-  // Sabse zyada products wala brand default target — usme sabse kam shift hoga
+  // The brand with the most products is the default target — that shifts the fewest
   const suggested = [...brands].sort(
     (a, b) => (b.live_product_count || 0) - (a.live_product_count || 0)
   )[0];
@@ -344,20 +344,20 @@ function MergeBrandsModal({ open, onClose, brands, onDone }) {
   return (
     <Modal
       open={open} onClose={onClose}
-      title="Brands ko ek me mila do"
+      title="Merge brands into one"
       subtitle={`${brands.length} brands selected`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button variant="primary" icon={Merge} onClick={merge.run} loading={merge.loading}
             disabled={!target || !others.length}>
-            Merge karo
+            Merge
           </Button>
         </>
       }
     >
       <div className="space-y-3">
-        <Field label="Kaunsa brand rakhna hai" hint="Baaki iske andar mil jayenge">
+        <Field label="Which brand to keep" hint="The rest will be merged into it">
           <Select
             value={String(target?.id || '')}
             onChange={(e) => setTargetId(e.target.value)}
@@ -384,8 +384,8 @@ function MergeBrandsModal({ open, onClose, brands, onDone }) {
         )}
 
         <p className="text-2xs text-signal-warn bg-signal-warnBg border border-signal-warn/20 rounded px-3 py-2 leading-relaxed">
-          {num(movingCount)} products <strong>{target?.title}</strong> pe shift ho jayenge aur
-          baaki {others.length} brands delete ho jayenge. Products delete nahi honge, aur
+          {num(movingCount)} products <strong>{target?.title}</strong> will be moved to
+          and the other {others.length} brands will be deleted. No products will be deleted, and
           unka purana <Code className="text-2xs">company_name</Code> text waise ka waisa rahega.
         </p>
       </div>

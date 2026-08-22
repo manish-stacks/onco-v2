@@ -16,8 +16,8 @@ import { DataTable, Pagination, FilterBar, SearchInput, FilterSelect } from '@/c
 import { ConfirmDialog, Modal } from '@/components/ui/Modal';
 
 /**
- * Merchandising flags. Har flag ka apna icon hai taaki list me ek nazar me
- * dikh jaaye kaunsa product kahan feature ho raha hai.
+ * Merchandising flags. Each flag has its own icon so that a single glance at the list
+ * shows where each product is being featured.
  */
 const FLAGS = [
   { key: 'is_featured', label: 'Featured', short: 'F', icon: Star },
@@ -49,15 +49,15 @@ export default function ProductList() {
 
   const del = useMutation(
     (id) => api.del(`/admin/products/${id}`),
-    { success: 'Product delete ho gaya', onSuccess: () => { setToDelete(null); refresh(); } }
+    { success: 'Product deleted', onSuccess: () => { setToDelete(null); refresh(); } }
   );
 
   const toggleStatus = useMutation(
     ({ id, status }) => api.patch(`/admin/products/${id}/status`, { status }),
-    { success: 'Status update ho gaya', onSuccess: refresh }
+    { success: 'Status updated', onSuccess: refresh }
   );
 
-  // Ek click me flag on/off — edit page kholne ki zaroorat nahi
+  // Toggle a flag in one click — no need to open the edit page
   const toggleFlag = useMutation(
     ({ id, flag }) => api.patch(`/admin/products/${id}/flag`, { flag }),
     { onSuccess: refresh }
@@ -72,7 +72,7 @@ export default function ProductList() {
     setExporting(true);
     try {
       await api.download('/admin/products/export', filters, `products-${Date.now()}.csv`);
-      toast.success('Export download ho gaya');
+      toast.success('Export downloaded');
     } catch (e) { toast.error(e.message); } finally { setExporting(false); }
   };
 
@@ -127,7 +127,7 @@ export default function ProductList() {
       render: (p) => (p.brand_name
         ? <span className="text-2xs text-ink-700">{p.brand_name}</span>
         : p.company_name
-          ? <span className="text-2xs text-signal-warn" title="Brand link nahi hua">{p.company_name}</span>
+          ? <span className="text-2xs text-signal-warn" title="Brand not linked">{p.company_name}</span>
           : <span className="text-ink-300 text-2xs">—</span>),
     },
     {
@@ -141,7 +141,7 @@ export default function ProductList() {
                 key={f.key}
                 type="button"
                 disabled={!canUpdate}
-                title={`${f.label} — click to ${on ? 'hatao' : 'lagao'}`}
+                title={`${f.label} — click to ${on ? 'remove' : 'apply'}`}
                 onClick={() => toggleFlag.run({ id: p.product_id, flag: f.key })}
                 className={cx(
                   'w-6 h-6 rounded border flex items-center justify-center transition-colors',
@@ -233,7 +233,7 @@ export default function ProductList() {
         }
       />
 
-      {/* Flag counts — click karke us flag pe filter lag jaata hai */}
+      {/* Flag counts — clicking one filters the list by that flag */}
       {counts && (
         <div className="flex flex-wrap gap-2 mb-4">
           {FLAGS.map((f) => {
@@ -268,7 +268,7 @@ export default function ProductList() {
               )}
             >
               <Building2 size={14} />
-              <span>Brand nahi laga</span>
+              <span>No brand set</span>
               <span className="tabular-nums font-semibold">{num(counts.no_brand)}</span>
             </button>
           )}
@@ -295,8 +295,8 @@ export default function ProductList() {
           <FilterSelect
             label="Merchandising" value={filters.has_flag} placeholder="All"
             options={[
-              { value: 'true', label: 'Koi flag laga hai' },
-              { value: 'false', label: 'Koi flag nahi' },
+              { value: 'true', label: 'Has a flag' },
+              { value: 'false', label: 'No flags' },
             ]}
             onChange={(v) => setFilter('has_flag', v)}
           />
@@ -315,7 +315,7 @@ export default function ProductList() {
           />
         </FilterBar>
 
-        {/* Bulk action bar — tabhi dikhta hai jab kuch select ho */}
+        {/* Bulk action bar — only visible when something is selected */}
         {canUpdate && selected.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 bg-ink text-white">
             <span className="text-[0.8125rem] font-medium tabular-nums">
@@ -337,7 +337,7 @@ export default function ProductList() {
                   onClick={() => bulkFlags.run({ [f.key]: false })}
                   disabled={bulkFlags.loading}
                   className="px-1.5 py-1 rounded text-2xs bg-white/5 hover:bg-white/20 transition-colors"
-                  title={`${f.label} hatao`}
+                  title={`Remove ${f.label}`}
                 >
                   −
                 </button>
@@ -349,7 +349,7 @@ export default function ProductList() {
               onClick={() => setBrandModalOpen(true)}
               className="inline-flex items-center gap-1 px-2 py-1 rounded text-2xs bg-white/10 hover:bg-white/20 transition-colors"
             >
-              <Building2 size={11} /> Brand set karo
+              <Building2 size={11} /> Set brand
             </button>
 
             <div className="flex-1" />
@@ -367,7 +367,7 @@ export default function ProductList() {
               checked={allSelected}
               onChange={toggleAll}
               label={<span className="text-2xs text-ink-500">
-                Is page ke saare {rows.length} products select karo
+                Select all {rows.length} products on this page
               </span>}
             />
           </div>
@@ -380,8 +380,8 @@ export default function ProductList() {
               : p.status === 'Active' ? 'ok' : 'idle')}
           onRowClick={(p) => navigate(`/products/${p.product_id}/edit`)}
           emptyIcon={Package}
-          emptyTitle="Koi product nahi mila"
-          emptyDescription={hasFilters ? 'Filters hata ke dekho.' : 'Pehla product add karo.'}
+          emptyTitle="No products found"
+          emptyDescription={hasFilters ? 'Try removing the filters.' : 'Add your first product.'}
           emptyAction={can(P.PRODUCTS_CREATE) && (
             <Button variant="primary" icon={Plus} onClick={() => navigate('/products/new')}>Add product</Button>
           )}
@@ -403,7 +403,7 @@ export default function ProductList() {
         loading={del.loading}
         title="Delete product"
         confirmLabel="Delete permanently"
-        message={`"${toDelete?.product_name}" hamesha ke liye delete ho jaayega. Purane orders me record rahega, lekin catalog se hat jaayega. Sirf hide karna ho to status Inactive kar do.`}
+        message={`"${toDelete?.product_name}" will be deleted permanently. It stays on record in old orders, but is removed from the catalog. To only hide it, set the status to Inactive instead.`}
       />
     </>
   );
@@ -423,7 +423,7 @@ function BulkBrandModal({ open, onClose, brands, count, productIds, onDone }) {
   return (
     <Modal
       open={open} onClose={onClose} size="sm"
-      title="Brand set karo" subtitle={`${count} products`}
+      title="Set brand" subtitle={`${count} products`}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>

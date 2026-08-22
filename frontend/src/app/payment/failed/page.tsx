@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { XCircle, RotateCcw, LifeBuoy, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// Backend jo `reason` bhejta hai woh customer-facing nahi hai (jaise
-// "verification_failed", "server_error") — friendly message me map karte hain.
+// The `reason` the backend sends is not customer-facing (e.g.
+// "verification_failed", "server_error") — we map them to a friendly message.
 const REASON_MESSAGES: Record<string, string> = {
   payment_cancelled: "You cancelled the payment before it could complete.",
   verification_failed: "We couldn't verify your payment. If money was deducted, it will be refunded automatically.",

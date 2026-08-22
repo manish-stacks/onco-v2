@@ -86,7 +86,7 @@ const register = asyncHandler(async (req, res) => {
     .slice(-10);
 
   if (!cleanMobile || cleanMobile.length !== 10) {
-    return fail(res, 'Valid mobile number chahiye', 422);
+    return fail(res, 'A valid mobile number is required', 422);
   }
 
   /* -------------------------
@@ -96,7 +96,7 @@ const register = asyncHandler(async (req, res) => {
   if (await customerModel.findByMobile(cleanMobile)) {
     return fail(
       res,
-      'Ye mobile number pehle se registered hai',
+      'This mobile number is already registered',
       409
     );
   }
@@ -111,7 +111,7 @@ const register = asyncHandler(async (req, res) => {
   ) {
     return fail(
       res,
-      'Ye email pehle se registered hai',
+      'This email is already registered',
       409
     );
   }
@@ -170,7 +170,7 @@ const register = asyncHandler(async (req, res) => {
       token,
       customer,
     },
-    'Registration ho gaya'
+    'Registration complete'
   );
 });
 
@@ -203,7 +203,7 @@ const login = asyncHandler(async (req, res) => {
   if (!customer) {
     return fail(
       res,
-      'Mobile ya password galat hai',
+      'Mobile or password is incorrect',
       401
     );
   }
@@ -220,7 +220,7 @@ const login = asyncHandler(async (req, res) => {
   if (!match) {
     return fail(
       res,
-      'Mobile ya password galat hai',
+      'Mobile or password is incorrect',
       401
     );
   }
@@ -232,7 +232,7 @@ const login = asyncHandler(async (req, res) => {
   if (customer.status !== 'Active') {
     return fail(
       res,
-      'Account inactive hai, support se baat karo',
+      'Account is inactive, please contact support',
       403
     );
   }
@@ -298,7 +298,7 @@ const login = asyncHandler(async (req, res) => {
       token,
       customer,
     },
-    'Login ho gaya'
+    'Logged in'
   );
 });
 
@@ -321,7 +321,7 @@ const requestOtp = asyncHandler(async (req, res) => {
   if (!cleanMobile || cleanMobile.length !== 10) {
     return fail(
       res,
-      'Valid mobile number chahiye',
+      'A valid mobile number is required',
       422
     );
   }
@@ -343,7 +343,7 @@ const requestOtp = asyncHandler(async (req, res) => {
     if (req.body.allow_signup === false) {
       return fail(
         res,
-        'Is number pe koi account nahi hai',
+        'No account exists for this number',
         404
       );
     }
@@ -438,7 +438,7 @@ const requestOtp = asyncHandler(async (req, res) => {
           dev_otp: otp,
         }),
     },
-    'OTP bhej diya'
+    'OTP sent'
   );
 });
 
@@ -467,7 +467,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
   if (!valid) {
     return fail(
       res,
-      'OTP galat hai ya expire ho gaya',
+      'OTP is incorrect or has expired',
       401
     );
   }
@@ -484,7 +484,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
   if (!customer) {
     return fail(
       res,
-      'Account nahi mila',
+      'Account not found',
       404
     );
   }
@@ -496,7 +496,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
   if (customer.status !== 'Active') {
     return fail(
       res,
-      'Account inactive hai',
+      'Account is inactive',
       403
     );
   }
@@ -564,7 +564,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
       token,
       customer,
     },
-    'Verify ho gaya'
+    'Verified'
   );
 });
 
@@ -594,7 +594,7 @@ const resetPassword = asyncHandler(
     if (!valid) {
       return fail(
         res,
-        'OTP galat hai ya expire ho gaya',
+        'OTP is incorrect or has expired',
         401
       );
     }
@@ -621,7 +621,7 @@ const resetPassword = asyncHandler(
     return ok(
       res,
       null,
-      'Password badal gaya'
+      'Password changed'
     );
   }
 );
@@ -649,7 +649,7 @@ const changePassword = asyncHandler(
     if (!customer) {
       return fail(
         res,
-        'Account nahi mila',
+        'Account not found',
         404
       );
     }
@@ -667,7 +667,7 @@ const changePassword = asyncHandler(
     if (!match) {
       return fail(
         res,
-        'Purana password galat hai',
+        'Old password is incorrect',
         401
       );
     }
@@ -694,7 +694,7 @@ const changePassword = asyncHandler(
     return ok(
       res,
       null,
-      'Password badal gaya'
+      'Password changed'
     );
   }
 );
@@ -712,7 +712,7 @@ const me = asyncHandler(async (req, res) => {
   if (!customer) {
     return fail(
       res,
-      'Account nahi mila',
+      'Account not found',
       404
     );
   }
@@ -729,10 +729,10 @@ const me = asyncHandler(async (req, res) => {
 
 const updateProfile = asyncHandler(
   async (req, res) => {
-    // Customer khud sirf apna naam/email badal sake — customerModel ka
-    // WRITABLE list broader hai (mobile, status waghera bhi) kyunki admin
-    // side se bhi use hota hai. Yahan explicitly sirf safe fields pick karte
-    // hain, warna koi customer apna mobile ya account status khud PATCH
+    // The customer can only change their own name/email — customerModel's
+    // The WRITABLE list is broader (mobile, status etc.) because the admin
+    // is also used from that side. Here we explicitly pick only the safe fields
+    // otherwise a customer could PATCH their own mobile or account status
     // karke badal sakta tha.
     const { customer_name, email_id } = req.body;
     const payload = {};
@@ -752,7 +752,7 @@ const updateProfile = asyncHandler(
     return ok(
       res,
       customer,
-      'Profile update ho gaya'
+      'Profile updated'
     );
   }
 );
@@ -773,7 +773,7 @@ const registerDevice = asyncHandler(
     if (!fcm_token) {
       return fail(
         res,
-        'fcm_token chahiye',
+        'fcm_token is required',
         422
       );
     }
@@ -795,7 +795,7 @@ const registerDevice = asyncHandler(
     return ok(
       res,
       null,
-      'Device register ho gaya'
+      'Device registered'
     );
   }
 );
@@ -809,7 +809,7 @@ const unregisterDevice = asyncHandler(
     if (!req.body.fcm_token) {
       return fail(
         res,
-        'fcm_token chahiye',
+        'fcm_token is required',
         422
       );
     }
@@ -821,7 +821,7 @@ const unregisterDevice = asyncHandler(
     return ok(
       res,
       null,
-      'Device hata diya'
+      'Device removed'
     );
   }
 );
@@ -845,7 +845,7 @@ const logout = asyncHandler(
     return ok(
       res,
       null,
-      'Logout ho gaya'
+      'Logged out'
     );
   }
 );

@@ -3,28 +3,28 @@ const { QueryBuilder } = require('../utils/queryBuilder');
 const { INVENTORY_CHANGE_TYPE } = require('../config/constants');
 
 /**
- * Har stock change yahi se hoti hai, taaki inventory_logs me hamesha
+ * All stock changes go through here, so that inventory_logs always
  * audit trail bane. Seedha `UPDATE products SET stock_quantity` kahin
- * nahi karna.
+ * .
  */
 
 /**
- * Stock ghatao (order place hone pe). Row lock leta hai taaki do simultaneous
- * orders same last unit na le jaayen. Transaction ke andar `conn` pass karna zaroori.
+ * Decrease stock (when an order is placed). Takes a row lock so two simultaneous
+ * orders do not take the same last unit. Passing `conn` inside a transaction is mandatory.
  */
 async function decrementStock(conn, { productId, quantity, referenceType, referenceId, changedBy, note }) {
   const [[product]] = await conn.query(
     `SELECT product_id, product_name, stock_quantity, allow_backorder FROM products WHERE product_id = ? FOR UPDATE`,
     [productId]
   );
-  if (!product) throw Object.assign(new Error(`Product ${productId} nahi mila`), { status: 404 });
+  if (!product) throw Object.assign(new Error(`Product ${productId} not found`), { status: 404 });
 
   const before = product.stock_quantity;
   const after = before - quantity;
 
   if (after < 0 && !product.allow_backorder) {
     throw Object.assign(
-      new Error(`"${product.product_name}" ka sirf ${before} stock bacha hai (${quantity} maanga gaya)`),
+      new Error(`Only ${before} units of "${product.product_name}" are left (${quantity} requested)`),
       { status: 409 }
     );
   }
@@ -51,7 +51,7 @@ async function incrementStock(conn, { productId, quantity, changeType, reference
   const [[product]] = await conn.query(
     `SELECT stock_quantity FROM products WHERE product_id = ? FOR UPDATE`, [productId]
   );
-  if (!product) throw Object.assign(new Error(`Product ${productId} nahi mila`), { status: 404 });
+  if (!product) throw Object.assign(new Error(`Product ${productId} not found`), { status: 404 });
 
   const before = product.stock_quantity;
   const after = before + quantity;
@@ -75,14 +75,14 @@ async function incrementStock(conn, { productId, quantity, changeType, reference
 
 /**
  * Admin manual adjustment — exact quantity set kar do (stock count ke baad).
- * Difference automatically log ho jaata hai.
+ * The difference is logged automatically.
  */
 async function setStock(productId, newQuantity, { changedBy, note, changeType } = {}) {
   return db.withTransaction(async (conn) => {
     const [[product]] = await conn.query(
       `SELECT stock_quantity FROM products WHERE product_id = ? FOR UPDATE`, [productId]
     );
-    if (!product) throw Object.assign(new Error('Product nahi mila'), { status: 404 });
+    if (!product) throw Object.assign(new Error('Product not found'), { status: 404 });
 
     const before = product.stock_quantity;
     const after = Math.max(0, parseInt(newQuantity, 10));
@@ -179,7 +179,7 @@ async function listMovements(filters = {}, { limit = 50, offset = 0 } = {}) {
   return { rows, total };
 }
 
-/** Low stock alerts — dashboard aur inventory page dono use karte hain */
+/** Low stock alerts — used by both the dashboard and the inventory page */
 async function lowStockProducts(limit = 50) {
   const [rows] = await db.query(
     `SELECT product_id, product_name, sku, stock_quantity, low_stock_alert, product_sp

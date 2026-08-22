@@ -12,9 +12,9 @@ import { SimpleFormModal } from '@/components/ui/SimpleFormModal';
 import { ConfirmDialog } from '@/components/ui/Modal';
 
 /**
- * Jahan delivery hoti hai.
- * Checkout pe customer ki city yahan se check hoti hai — list me na ho to
- * order place nahi hota.
+ * Where delivery is available.
+ * The customer's city is checked against this at checkout — if it is not in the list
+ * the order is not placed.
  */
 export default function Cities() {
   const { can } = useAuth();
@@ -35,8 +35,8 @@ export default function Cities() {
       <PageHeader
         title="Delivery cities"
         subtitle={rows
-          ? `${num(active)} cities me delivery chalu hai (${num(rows.length)} total)`
-          : 'Jahan delivery hoti hai'}
+          ? `Delivery is active in ${num(active)} cities (${num(rows.length)} total)`
+          : 'Where delivery is available'}
         actions={canManage && (
           <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add city</Button>
         )}
@@ -69,8 +69,8 @@ export default function Cities() {
               ),
             },
           ]}
-          emptyIcon={MapPin} emptyTitle="Koi serviceable city nahi"
-          emptyDescription="Jahan delivery karte ho wo cities add karo — customer checkout pe check karta hai."
+          emptyIcon={MapPin} emptyTitle="No serviceable cities"
+          emptyDescription="Add the cities you deliver to — the customer's city is checked at checkout."
           emptyAction={canManage && (
             <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add city</Button>
           )}
@@ -91,7 +91,7 @@ export default function Cities() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.id)} loading={del.loading}
         title="Remove city" confirmLabel="Remove"
-        message={`"${toDelete?.city}" me delivery band ho jayegi — customer wahan order nahi kar payega.`}
+        message={`Delivery to "${toDelete?.city}" will be stopped — customers there will not be able to order.`}
       />
     </>
   );

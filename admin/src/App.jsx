@@ -12,6 +12,7 @@ import Dashboard from '@/pages/Dashboard';
 import OrderList from '@/pages/orders/OrderList';
 import OrderDetail from '@/pages/orders/OrderDetail';
 import Invoice from '@/pages/orders/Invoice';
+import Pos from '@/pages/pos/Pos';
 import ProductList from '@/pages/products/ProductList';
 import ProductForm from '@/pages/products/ProductForm';
 import Inventory from '@/pages/inventory/Inventory';
@@ -33,7 +34,7 @@ import System from '@/pages/system/System';
 import { Brands } from './pages/catalog/Brands';
 import { Categories } from './pages/catalog/Categories';
 
-/** Har protected page ke liye chhota wrapper */
+/** A small wrapper for every protected page */
 const Guard = ({ perm, children }) => <PermissionGate perm={perm}>{children}</PermissionGate>;
 
 function NotFound() {
@@ -41,9 +42,9 @@ function NotFound() {
     <div className="card">
       <EmptyState
         icon={FileQuestion}
-        title="Ye page nahi mila"
-        description="URL galat ho sakta hai, ya ye page hata diya gaya."
-        action={<Button variant="primary" onClick={() => window.location.assign("/")}>Dashboard pe jao</Button>}
+        title="Page not found"
+        description="The URL may be wrong, or this page has been removed."
+        action={<Button variant="primary" onClick={() => window.location.assign("/")}>Go to dashboard</Button>}
       />
     </div>
   );
@@ -70,6 +71,9 @@ export default function App() {
               <Route path="orders" element={<Guard perm={P.ORDERS_VIEW}><OrderList /></Guard>} />
               <Route path="orders/:orderId" element={<Guard perm={P.ORDERS_VIEW}><OrderDetail /></Guard>} />
               <Route path="orders/:orderId/invoice" element={<Guard perm={P.ORDERS_VIEW}><Invoice /></Guard>} />
+
+              {/* POS — admin creates a custom order */}
+              <Route path="pos" element={<Guard perm={P.ORDERS_MANAGE}><Pos /></Guard>} />
 
               {/* Prescriptions */}
               <Route path="prescriptions" element={<Guard perm={P.PRESCRIPTIONS_VIEW}><PrescriptionList /></Guard>} />
@@ -106,7 +110,7 @@ export default function App() {
               {/* Settings */}
               <Route path="settings" element={<Guard perm={P.SETTINGS_VIEW}><Settings /></Guard>} />
 
-              {/* Purane URLs — bookmark tootne se bachne ke liye */}
+              {/* Legacy URLs — kept so old bookmarks keep working */}
               <Route path="cms" element={<Navigate to="/content/pages" replace />} />
               <Route path="storefront" element={<Navigate to="/settings" replace />} />
 

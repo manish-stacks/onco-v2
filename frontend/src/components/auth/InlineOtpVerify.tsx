@@ -8,11 +8,11 @@ import { ApiError } from "@/lib/api";
 import type { Customer } from "@/types";
 
 /**
- * Checkout ke andar hi embedded mobile verify — pehle se login karke alag
- * page pe bhejne ki zaroorat nahi. Number check hota hai: registered hai to
- * seedha OTP jaake login ho jaata hai, nahi hai to naya account ban ke wahi
- * OTP se verify ho jaata hai. Backend `/auth/otp/request` yahi dono handle
- * karta hai (`allow_signup: true`).
+ * Mobile verification embedded inside checkout — instead of logging in first and
+ * there is no need to send them to a separate page. The number is checked: if registered,
+ * the OTP goes straight to login; if not, a new account is created and the same
+ * is verified over OTP. The backend `/auth/otp/request` handles both
+ * (`allow_signup: true`).
  */
 export function InlineOtpVerify({ onVerified }: { onVerified: (customer: Customer | null) => void }) {
   const { requestOtp, verifyOtp } = useAuth();
@@ -29,7 +29,7 @@ export function InlineOtpVerify({ onVerified }: { onVerified: (customer: Custome
     e.preventDefault();
     const clean = mobile.replace(/\D/g, "");
     if (clean.length !== 10) {
-      setError("Valid 10-digit mobile number daalo");
+      setError("Enter a valid 10-digit mobile number");
       return;
     }
     setError(null);
@@ -40,7 +40,7 @@ export function InlineOtpVerify({ onVerified }: { onVerified: (customer: Custome
       setIsNewUser(!!res.is_new_user);
       setDevOtp(res.dev_otp || null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "OTP bhejne me dikkat aayi");
+      setError(err instanceof ApiError ? err.message : "There was a problem sending the OTP");
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export function InlineOtpVerify({ onVerified }: { onVerified: (customer: Custome
       const customer = await verifyOtp(customerId, otp);
       onVerified(customer);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "OTP galat hai");
+      setError(err instanceof ApiError ? err.message : "The OTP is incorrect");
     } finally {
       setLoading(false);
     }

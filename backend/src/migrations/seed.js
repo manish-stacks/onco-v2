@@ -1,7 +1,7 @@
 /**
- * Roles + permissions + ek super admin seed karta hai.
+ * Seeds roles + permissions + one super admin.
  *   npm run seed
- * Idempotent hai — baar baar chala sakte ho, duplicates nahi banenge.
+ * Idempotent — you can run it repeatedly, no duplicates are created.
  */
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
@@ -66,7 +66,7 @@ async function main() {
       [username, 'Super Admin', hashed, email, roleIds['Super Admin']]
     );
     console.log(`[seed] super admin created — username: ${username} / password: ${password}`);
-    console.log('       ⚠  Login karke turant password badal lena.');
+    console.log('       ⚠  Log in and change the password immediately.');
   }
 
   console.log('[seed] done.');

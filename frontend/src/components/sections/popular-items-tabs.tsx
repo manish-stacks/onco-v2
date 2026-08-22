@@ -56,7 +56,7 @@ export function PopularItemsTabs({
         </div>
 
         <Link
-          href="/search"
+          href="/shop"
           className="flex items-center gap-1 text-base font-semibold text-[#063b67] transition hover:text-[#0b5a97]"
         >
           All Products
@@ -101,7 +101,7 @@ export function PopularItemsTabs({
       {/* Mobile Button */}
       <div className="mt-10 flex justify-center sm:hidden">
         <Link
-          href="/search"
+          href="/shop"
           className="inline-flex items-center gap-2 rounded-full bg-[#063b67] px-6 py-3 text-sm font-semibold text-white"
         >
           View All Products

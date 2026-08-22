@@ -2,12 +2,12 @@
  * Migration runner.
  *   npm run migrate
  *
- * Purana version poori SQL file ek saath bhejta tha — isliye agar kahin atak
- * jaaye to pata hi nahi chalta tha ki kaunse statement pe atka hai. Ab har
- * statement alag chalta hai, uska naam aur time print hota hai.
+ * The old version sent the whole SQL file at once — so if it got stuck somewhere
+ * there was no way to tell which statement it got stuck on. Now every
+ * statement runs separately and its name and time are printed.
  *
- * Resumable hai: agar pehli baar beech me ruk gaya tha, dobara chalao — jo
- * steps ho chuke hain wo "skip" bol ke aage badh jaayenge.
+ * Resumable: if the first run stopped midway, run it again — whatever
+ * steps that are already done simply report "skip" and move on.
  */
 require('dotenv').config();
 const fs = require('fs');
@@ -15,19 +15,23 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 
 /**
- * Ye errors ka matlab hai "ye step pehle hi ho chuka hai" — inpe rukna nahi.
- * Baaki koi bhi error aaye to migration turant band ho jaayegi.
+ * These errors mean "this step has already been done" — do not stop on them.
+ * Any other error stops the migration immediately.
  */
 const ALREADY_DONE = {
-  1050: 'table pehle se maujood hai',
-  1051: 'table nahi mili (rename ho chuka hoga)',
-  1060: 'column pehle se maujood hai',
-  1061: 'index pehle se maujood hai',
-  1091: 'column/key pehle se hat chuka hai',
-  1146: 'table nahi mili (rename ho chuka hoga)',
+  1050: 'table already exists',
+  1051: 'table not found (it may already be renamed)',
+  1060: 'column already exists',
+  1061: 'index already exists',
+  1091: 'column/key has already been dropped',
+  1146: 'table not found (it may already be renamed)',
+  // A foreign key with this exact name is already on the table, which only
+  // happens when this migration has already added it on an earlier run.
+  1826: 'foreign key constraint already exists',
+  1022: 'duplicate key name',
 };
 
-/** SQL file ko statements me todo — comments hata ke */
+/** Split the SQL file into statements — stripping comments */
 function splitStatements(sql) {
   const cleaned = sql
     .split('\n')
@@ -40,7 +44,7 @@ function splitStatements(sql) {
     .filter((s) => s.length > 0);
 }
 
-/** Statement ka chhota label — log me kya chal raha hai wo dikhe */
+/** A short label for the statement — so the log shows what is running */
 function label(stmt) {
   const oneLine = stmt.replace(/\s+/g, ' ').trim();
   const patterns = [
@@ -72,12 +76,12 @@ async function safeCount(conn, table) {
  * Ek bade ALTER ko alag-alag clauses me todo.
  *
  * Zaroorat kyun: `ALTER TABLE orders MODIFY x, ADD COLUMN y, ADD INDEX z`
- * ek hi unit hai — agar `y` pehle se maujood hai to poora ALTER fail ho
- * jaata hai aur `z` kabhi add nahi hota. Isliye 1060/1061 pe hum ALTER ko
- * tod ke har clause alag chalate hain, jo ho chuke hain wo skip ho jaate hain.
+ * is a single unit — if `y` already exists the whole ALTER fails
+ * and `z` is never added. So on 1060/1061 we split the ALTER
+ * we split it and run each clause separately; the ones already applied are skipped.
  *
- * Comma sirf top level pe todna hai — `(a, b)` jaise index definitions
- * aur `ENUM('web','app')` ke andar wale commas chhodne hain.
+ * Only split on top-level commas — index definitions such as `(a, b)`
+ * and commas inside `ENUM('web','app')` must be left alone.
  */
 function splitAlterClauses(stmt) {
   const m = stmt.match(/^ALTER TABLE\s+(`?\w+`?)\s+([\s\S]+)$/i);
@@ -115,12 +119,12 @@ function splitAlterClauses(stmt) {
   return { table, clauses };
 }
 
-/** ALTER ke har clause ko alag chalao — jo ho chuka hai wo skip */
+/** Run each clause of an ALTER separately — skip the ones already applied */
 async function runAlterClauseByClause(conn, stmt, indent = '        ') {
   const parsed = splitAlterClauses(stmt);
   if (!parsed || parsed.clauses.length < 2) return false;
 
-  console.log(`${indent}ALTER ko ${parsed.clauses.length} clauses me tod ke chala rahe hain...`);
+  console.log(`${indent}Splitting the ALTER into ${parsed.clauses.length} clauses and running them...`);
 
   let applied = 0;
   for (const clause of parsed.clauses) {
@@ -157,10 +161,10 @@ async function main() {
   console.log(`[migrate] connected to ${dbName}\n`);
 
   /**
-   * Agar koi aur connection in tables ko pakde baitha hai (backend server
-   * chal raha ho, ya phpMyAdmin me koi query khuli ho) to ALTER/RENAME
-   * hamesha ke liye atak jaata hai. 30 second baad fail ho jaao, taaki
-   * saaf error mile "hang" ki jagah.
+   * If some other connection is holding these tables (backend server
+   * is running, or a query is open in phpMyAdmin) then ALTER/RENAME
+   * it hangs forever. Fail after 30 seconds, so that
+   * a clear error is returned instead of a "hang".
    */
   await conn.query('SET SESSION lock_wait_timeout = 30');
   await conn.query('SET SESSION innodb_lock_wait_timeout = 30');
@@ -168,7 +172,7 @@ async function main() {
   const sql = fs.readFileSync(path.join(__dirname, '001_schema_refactor.sql'), 'utf8');
   const statements = splitStatements(sql);
 
-  console.log(`[migrate] ${statements.length} statements chalane hain\n`);
+  console.log(`[migrate] ${statements.length} statements to run\n`);
   console.log('-'.repeat(66));
 
   let done = 0;
@@ -191,8 +195,8 @@ async function main() {
       const ms = Date.now() - start;
 
       if (ALREADY_DONE[err.errno]) {
-        // ALTER hai to poora skip mat karo — baaki clauses reh jaayenge.
-        // Tod ke chalao, jo ho chuka hai wo apne aap skip ho jaayega.
+        // If it is an ALTER do not skip it entirely — the remaining clauses would be lost.
+        // Split it and run it; whatever is already applied is skipped automatically.
         if (/^ALTER TABLE/i.test(stmt)) {
           console.log('partial');
           try {
@@ -213,24 +217,24 @@ async function main() {
         console.log('LOCKED');
         console.error(`
 ------------------------------------------------------------------
-  Table lock pe atak gaya (${(ms / 1000).toFixed(0)}s wait karke chhoda).
+  Stuck on a table lock (gave up after waiting ${(ms / 1000).toFixed(0)}s).
 
-  Koi aur connection in tables ko pakde baitha hai. Aksar ye hota hai:
+  Another connection is holding these tables. Usually this is:
 
-    1. Backend server chal raha hai            -> band karo (Ctrl+C)
-    2. phpMyAdmin me koi tab khuli hai         -> tabs band karo
-    3. MySQL Workbench / DBeaver connected hai -> disconnect karo
+    1. The backend server is running          -> stop it (Ctrl+C)
+    2. A phpMyAdmin tab is open               -> close the tabs
+    3. MySQL Workbench / DBeaver is connected -> disconnect
 
-  Kaun pakde hai ye dekhne ke liye MySQL me chalao:
+  To see who is holding it, run this in MySQL:
 
     SHOW FULL PROCESSLIST;
 
-  Jis row ka State = "Waiting for table metadata lock" ho, uske
-  upar wali (zyada Time wali) query ki Id note karke:
+  For the row whose State = "Waiting for table metadata lock",
+  note the Id of the query above (the one with the higher Time) and run:
 
     KILL <id>;
 
-  Phir dobara: npm run migrate
+  Then run it again: npm run migrate
 ------------------------------------------------------------------`);
         await conn.end();
         process.exit(1);
@@ -247,9 +251,9 @@ async function main() {
   SQL:
 ${stmt.slice(0, 500)}${stmt.length > 500 ? '\n  ...' : ''}
 
-  Jitne statements chal chuke hain wo apply ho chuke hain. Problem
-  theek karke dobara "npm run migrate" chalao -- ho chuke steps
-  automatically skip ho jaayenge.
+  Whatever statements have run are already applied. The problem
+  fix it and run "npm run migrate" again -- the completed steps
+  will be skipped automatically.
 ------------------------------------------------------------------`);
       await conn.end();
       process.exit(1);
@@ -257,7 +261,7 @@ ${stmt.slice(0, 500)}${stmt.length > 500 ? '\n  ...' : ''}
   }
 
   console.log('-'.repeat(66));
-  console.log(`\n[migrate] ${done} statements chale, ${skipped} skip hue (pehle se done)\n`);
+  console.log(`\n[migrate] ${done} statements ran, ${skipped} skipped (already done)\n`);
 
   // ---- verification ----
   const oldWeb = await safeCount(conn, 'cp_order_details');
@@ -281,11 +285,11 @@ ${stmt.slice(0, 500)}${stmt.length > 500 ? '\n  ...' : ''}
   console.log(`orders                        : ${orders}`);
   console.log(`products                      : ${products}`);
   console.log('=========================================');
-  console.log('\nCounts theek lagein to purani tables manually drop karo:');
+  console.log('\nIf the counts look right, drop the old tables manually:');
   console.log(`  DROP TABLE cp_order_details, cp_app_order_details, cp_order_temp,
     cp_temp_order, cp_temp_order_details, cp_prescription,
     cp_app_prescription, cp_prescription_medicine;`);
-  console.log('\nAb permissions seed karo:  npm run seed');
+  console.log('\nNow seed the permissions:  npm run seed');
 
   await conn.end();
 }

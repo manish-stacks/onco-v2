@@ -9,8 +9,8 @@ import { formatINR, cn } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import type { Order } from "@/types";
 
-// Backend ke asli order.status values — "delivered" jaisa kuch nahi hota,
-// "Completed" hi final state hai. Galat filter = hamesha 0 results.
+// The backend's real order.status values — there is no "delivered",
+// "Completed" is the final state. The wrong filter = always 0 results.
 const STATUS_FILTERS = [
   { label: "All", value: "all" },
   { label: "Pending", value: "Pending" },

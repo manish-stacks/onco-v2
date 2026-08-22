@@ -6,8 +6,8 @@ const { ok, created, fail, paginated, asyncHandler } = require('../../utils/resp
 const { getPagination } = require('../../utils/helpers');
 
 /**
- * Sub-admin aur employee dono yahi se bante hain — bas role alag hota hai.
- * Role decide karta hai kaun kya kar sakta hai.
+ * Both sub-admins and employees are created here — only the role differs.
+ * The role decides who can do what.
  */
 
 // ---------------------------------------------------------------------------
@@ -26,28 +26,28 @@ const list = asyncHandler(async (req, res) => {
 
 const detail = asyncHandler(async (req, res) => {
   const admin = await adminModel.findById(req.params.adminId);
-  if (!admin) return fail(res, 'Admin nahi mila', 404);
+  if (!admin) return fail(res, 'Admin not found', 404);
 
   const permissions = await adminModel.getPermissions(admin.user_type);
   return ok(res, { ...admin, permissions });
 });
 
-/** POST /admin/admins — naya sub-admin / employee banao */
+/** POST /admin/admins — create a new sub-admin / employee */
 const create = asyncHandler(async (req, res) => {
   const { admin_username, admin_name, password, admin_email, admin_phone,
     department, employee_code, user_type, status } = req.body;
 
   if (!admin_username || !password || !user_type) {
-    return fail(res, 'admin_username, password aur user_type zaroori hain', 422);
+    return fail(res, 'admin_username, password and user_type are required', 422);
   }
-  if (password.length < 8) return fail(res, 'Password kam se kam 8 characters ka ho', 422);
+  if (password.length < 8) return fail(res, 'The password must be at least 8 characters', 422);
 
   if (await adminModel.findByUsername(admin_username)) {
-    return fail(res, 'Ye username pehle se hai', 409);
+    return fail(res, 'This username already exists', 409);
   }
 
   const role = await adminModel.findRoleById(user_type);
-  if (!role) return fail(res, 'Ye role exist nahi karta', 422);
+  if (!role) return fail(res, 'This role does not exist', 422);
 
   const adminId = await adminModel.create({
     admin_username,
@@ -65,18 +65,18 @@ const create = asyncHandler(async (req, res) => {
     description: `${admin_username} (${role.name})`, ip_address: req.ip,
   });
 
-  return created(res, await adminModel.findById(adminId), 'Admin user ban gaya');
+  return created(res, await adminModel.findById(adminId), 'Admin user created');
 });
 
 /** PATCH /admin/admins/:adminId */
 const update = asyncHandler(async (req, res) => {
   const target = await adminModel.findById(req.params.adminId);
-  if (!target) return fail(res, 'Admin nahi mila', 404);
+  if (!target) return fail(res, 'Admin not found', 404);
 
-  // khud ka role khud change nahi kar sakte (lockout se bachne ke liye)
+  // nobody can change their own role (to avoid locking themselves out)
   if (Number(req.params.adminId) === req.admin.admin_id && req.body.user_type
       && Number(req.body.user_type) !== target.user_type) {
-    return fail(res, 'Apna khud ka role change nahi kar sakte', 403);
+    return fail(res, 'You cannot change your own role', 403);
   }
 
   await adminModel.update(req.params.adminId, req.body);
@@ -85,18 +85,18 @@ const update = asyncHandler(async (req, res) => {
     action: 'update', module: 'admins', record_id: req.params.adminId, ip_address: req.ip,
   });
 
-  return ok(res, await adminModel.findById(req.params.adminId), 'Admin update ho gaya');
+  return ok(res, await adminModel.findById(req.params.adminId), 'Admin updated');
 });
 
 /** POST /admin/admins/:adminId/reset-password */
 const resetPassword = asyncHandler(async (req, res) => {
   const { new_password } = req.body;
   if (!new_password || new_password.length < 8) {
-    return fail(res, 'Naya password kam se kam 8 characters ka ho', 422);
+    return fail(res, 'The new password must be at least 8 characters', 422);
   }
 
   const target = await adminModel.findById(req.params.adminId);
-  if (!target) return fail(res, 'Admin nahi mila', 404);
+  if (!target) return fail(res, 'Admin not found', 404);
 
   await adminModel.updatePassword(req.params.adminId, await bcrypt.hash(new_password, 10));
   await adminModel.logActivity({
@@ -105,29 +105,29 @@ const resetPassword = asyncHandler(async (req, res) => {
     description: target.admin_username, ip_address: req.ip,
   });
 
-  return ok(res, null, 'Password reset ho gaya');
+  return ok(res, null, 'Password reset');
 });
 
 /** PATCH /admin/admins/:adminId/status */
 const setStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
-  if (!['Active', 'Inactive'].includes(status)) return fail(res, "status 'Active' ya 'Inactive' ho", 422);
+  if (!['Active', 'Inactive'].includes(status)) return fail(res, "status must be 'Active' or 'Inactive'", 422);
 
   if (Number(req.params.adminId) === req.admin.admin_id) {
-    return fail(res, 'Apne aap ko deactivate nahi kar sakte', 403);
+    return fail(res, 'You cannot deactivate yourself', 403);
   }
 
   await adminModel.update(req.params.adminId, { status });
-  return ok(res, null, `Admin ${status} kar diya`);
+  return ok(res, null, `Admin ${status}`);
 });
 
 const remove = asyncHandler(async (req, res) => {
   if (Number(req.params.adminId) === req.admin.admin_id) {
-    return fail(res, 'Apna khud ka account delete nahi kar sakte', 403);
+    return fail(res, 'You cannot delete your own account', 403);
   }
 
   const target = await adminModel.findById(req.params.adminId);
-  if (!target) return fail(res, 'Admin nahi mila', 404);
+  if (!target) return fail(res, 'Admin not found', 404);
 
   await adminModel.remove(req.params.adminId);
   await adminModel.logActivity({
@@ -136,7 +136,7 @@ const remove = asyncHandler(async (req, res) => {
     description: target.admin_username, ip_address: req.ip,
   });
 
-  return ok(res, null, 'Admin delete ho gaya');
+  return ok(res, null, 'Admin deleted');
 });
 
 // ---------------------------------------------------------------------------
@@ -144,9 +144,9 @@ const remove = asyncHandler(async (req, res) => {
 // ---------------------------------------------------------------------------
 const listRoles = asyncHandler(async (req, res) => ok(res, await adminModel.listRoles()));
 
-/** GET /admin/roles/permissions — poora catalog, role editor ke liye */
+/** GET /admin/roles/permissions — the full catalog, for the role editor */
 const permissionCatalog = asyncHandler(async (req, res) => {
-  // module ke hisaab se group karke bhejo, frontend me checkbox groups banenge
+  // send them grouped by module, so the frontend can build checkbox groups
   const grouped = {};
   ALL_PERMISSIONS.forEach((p) => {
     const [module] = p.split('.');
@@ -158,29 +158,29 @@ const permissionCatalog = asyncHandler(async (req, res) => {
 
 const roleDetail = asyncHandler(async (req, res) => {
   const role = await adminModel.findRoleById(req.params.roleId);
-  if (!role) return fail(res, 'Role nahi mila', 404);
+  if (!role) return fail(res, 'Role not found', 404);
   return ok(res, role);
 });
 
 const createRole = asyncHandler(async (req, res) => {
   const { name, description, permissions } = req.body;
-  if (!name) return fail(res, 'name zaroori hai', 422);
+  if (!name) return fail(res, 'name is required', 422);
 
   const invalid = (permissions || []).filter((p) => !ALL_PERMISSIONS.includes(p));
-  if (invalid.length) return fail(res, `Ye permissions valid nahi hain: ${invalid.join(', ')}`, 422);
+  if (invalid.length) return fail(res, `These permissions are not valid: ${invalid.join(', ')}`, 422);
 
   const roleId = await adminModel.createRole({ name, description, permissions });
   await clearRoleCache();
-  return created(res, await adminModel.findRoleById(roleId), 'Role ban gaya');
+  return created(res, await adminModel.findRoleById(roleId), 'Role created');
 });
 
 const updateRole = asyncHandler(async (req, res) => {
   const role = await adminModel.findRoleById(req.params.roleId);
-  if (!role) return fail(res, 'Role nahi mila', 404);
+  if (!role) return fail(res, 'Role not found', 404);
 
   if (req.body.permissions) {
     const invalid = req.body.permissions.filter((p) => !ALL_PERMISSIONS.includes(p));
-    if (invalid.length) return fail(res, `Ye permissions valid nahi hain: ${invalid.join(', ')}`, 422);
+    if (invalid.length) return fail(res, `These permissions are not valid: ${invalid.join(', ')}`, 422);
   }
 
   await adminModel.updateRole(req.params.roleId, req.body);
@@ -192,13 +192,13 @@ const updateRole = asyncHandler(async (req, res) => {
     description: role.name, ip_address: req.ip,
   });
 
-  return ok(res, await adminModel.findRoleById(req.params.roleId), 'Role update ho gaya');
+  return ok(res, await adminModel.findRoleById(req.params.roleId), 'Role updated');
 });
 
 const removeRole = asyncHandler(async (req, res) => {
   await adminModel.removeRole(req.params.roleId);
   await clearRoleCache(req.params.roleId);
-  return ok(res, null, 'Role delete ho gaya');
+  return ok(res, null, 'Role deleted');
 });
 
 // ---------------------------------------------------------------------------

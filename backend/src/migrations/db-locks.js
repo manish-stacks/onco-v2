@@ -1,15 +1,15 @@
 /**
- * DB connections dekho aur atki hui queries kill karo.
+ * Inspect DB connections and kill stuck queries.
  *
- *   npm run db:locks           -- sirf dikhao, kuch mat karo
+ *   npm run db:locks           -- report only, change nothing
  *   npm run db:locks -- --kill -- baaki saari connections kaat do
  *
- * Kab chahiye: migration "LOCKED" bol ke ruk jaye. Iska matlab koi aur
- * connection un tables ko pakde baitha hai, aur RENAME/ALTER metadata lock
- * ka intezaar kar raha hai.
+ * When you need it: a migration stops with "LOCKED". That means another
+ * connection is holding those tables, and RENAME/ALTER needs a metadata lock
+ * is waiting.
  *
- * Local dev pe `--kill` sabse tez rasta hai. Production pe sochkar chalana —
- * kisi ki chal rahi query kat sakti hai.
+ * On local dev `--kill` is the fastest route. Think before running it in production —
+ * someone's running query may get killed.
  */
 require('dotenv').config();
 const mysql = require('mysql2/promise');
@@ -50,13 +50,13 @@ async function main() {
      ORDER BY TIME DESC`
   );
 
-  // sirf hamare DB wali, aur apni connection chhod ke
+  // only ours in the DB, and excluding our own connection
   const others = rows.filter((r) => r.ID !== myId && (r.DB === dbName || r.DB === null));
 
   console.log(`\n[db:locks] DB: ${dbName}   (meri connection id: ${myId})\n`);
 
   if (!others.length) {
-    console.log('  Koi aur connection nahi hai. Lock kisi aur wajah se hoga —');
+    console.log('  There is no other connection. The lock must have another cause —');
     console.log('  XAMPP control panel se MySQL restart karke dekho.\n');
     await conn.end();
     return;
@@ -97,7 +97,7 @@ async function main() {
     return;
   }
 
-  console.log('  Kill kar rahe hain...\n');
+  console.log('  Killing...\n');
   let killed = 0;
   for (const r of others) {
     try {
@@ -105,12 +105,12 @@ async function main() {
       console.log(`    killed ${r.ID}  (${r.USER}, ${r.TIME}s, ${r.COMMAND})`);
       killed += 1;
     } catch (err) {
-      // connection khud hi band ho gayi ho to koi baat nahi
-      if (err.errno !== 1094) console.log(`    ${r.ID} kill nahi hui: ${err.sqlMessage || err.message}`);
+      // it does not matter if the connection already closed on its own
+      if (err.errno !== 1094) console.log(`    ${r.ID} could not be killed: ${err.sqlMessage || err.message}`);
     }
   }
 
-  console.log(`\n  ${killed} connections kat gayi. Ab chalao:  npm run migrate\n`);
+  console.log(`\n  ${killed} connections were cut. Now run:  npm run migrate\n`);
   await conn.end();
 }
 

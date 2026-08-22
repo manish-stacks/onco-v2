@@ -4,7 +4,7 @@ import ContactPage from "@/components/layout/contact";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
  
-// contact/page.tsx client component hai (form state), isliye layout se metadata.
+// contact/page.tsx is a client component (form state), so metadata lives in the layout.
 const title = `Contact Us | ${SITE_NAME}`;
 const description =
   `Get in touch with ${SITE_NAME} for order support, prescription queries, or general questions. We're here to help 24/7.`;

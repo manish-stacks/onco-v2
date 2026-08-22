@@ -1,12 +1,12 @@
 /**
- * Server-Sent Events — admin panel ko live updates bhejne ke liye.
+ * Server-Sent Events — for pushing live updates to the admin panel.
  *
- * Polling ki jagah push: naya order aaya, stock khatam hua, prescription
- * upload hua — turant sab connected admins ko chala jaata hai.
+ * Push instead of polling: a new order arrived, stock ran out, a prescription
+ * was uploaded — it reaches every connected admin instantly.
  *
- * In-process hai (koi Redis pub/sub nahi), to PM2 cluster mode me har worker
- * ke apne clients honge. Isliye events Redis pub/sub se bhi broadcast hote
- * hain — taaki kisi bhi worker pe hua event sab workers ke clients tak pahunche.
+ * In-process (no Redis pub/sub), so in PM2 cluster mode each worker
+ * will have their own clients. That is why events are also broadcast over Redis pub/sub
+ * so that an event raised on any worker reaches the clients of every worker.
  */
 const redis = require('../config/redis');
 
@@ -16,8 +16,8 @@ const CHANNEL = 'admin:events';
 const clients = new Map();
 let nextId = 1;
 
-/** Alag connection chahiye subscriber ke liye — ioredis subscriber mode me
- *  normal commands allow nahi karta */
+/** The subscriber needs its own connection — in subscriber mode ioredis
+ *  does not allow normal commands */
 let subscriber = null;
 
 function initSubscriber() {
@@ -43,7 +43,7 @@ function initSubscriber() {
   }
 }
 
-/** Ek client register karo. Returns cleanup function. */
+/** Register one client. Returns a cleanup function. */
 function addClient(res, { adminId, permissions = [] }) {
   initSubscriber();
 
@@ -55,12 +55,12 @@ function addClient(res, { adminId, permissions = [] }) {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
-    'X-Accel-Buffering': 'no', // nginx buffering band — warna events atak jaate hain
+    'X-Accel-Buffering': 'no', // disable nginx buffering — otherwise events get stuck
   });
   res.write(`retry: 5000\n\n`);
   res.write(`event: connected\ndata: ${JSON.stringify({ clientId: id })}\n\n`);
 
-  // heartbeat — proxies idle connection kaat dete hain warna
+  // heartbeat — proxies cut idle connections, otherwise
   const heartbeat = setInterval(() => {
     try { res.write(': ping\n\n'); } catch { /* client ja chuka */ }
   }, 25000);
@@ -74,12 +74,12 @@ function addClient(res, { adminId, permissions = [] }) {
 }
 
 /**
- * Event bhejo. Redis chalu hai to sab workers tak jaayega, warna sirf
+ * Emit an event. If Redis is running it reaches every worker, otherwise only
  * is worker ke clients tak (degraded but working).
  *
  * @param {string} type      'order.created' | 'order.status' | 'stock.low' | ...
  * @param {object} data      payload
- * @param {string} permission  jisko ye event dikhna chahiye (optional)
+ * @param {string} permission  who should see this event (optional)
  */
 function emit(type, data, permission = null) {
   const event = { type, data, permission, at: new Date().toISOString() };
@@ -96,7 +96,7 @@ function deliver(event) {
   const payload = JSON.stringify({ type: event.type, data: event.data, at: event.at });
 
   clients.forEach((client, id) => {
-    // permission-gated event — jiske paas permission nahi usko mat bhejo
+    // permission-gated event — do not send it to anyone without the permission
     if (event.permission && !client.permissions.includes(event.permission)) return;
 
     try {

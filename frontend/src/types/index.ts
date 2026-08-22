@@ -216,7 +216,7 @@ export interface ApiCartItem {
   line_total: number;
   in_stock: boolean;
   available_quantity?: number;
-  /** false = ye specific item COD block kar raha hai (cold-chain ya isCOD=0) */
+  /** false = this specific item is blocking COD (cold-chain or isCOD=0) */
   cod_eligible?: boolean;
 }
 
@@ -236,16 +236,16 @@ export interface Customer {
   customer_id: number | string;
   customer_name?: string;
   mobile?: string;
-  // Backend DB column ka naam email_id hai, `email` nahi — response me
-  // yahi key aati hai.
+  // The backend DB column is named email_id, not `email` — the response
+  // carries this key.
   email_id?: string;
   [key: string]: unknown;
 }
 
 export interface OrderItem {
   item_id?: number;
-  // Backend `order_items` table se SELECT * aata hai — product_id hamesha
-  // hota hai, pehle type me missing tha (eligibility check ke liye chahiye).
+  // The backend does SELECT * on the `order_items` table — product_id is always
+  // present, but was missing from the type earlier (needed for the eligibility check).
   product_id: string | number;
   product_name: string;
   product_image?: string;

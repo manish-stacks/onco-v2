@@ -8,7 +8,7 @@ const { getPagination } = require('../../utils/helpers');
 const page = asyncHandler(async (req, res) => {
   const data = await cache.getOrSet(`cms:page:${req.params.slug}`, cache.TTL.LONG,
     () => cmsModel.findPageBySlug(req.params.slug));
-  if (!data) return fail(res, 'Page nahi mila', 404);
+  if (!data) return fail(res, 'Page not found', 404);
   return ok(res, data);
 });
 
@@ -32,17 +32,17 @@ const news = asyncHandler(async (req, res) => {
 const newsDetail = asyncHandler(async (req, res) => {
   const item = await cache.getOrSet(`cms:news:${req.params.id}`, cache.TTL.LONG,
     () => cmsModel.findNewsById(req.params.id));
-  if (!item || item.status !== 'active') return fail(res, 'News nahi mili', 404);
+  if (!item || item.status !== 'active') return fail(res, 'Article not found', 404);
   return ok(res, item);
 });
 
 /** POST /contact — enquiry form */
 const submitEnquiry = asyncHandler(async (req, res) => {
   const id = await cmsModel.createEnquiry(req.body);
-  return created(res, { id }, 'Aapka message mil gaya, jaldi contact karenge');
+  return created(res, { id }, 'We have received your message and will contact you soon');
 });
 
-/** GET /settings — public config (secrets nahi) */
+/** GET /settings — public config (no secrets) */
 const publicSettings = asyncHandler(async (req, res) => {
   const data = await cache.getOrSet('settings:public', cache.TTL.LONG, async () => {
     const s = await settingsModel.get();
@@ -58,6 +58,8 @@ const publicSettings = asyncHandler(async (req, res) => {
       twitter_link: s.twitter_link,
       instagram_link: s.instagram_link,
       shipping_charge: s.shipping_charge,
+      default_gst: s.default_gst,
+      gst_override: s.gst_override,
       shipping_threshold: s.shipping_threshold,
       is_cod: s.is_cod,
       cod_fee: s.cod_fee,

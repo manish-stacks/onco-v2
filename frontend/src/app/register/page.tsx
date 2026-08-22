@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -22,7 +22,12 @@ function RegisterInner() {
   const router = useRouter();
   const params = useSearchParams();
   const redirectTo = params.get("redirect") || "/account";
-  const { requestOtp, verifyOtp } = useAuth();
+  const { requestOtp, verifyOtp, isLoggedIn, loading: authLoading } = useAuth();
+
+  // Do not show the register page to an already signed-in user
+  useEffect(() => {
+    if (!authLoading && isLoggedIn) router.replace(redirectTo);
+  }, [authLoading, isLoggedIn, redirectTo, router]);
 
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
@@ -31,11 +36,11 @@ function RegisterInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // requestOtp registered number pe login karwa deta hai, unregistered pe
-  // naya account bana deta hai — ek hi form dono kaam karta hai, alag
-  // "sign up" step ki zaroorat nahi. Naam yahan nahi maangte — checkout ke
-  // waqt jo billing/patient naam diya jaata hai wahi account pe save ho
-  // jaata hai (pehli baar).
+  // requestOtp logs in a registered number, and for an unregistered one it
+  // creates a new account — one form does both jobs, no separate
+  // no "sign up" step is needed. We do not ask for the name here — at checkout
+  // the billing/patient name given at that time is what gets saved on the account
+  // (the first time).
   async function handleRequestOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);

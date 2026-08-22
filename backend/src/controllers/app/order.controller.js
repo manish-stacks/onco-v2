@@ -7,19 +7,19 @@ const { ok, created, fail, paginated, asyncHandler } = require('../../utils/resp
 const { getPagination } = require('../../utils/helpers');
 
 /**
- * Web aur app dono yahi endpoints use karte hain.
- * Farak sirf `X-Client-Platform: web|app` header ka hai, jo orders.orderFrom
- * me store ho jaata hai. Baaki logic bilkul same.
+ * Both web and app use these endpoints.
+ * The only difference is the `X-Client-Platform: web|app` header, which drives orders.orderFrom
+ * is stored in it. The rest of the logic is identical.
  */
 
 /** POST /orders/quote — order banaye bina totals dikhao (cart page) */
 const quote = asyncHandler(async (req, res) => {
   let items = req.body.items;
 
-  // items na bheje ho to cart se le lo
+  // if no items were sent, take them from the cart
   if (!items || !items.length) {
     const cart = await cartModel.getCartWithTotals(req.customer.customer_id);
-    if (!cart.items.length) return fail(res, 'Cart khaali hai', 409);
+    if (!cart.items.length) return fail(res, 'Your cart is empty', 409);
     items = cart.items.map((i) => ({ product_id: i.product_id, unit_quantity: i.product_quantity }));
   }
 
@@ -38,7 +38,7 @@ const checkout = asyncHandler(async (req, res) => {
 
   if (!items || !items.length) {
     const cart = await cartModel.getCartWithTotals(req.customer.customer_id);
-    if (!cart.items.length) return fail(res, 'Cart khaali hai', 409);
+    if (!cart.items.length) return fail(res, 'Your cart is empty', 409);
     items = cart.items.map((i) => ({ product_id: i.product_id, unit_quantity: i.product_quantity }));
   }
 
@@ -50,7 +50,7 @@ const checkout = asyncHandler(async (req, res) => {
     ...req.body,
   });
 
-  return created(res, result, 'Order place ho gaya');
+  return created(res, result, 'Order placed');
 });
 
 /** POST /orders/verify-payment — Razorpay checkout success ke baad */
@@ -58,23 +58,23 @@ const verifyPayment = asyncHandler(async (req, res) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
   if (!razorpayService.verifyPaymentSignature({ razorpay_order_id, razorpay_payment_id, razorpay_signature })) {
-    return fail(res, 'Payment signature verify nahi hua', 400);
+    return fail(res, 'The payment signature could not be verified', 400);
   }
 
   const order = await orderModel.findByRazorpayOrderId(razorpay_order_id);
-  if (!order) return fail(res, 'Order nahi mila', 404);
-  if (order.customer_id !== req.customer.customer_id) return fail(res, 'Order nahi mila', 404);
+  if (!order) return fail(res, 'Order not found', 404);
+  if (order.customer_id !== req.customer.customer_id) return fail(res, 'Order not found', 404);
 
   const updated = await orderService.markOrderPaid(order.order_id, razorpay_payment_id, `customer:${req.customer.customer_id}`);
-  return ok(res, updated, 'Payment confirm ho gaya');
+  return ok(res, updated, 'Payment confirmed');
 });
 
-/** POST /orders/:orderId/retry-payment — payment fail hua tha, dobara */
+/** POST /orders/:orderId/retry-payment — the payment failed, try again */
 const retryPayment = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId, { withItems: false, withHistory: false });
-  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order nahi mila', 404);
-  if (order.payment_status === 'Paid') return fail(res, 'Ye order pehle hi paid hai', 409);
-  if (order.status === 'Cancelled') return fail(res, 'Cancel order ka payment nahi ho sakta', 409);
+  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order not found', 404);
+  if (order.payment_status === 'Paid') return fail(res, 'This order is already paid', 409);
+  if (order.status === 'Cancelled') return fail(res, 'A cancelled order cannot be paid for', 409);
 
   const rzp = await razorpayService.createOrder(order.amount, `${order.databaseOrderID}-R`, {
     order_id: String(order.order_id),
@@ -107,14 +107,14 @@ const myOrders = asyncHandler(async (req, res) => {
 /** GET /orders/:orderId */
 const orderDetail = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId);
-  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order nahi mila', 404);
+  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order not found', 404);
   return ok(res, order);
 });
 
 /** GET /orders/:orderId/track */
 const trackOrder = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId);
-  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order nahi mila', 404);
+  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order not found', 404);
 
   return ok(res, {
     order_id: order.order_id,
@@ -134,13 +134,13 @@ const trackOrder = asyncHandler(async (req, res) => {
 /** POST /orders/:orderId/cancel */
 const cancelOrder = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId, { withItems: false, withHistory: false });
-  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order nahi mila', 404);
+  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order not found', 404);
 
   const result = await orderService.cancelOrder(order.order_id, {
     changedBy: `customer:${req.customer.customer_id}`,
-    reason: req.body.reason || 'Customer ne cancel kiya',
+    reason: req.body.reason || 'Cancelled by the customer',
   });
-  return ok(res, result, 'Order cancel ho gaya');
+  return ok(res, result, 'Order cancelled');
 });
 
 /** POST /orders/:orderId/review — delivered product pe review */
@@ -148,7 +148,7 @@ const submitReview = asyncHandler(async (req, res) => {
   const { product_id, rating, title, review } = req.body;
 
   const purchased = await orderModel.customerHasPurchased(req.customer.customer_id, product_id);
-  if (!purchased) return fail(res, 'Review sirf khareede hue products pe de sakte ho', 403);
+  if (!purchased) return fail(res, 'You can only review products you have purchased', 403);
 
   await reviewModel.create({
     product_id,
@@ -156,21 +156,21 @@ const submitReview = asyncHandler(async (req, res) => {
     order_id: req.params.orderId,
     rating, title, review,
   });
-  return created(res, null, 'Review submit ho gaya — approve hone ke baad dikhega');
+  return created(res, null, 'Review submitted — it will appear once approved');
 });
 
 /**
- * POST /orders/track-public — login ke bina bhi tracking dekh sakte ho.
- * Rate-limit ki zaroorat hai production me (basic brute-force protection),
- * abhi order_ref + phone dono match karne padte hain isliye guessing
- * practically impossible hai.
+ * POST /orders/track-public — tracking can be viewed without logging in.
+ * Rate limiting is required in production (basic brute-force protection),
+ * currently both order_ref and phone must match, so guessing
+ * is practically impossible.
  */
 const trackPublic = asyncHandler(async (req, res) => {
   const { order_ref: orderRef, phone } = req.body;
-  if (!orderRef || !phone) return fail(res, 'Order ID aur mobile number dono chahiye', 422);
+  if (!orderRef || !phone) return fail(res, 'Both the Order ID and mobile number are required', 422);
 
   const order = await orderModel.findByRefAndPhone(orderRef.trim(), phone);
-  if (!order) return fail(res, 'Order nahi mila — Order ID aur mobile number check karo', 404);
+  if (!order) return fail(res, 'Order not found — check the Order ID and mobile number', 404);
 
   return ok(res, order);
 });

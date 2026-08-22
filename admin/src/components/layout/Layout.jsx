@@ -27,13 +27,13 @@ export function AppLayout() {
         '/prescriptions': d.pending_prescriptions || 0,
         '/inventory': (d.low_stock || 0) + (d.out_of_stock || 0),
       });
-    } catch { /* badge fail hone se page nahi rukna chahiye */ }
+    } catch { /* a failed badge must not break the page */ }
   }, [can]);
 
   /**
-   * Live events — naya order/prescription aate hi badge turant update hota hai
-   * aur toast dikhta hai. SSE connection tootne pe niche wala fallback poll
-   * chalta rehta hai.
+   * Live events — the badge updates instantly when a new order/prescription arrives
+   * and a toast is shown. If the SSE connection drops, the fallback poll below
+   * keeps running.
    */
   const { connected } = useLiveEvents({
     onEvent: (event) => {
@@ -45,11 +45,11 @@ export function AppLayout() {
       }
       if (type === 'prescription.created') {
         setAlerts((a) => ({ ...a, '/prescriptions': (a['/prescriptions'] || 0) + 1 }));
-        toast.info(`Naya prescription upload hua — ${data.reference}`);
+        toast.info(`New prescription uploaded — ${data.reference}`);
       }
       if (type === 'stock.out') {
         setAlerts((a) => ({ ...a, '/inventory': (a['/inventory'] || 0) + 1 }));
-        toast.error(`Stock khatam — ${data.product_name}`);
+        toast.error(`Out of stock — ${data.product_name}`);
       }
       if (type === 'order.status' || type === 'order.paid' || type === 'stock.changed') {
         loadStats(); // count exact rakhne ke liye refetch
@@ -57,7 +57,7 @@ export function AppLayout() {
     },
   });
 
-  // pehla load + fallback poll (SSE down ho to 60s, chalu ho to 5 min)
+  // first load + fallback poll (60s when SSE is down, 5 min when it is up)
   useEffect(() => {
     loadStats();
     const interval = connected ? 300000 : 60000;
@@ -83,17 +83,17 @@ export function AppLayout() {
   );
 }
 
-/** Login na ho to /login pe bhejo */
+/** Redirect to /login when not logged in */
 export function ProtectedRoute({ children }) {
   const { admin, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><PageLoader label="Session check kar rahe hain…" /></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><PageLoader label="Checking your session…" /></div>;
   if (!admin) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   return children;
 }
 
-/** Permission na ho to friendly message — blank page nahi */
+/** A friendly message when the permission is missing — not a blank page */
 export function PermissionGate({ perm, children }) {
   const { can } = useAuth();
   if (!can(perm)) {
@@ -101,9 +101,9 @@ export function PermissionGate({ perm, children }) {
       <div className="card">
         <EmptyState
           icon={ShieldAlert}
-          title="Is section ka access nahi hai"
-          description="Ye page dekhne ki permission aapke role me nahi hai. Zaroorat ho to admin se bolo."
-          action={<Button variant="secondary" onClick={() => window.history.back()}>Wapas jao</Button>}
+          title="You do not have access to this section"
+          description="Your role does not have permission to view this page. Ask an admin if you need it."
+          action={<Button variant="secondary" onClick={() => window.history.back()}>Go back</Button>}
         />
       </div>
     );
@@ -111,7 +111,7 @@ export function PermissionGate({ perm, children }) {
   return children;
 }
 
-/** Har page ka top header — title + actions + optional back link */
+/** Top header for every page — title + actions + optional back link */
 export function PageHeader({ title, subtitle, actions, back, backLabel = 'Back', className }) {
   return (
     <div className={cx('flex flex-wrap items-start justify-between gap-3 mb-4', className)}>

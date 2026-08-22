@@ -26,7 +26,7 @@ export default function Deals() {
   const del = useMutation(
     (id) => api.del(`/admin/deals/${id}`),
     {
-      success: 'Deal delete ho gaya',
+      success: 'Deal deleted',
       onSuccess: () => {
         setToDelete(null);
         reload();
@@ -40,7 +40,7 @@ export default function Deals() {
     <>
       <PageHeader
         title="Deals"
-        subtitle="Homepage pe dikhne wale promotional strips"
+        subtitle="Promotional strips shown on the homepage"
         actions={
           canManage && (
             <Button
@@ -176,8 +176,8 @@ export default function Deals() {
             },
           ]}
           emptyIcon={Tag}
-          emptyTitle="Koi deal nahi"
-          emptyDescription="Homepage pe promotional strip dikhane ke liye deal add karo."
+          emptyTitle="No deals"
+          emptyDescription="Add a deal to show a promotional strip on the homepage."
           emptyAction={
             canManage && (
               <Button
@@ -230,7 +230,7 @@ export default function Deals() {
             key: 'position',
             label: 'Sort position',
             type: 'number',
-            hint: 'Chhota number pehle aayega',
+            hint: 'A lower number comes first',
           },
 
          
@@ -260,7 +260,7 @@ export default function Deals() {
         loading={del.loading}
         title="Delete deal"
         confirmLabel="Delete"
-        message={`"${toDelete?.title}" homepage se hat jayega.`}
+        message={`"${toDelete?.title}" will be removed from the homepage.`}
       />
     </>
   );

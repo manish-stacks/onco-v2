@@ -1,5 +1,5 @@
 /**
- * SEO helpers — shared across pages jo `generateMetadata` use karte hain.
+ * SEO helpers — shared across pages that use `generateMetadata`.
  */
 
 export const SITE_URL = "https://oncohealthmart.com";

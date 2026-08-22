@@ -7,16 +7,16 @@ import { Button, Field, Input, Code, EmptyState, cx } from '@/components/ui';
 import { Modal } from '@/components/ui/Modal';
 
 /**
- * Bulk stock import. CSV browser me hi parse hota hai, preview dikhta hai,
- * phir `/admin/inventory/bulk` pe jaata hai.
+ * Bulk stock import. The CSV is parsed in the browser, a preview is shown,
+ * then goes to `/admin/inventory/bulk`.
  *
  * Expected columns: product_id, stock_quantity, note (optional)
- * Header case-insensitive hai aur extra columns ignore ho jaate hain.
+ * The header is case-insensitive and extra columns are ignored.
  */
 
 const REQUIRED = ['product_id', 'stock_quantity'];
 
-/** Chhota CSV parser — quoted fields aur embedded commas handle karta hai */
+/** A small CSV parser — handles quoted fields and embedded commas */
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -64,10 +64,10 @@ function validate(records) {
     const qty = parseInt(r.stock_quantity, 10);
 
     if (!r.product_id) errors.push('product_id missing');
-    else if (Number.isNaN(pid) || pid < 1) errors.push('product_id valid number nahi hai');
+    else if (Number.isNaN(pid) || pid < 1) errors.push('product_id is not a valid number');
 
     if (r.stock_quantity === '' || r.stock_quantity === undefined) errors.push('stock_quantity missing');
-    else if (Number.isNaN(qty) || qty < 0) errors.push('stock_quantity 0 ya usse zyada hona chahiye');
+    else if (Number.isNaN(qty) || qty < 0) errors.push('stock_quantity must be 0 or greater');
 
     return { ...r, product_id: pid, stock_quantity: qty, _errors: errors };
   });
@@ -98,18 +98,18 @@ export default function BulkImportModal({ open, onClose, onDone }) {
 
       const missing = REQUIRED.filter((c) => !headers.includes(c));
       if (missing.length) {
-        setParseError(`Ye columns nahi mile: ${missing.join(', ')}. Sample CSV download karke dekh lo.`);
+        setParseError(`These columns are missing: ${missing.join(', ')}. Download the sample CSV to compare.`);
         setRows(null);
         return;
       }
       if (!records.length) {
-        setParseError('File me koi data row nahi hai.');
+        setParseError('The file has no data rows.');
         setRows(null);
         return;
       }
       setRows(validate(records));
     } catch {
-      setParseError('File padhi nahi ja saki. Kya ye valid CSV hai?');
+      setParseError('The file could not be read. Is it a valid CSV?');
       setRows(null);
     }
   };
@@ -126,13 +126,13 @@ export default function BulkImportModal({ open, onClose, onDone }) {
       })),
     }),
     {
-      success: (res) => `${res.data.updated} products ka stock update ho gaya`,
+      success: (res) => `Stock updated for ${res.data.updated} products`,
       onSuccess: (res) => { setResult(res.data); onDone?.(); },
     }
   );
 
   const downloadSample = () => {
-    const csv = 'product_id,stock_quantity,note\n101,50,Supplier invoice INV-2201\n102,0,Batch expire ho gayi\n103,120,\n';
+    const csv = 'product_id,stock_quantity,note\n101,50,Supplier invoice INV-2201\n102,0,Batch expired\n103,120,\n';
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -145,7 +145,7 @@ export default function BulkImportModal({ open, onClose, onDone }) {
     <Modal
       open={open} onClose={close} size="xl"
       title="Bulk stock import"
-      subtitle="Stock-taking ya supplier delivery ke baad — sab products ek saath update karo"
+      subtitle="After stock-taking or a supplier delivery — update all products at once"
       footer={
         result ? (
           <Button variant="primary" onClick={close}>Done</Button>
@@ -185,7 +185,7 @@ export default function BulkImportModal({ open, onClose, onDone }) {
                 <FileSpreadsheet size={18} className="text-teal" />
                 <div className="text-left">
                   <p className="text-[0.8125rem] font-medium text-ink">{fileName}</p>
-                  <p className="text-2xs text-ink-500 tabular-nums">{rows.length} rows padhi gayi</p>
+                  <p className="text-2xs text-ink-500 tabular-nums">{rows.length} rows read</p>
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); reset(); }}
@@ -198,9 +198,9 @@ export default function BulkImportModal({ open, onClose, onDone }) {
             ) : (
               <>
                 <Upload size={20} className="mx-auto text-ink-300 mb-2" />
-                <p className="text-[0.8125rem] text-ink font-medium">CSV file yahan drop karo ya click karo</p>
+                <p className="text-[0.8125rem] text-ink font-medium">Drop a CSV file here, or click</p>
                 <p className="text-2xs text-ink-500 mt-1">
-                  Columns chahiye: <Code className="text-2xs">product_id</Code>,{' '}
+                  Required columns: <Code className="text-2xs">product_id</Code>,{' '}
                   <Code className="text-2xs">stock_quantity</Code>, aur optional{' '}
                   <Code className="text-2xs">note</Code>
                 </p>
@@ -220,7 +220,7 @@ export default function BulkImportModal({ open, onClose, onDone }) {
               onClick={downloadSample}
               className="inline-flex items-center gap-1.5 text-2xs text-teal hover:underline"
             >
-              <Download size={12} /> Sample CSV download karo
+              <Download size={12} /> Download sample CSV
             </button>
           )}
 
@@ -234,7 +234,7 @@ export default function BulkImportModal({ open, onClose, onDone }) {
               {invalid.length > 0 && (
                 <div className="border border-signal-danger/25 bg-signal-dangerBg rounded overflow-hidden">
                   <p className="px-3 py-2 text-2xs font-semibold text-signal-danger border-b border-signal-danger/20">
-                    Ye rows skip ho jaayengi — theek karke dobara upload karo
+                    These rows will be skipped — fix them and upload again
                   </p>
                   <ul className="max-h-32 overflow-y-auto divide-y divide-signal-danger/10">
                     {invalid.slice(0, 20).map((r) => (
@@ -281,8 +281,8 @@ export default function BulkImportModal({ open, onClose, onDone }) {
               </div>
 
               <p className="text-2xs text-ink-500">
-                Ye <strong className="text-ink-700">exact stock set</strong> karta hai (add nahi karta).
-                Har change inventory ledger me record ho jaayega.
+                This <strong className="text-ink-700">sets the exact stock</strong> (it does not add to it).
+                Every change is recorded in the inventory ledger.
               </p>
             </>
           )}
@@ -313,13 +313,13 @@ function ImportResult({ result }) {
       </div>
       <p className="text-sm font-semibold text-ink">Import complete</p>
       <p className="text-2xs text-ink-500 mt-1 tabular-nums">
-        {result.updated} of {result.total} products update ho gaye
+        {result.updated} of {result.total} products updated
       </p>
 
       {result.failed?.length > 0 && (
         <div className="mt-4 text-left border border-signal-warn/25 bg-signal-warnBg rounded overflow-hidden">
           <p className="px-3 py-2 text-2xs font-semibold text-signal-warn border-b border-signal-warn/20">
-            {result.failed.length} products update nahi ho paaye
+            {result.failed.length} products could not be updated
           </p>
           <ul className="max-h-32 overflow-y-auto divide-y divide-signal-warn/10">
             {result.failed.map((f) => (

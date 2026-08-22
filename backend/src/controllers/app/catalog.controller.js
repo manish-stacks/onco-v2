@@ -37,12 +37,12 @@ const listProducts = asyncHandler(async (req, res) => {
 const productDetail = asyncHandler(async (req, res) => {
   const key = `products:detail:${req.params.slug}`;
   const product = await cache.getOrSet(key, cache.TTL.MEDIUM, () => productModel.findBySlug(req.params.slug));
-  if (!product) return fail(res, 'Product nahi mila', 404);
+  if (!product) return fail(res, 'Product not found', 404);
   
   const related = await cache.getOrSet(`products:related:${product.product_id}`, cache.TTL.LONG,
     () => productModel.related(product.product_id, 8));
 
-  // wishlist flag sirf logged-in user ke liye (isliye cache ke bahar)
+  // the wishlist flag is only for a logged-in user (hence outside the cache)
   let inWishlist = false;
   if (req.customer) inWishlist = await wishlistModel.has(req.customer.customer_id, product.product_id);
 
@@ -73,20 +73,20 @@ const categoryTree = asyncHandler(async (req, res) => {
 const categoryDetail = asyncHandler(async (req, res) => {
   const category = await cache.getOrSet(`categories:slug:${req.params.slug}`, cache.TTL.LONG,
     () => categoryModel.findBySlug(req.params.slug));
-  if (!category) return fail(res, 'Category nahi mili', 404);
+  if (!category) return fail(res, 'Category not found', 404);
   return ok(res, category);
 });
 
 /**
- * GET /home — homepage ka saara data ek call me.
- * App ko 8 alag API hit karne ki zaroorat nahi, aur poora response cached hai.
+ * GET /home — all homepage data in a single call.
+ * The app does not need to hit 8 separate APIs, and the whole response is cached.
  */
 const home = asyncHandler(async (req, res) => {
   const data = await cache.getOrSet('home:feed', cache.TTL.MEDIUM, async () => {
     const [banners, categories, brands, deals, offers, testimonials, settings] = await Promise.all([
       settingsModel.listBanners('Active'),
       categoryModel.tree('Active'),
-      settingsModel.listBrands('active'),
+      settingsModel.listPublicBrands(),
       settingsModel.listDeals(true),
       settingsModel.listOffers(true),
       reviewModel.listTestimonials('active'),
@@ -102,7 +102,7 @@ const home = asyncHandler(async (req, res) => {
     return {
       banners,
       categories,
-      brands:brands.rows,
+      brands: brands.rows.slice(0, 24),
       deals,
       offers,
       testimonials,
@@ -153,10 +153,10 @@ const search = asyncHandler(async (req, res) => {
   return ok(res, data);
 });
 
-/** GET /serviceable-city?city= — delivery available hai ya nahi */
+/** GET /serviceable-city?city= — whether delivery is available */
 const checkServiceability = asyncHandler(async (req, res) => {
   const city = req.query.city;
-  if (!city) return fail(res, 'city query param chahiye', 422);
+  if (!city) return fail(res, 'The city query param is required', 422);
 
   const found = await settingsModel.checkCity(city);
   return ok(res, {
@@ -165,8 +165,20 @@ const checkServiceability = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * GET /brands — every active brand, with its product count.
+ * This backs the "All Brands" page — no limit, no status guessing.
+ */
+const listBrands = asyncHandler(async (req, res) => {
+  const data = await cache.getOrSet('brands:all', cache.TTL.MEDIUM, async () => {
+    const { rows } = await settingsModel.listPublicBrands();
+    return rows;
+  });
+  return ok(res, data);
+});
+
 module.exports = {
-  listProducts, productDetail, productReviews,
+  listProducts, productDetail, productReviews, listBrands,
   listCategories, categoryTree, categoryDetail,
   home, search, checkServiceability,
 };

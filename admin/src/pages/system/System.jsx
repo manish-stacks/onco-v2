@@ -41,7 +41,7 @@ export default function System() {
     <>
       <PageHeader
         title="System"
-        subtitle="Kya chalu hai, cache, aur media migration"
+        subtitle="What is running, cache, and media migration"
       />
       <Card dense>
         <Tabs tabs={TABS} value={tab} onChange={setTab} className="px-4 pt-1" />
@@ -60,7 +60,7 @@ export function Health({ compact }) {
   const [deep, setDeep] = useState(false);
   const { data, loading, reload } = useResource(`/admin/system/health${deep ? '?deep=true' : ''}`);
 
-  // Dashboard strip 60s pe refresh hoti hai, full page 30s pe
+  // The dashboard strip refreshes every 60s, the full page every 30s
   useEffect(() => {
     const t = setInterval(reload, compact ? 60000 : 30000);
     return () => clearInterval(t);
@@ -78,7 +78,7 @@ export function Health({ compact }) {
   const services = Object.entries(data.services);
 
   if (compact) {
-    // Dashboard ke liye — sirf jo down/warning hain
+    // For the dashboard — only the ones that are down/warning
     const problems = services.filter(([, s]) => !s.ok || s.warning);
     if (!problems.length) return null;
 
@@ -95,7 +95,7 @@ export function Health({ compact }) {
               tone === 'idle' && 'bg-paper-sunk border-line text-ink-500'
             )}>
               <Icon size={14} />
-              <span>{s.label} {s.ok ? 'me warning hai' : s.configured === false ? 'configure nahi hai' : 'down hai'}</span>
+              <span>{s.label} {s.ok ? 'has a warning' : s.configured === false ? 'is not configured' : 'is down'}</span>
             </span>
           );
         })}
@@ -134,8 +134,8 @@ export function Health({ compact }) {
         <div className="flex items-start gap-2.5 text-2xs text-signal-danger bg-signal-dangerBg border border-signal-danger/25 rounded px-3 py-2 mb-4">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <p>
-            <strong>Koi payment gateway configure nahi hai.</strong> Online orders
-            abhi place nahi ho sakte — sirf COD chalega. Razorpay ya PayU ki keys .env me daalo.
+            <strong>No payment gateway is configured.</strong> Online orders
+            cannot be placed right now — only COD will work. Add the Razorpay or PayU keys to .env.
           </p>
         </div>
       )}
@@ -220,9 +220,9 @@ function MiniBlock({ label, value }) {
  * CACHE
  * ======================================================================= */
 const SCOPES = [
-  { value: 'all', label: 'Sab kuch (Redis + media disk cache)' },
-  { value: 'redis', label: 'Sirf Redis' },
-  { value: 'media', label: 'Sirf media disk cache' },
+  { value: 'all', label: 'Everything (Redis + media disk cache)' },
+  { value: 'redis', label: 'Redis only' },
+  { value: 'media', label: 'Media disk cache only' },
   { value: 'products', label: 'Products' },
   { value: 'categories', label: 'Categories' },
   { value: 'orders', label: 'Orders & dashboard' },
@@ -271,8 +271,8 @@ function CachePanel() {
             </div>
           ) : (
             <div className="border border-signal-warn/30 bg-signal-warnBg rounded-lg p-4 text-2xs text-signal-warn">
-              Redis connect nahi ho raha. Site chalti rahegi (cache fail-open hai)
-              lekin har request DB pe jayegi.
+              Redis is not connecting. The site keeps working (the cache is fail-open)
+              but every request will go to the DB.
             </div>
           )}
         </div>
@@ -287,8 +287,8 @@ function CachePanel() {
                 <Stat label="Limit" value={`${data?.media_cache?.limit_mb || 0} MB`} />
               </div>
               <p className="text-2xs text-ink-500 leading-relaxed">
-                S3 se aayi images yahan cache hoti hain, taaki har page load pe S3 hit na ho.
-                Limit cross hone pe sabse purani files apne aap hat jaati hain.
+                Images from S3 are cached here, so S3 is not hit on every page load.
+                Once the limit is crossed, the oldest files are removed automatically.
               </p>
             </div>
           )}
@@ -297,14 +297,14 @@ function CachePanel() {
 
       {canManage && (
         <div className="mt-5 pt-4 border-t border-line">
-          <h3 className="text-sm font-semibold text-ink mb-2">Cache clear karo</h3>
+          <h3 className="text-sm font-semibold text-ink mb-2">Clear cache</h3>
           <p className="text-2xs text-ink-500 mb-3 max-w-2xl leading-relaxed">
-            Data badalne pe cache apne aap clear ho jaata hai. Ye button tab chahiye jab
-            DB me seedha (phpMyAdmin se) change kiya ho, ya kuch purana data atka hua lag raha ho.
+            The cache clears itself when data changes. This button is only needed when you have
+            changed directly in the DB (via phpMyAdmin), or some old data appears to be stuck.
           </p>
           <div className="flex flex-wrap items-end gap-2">
             <div>
-              <span className="label">Kya clear karna hai</span>
+              <span className="label">What to clear</span>
               <Select value={scope} onChange={(e) => setScope(e.target.value)}
                 options={SCOPES} className="min-w-[280px]" />
             </div>
@@ -318,10 +318,10 @@ function CachePanel() {
       <ConfirmDialog
         open={confirmOpen} onClose={() => setConfirmOpen(false)}
         onConfirm={clear.run} loading={clear.loading}
-        variant="warn" title="Cache clear karein?" confirmLabel="Haan, clear karo"
+        variant="warn" title="Clear the cache?" confirmLabel="Yes, clear it"
         message={scope === 'all'
-          ? 'Poora Redis cache aur media disk cache dono saaf ho jayenge. Agle kuch requests thodi slow hongi jab tak cache dobara na bhar jaye. Data koi delete nahi hoga.'
-          : `"${SCOPES.find((s) => s.value === scope)?.label}" ka cache saaf ho jayega. Data koi delete nahi hoga.`}
+          ? 'Both the entire Redis cache and the media disk cache will be cleared. The next few requests will be a little slower until the cache refills. No data will be deleted.'
+          : `The "${SCOPES.find((s) => s.value === scope)?.label}" cache will be cleared. No data will be deleted.`}
       />
     </div>
   );
@@ -344,7 +344,7 @@ function MediaMigration() {
   const toast = useToast();
   const { data, loading, reload } = useResource('/admin/system/media/status');
 
-  const [selected, setSelected] = useState([]);   // kaunsi tables migrate karni hain
+  const [selected, setSelected] = useState([]);   // which tables to migrate
   const [batchSize, setBatchSize] = useState('50');
   const [running, setRunning] = useState(false);
   const [log, setLog] = useState([]);
@@ -380,10 +380,10 @@ function MediaMigration() {
 
   const clearQueue = useMutation(
     () => api.del('/admin/system/media/queue'),
-    { success: 'Queue saaf ho gayi', onSuccess: () => { setLog([]); reload(); } }
+    { success: 'Queue cleared', onSuccess: () => { setLog([]); reload(); } }
   );
 
-  // LEGACY_MEDIA_PATH badla ho to purani queued rows me galat URL padi hoti hai
+  // If LEGACY_MEDIA_PATH changed, the old queued rows hold the wrong URL
   const repairUrls = useMutation(
     () => api.post('/admin/system/media/repair-urls', { tables: selected }),
     { success: (res) => res.message, onSuccess: reload }
@@ -401,9 +401,9 @@ function MediaMigration() {
   const selectedPending = selected.reduce((sum, t) => sum + pendingFor(t), 0);
 
   /**
-   * Batch loop. Backend ek baar me 50-100 karta hai; hum baar-baar call
-   * karte hain jab tak khatam na ho. Beech me Stop dabao to `stopRef`
-   * chalti hui request ke baad loop rok deta hai.
+   * Batch loop. The backend does 50-100 at a time; we keep calling it
+   * until it is finished. Pressing Stop mid-way makes `stopRef`
+   * stops the loop after the in-flight request finishes.
    */
   const runMigration = async () => {
     setRunning(true);
@@ -418,7 +418,7 @@ function MediaMigration() {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         if (stopRef.current) {
-          setLog((l) => [...l, { type: 'info', text: 'Stop dabaya gaya — ruk gaye.' }]);
+          setLog((l) => [...l, { type: 'info', text: 'Stop was pressed — halted.' }]);
           break;
         }
 
@@ -440,12 +440,12 @@ function MediaMigration() {
         }]);
 
         if (d.done || d.processed === 0) {
-          setLog((l) => [...l, { type: 'ok', text: `Khatam — kul ${totalOk} migrate, ${totalFail} fail.` }]);
+          setLog((l) => [...l, { type: 'ok', text: `Finished — ${totalOk} migrated, ${totalFail} failed in total.` }]);
           break;
         }
       }
     } catch (err) {
-      setLog((l) => [...l, { type: 'error', text: `Ruk gaya: ${err.message}` }]);
+      setLog((l) => [...l, { type: 'error', text: `Stopped: ${err.message}` }]);
       toast.error(err.message);
     } finally {
       setRunning(false);
@@ -464,11 +464,11 @@ function MediaMigration() {
         <div className="flex items-start gap-2.5 text-2xs text-signal-danger bg-signal-dangerBg border border-signal-danger/25 rounded px-3 py-2 mb-4">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <div>
-            <p className="font-medium mb-1">S3 configure nahi hai</p>
+            <p className="font-medium mb-1">S3 is not configured</p>
             <p className="leading-relaxed">
               Backend ki .env me <Code className="text-2xs">S3_BUCKET</Code>,{' '}
               <Code className="text-2xs">S3_ACCESS_KEY_ID</Code>,{' '}
-              <Code className="text-2xs">S3_SECRET_ACCESS_KEY</Code> daalo, phir server restart karo.
+              <Code className="text-2xs">S3_SECRET_ACCESS_KEY</Code>, then restart the server.
             </p>
           </div>
         </div>
@@ -479,7 +479,7 @@ function MediaMigration() {
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
           <div>
             <p className="text-sm font-semibold text-ink">
-              {num(data.done)} / {num(data.total)} images migrate ho chuki hain
+              {num(data.done)} / {num(data.total)} images have been migrated
             </p>
             <p className="text-2xs text-ink-500 mt-0.5">
               Source: <Code className="text-2xs">{data.legacy_base}</Code>
@@ -503,13 +503,13 @@ function MediaMigration() {
         </div>
       </div>
 
-      {/* Step 1 — kya migrate karna hai */}
+      {/* Step 1 — what to migrate */}
       <div className="border border-line rounded-lg p-4 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
-            <h3 className="text-sm font-semibold text-ink">Kya migrate karna hai?</h3>
+            <h3 className="text-sm font-semibold text-ink">What should be migrated?</h3>
             <p className="text-2xs text-ink-500 mt-0.5">
-              Sirf chuni hui tables scan aur migrate hongi
+              Only the selected tables are scanned and migrated
             </p>
           </div>
           <div className="flex gap-1.5">
@@ -518,7 +518,7 @@ function MediaMigration() {
               Sab select
             </Button>
             <Button size="xs" variant="ghost" onClick={() => setSelected([])} disabled={running}>
-              Sab hatao
+              Remove all
             </Button>
           </div>
         </div>
@@ -586,7 +586,7 @@ function MediaMigration() {
 
           <Button icon={Wrench} onClick={repairUrls.run} loading={repairUrls.loading}
             disabled={running || !selectedPending}
-            title="LEGACY_MEDIA_PATH badla ho to purane URLs theek karo">
+            title="Fix old URLs if LEGACY_MEDIA_PATH changed">
             URLs fix
           </Button>
 
@@ -633,7 +633,7 @@ function MediaMigration() {
         </div>
       )}
 
-      {/* Scan result — confirm karta hai ki duplicate queue nahi hue */}
+      {/* Scan result — confirms that nothing was queued twice */}
       {scanResult && (
         <div className="border border-line rounded-lg overflow-hidden mb-4">
           <div className="flex items-center justify-between gap-2 px-3 py-2 bg-paper border-b border-line">
@@ -649,9 +649,9 @@ function MediaMigration() {
             <thead>
               <tr className="border-b border-line">
                 <th className="text-left font-semibold text-ink-500 px-3 py-1.5">Table</th>
-                <th className="text-right font-semibold text-ink-500 px-3 py-1.5">DB me mili</th>
+                <th className="text-right font-semibold text-ink-500 px-3 py-1.5">Found in DB</th>
                 <th className="text-right font-semibold text-ink-500 px-3 py-1.5">Nayi queue hui</th>
-                <th className="text-right font-semibold text-ink-500 px-3 py-1.5">Pehle se S3 pe</th>
+                <th className="text-right font-semibold text-ink-500 px-3 py-1.5">Already on S3</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -673,8 +673,8 @@ function MediaMigration() {
             </tbody>
           </table>
           <p className="px-3 py-2 text-2xs text-ink-500 border-t border-line">
-            Dobara scan karne pe &quot;nayi queue hui&quot; 0 aana chahiye — wahi rows dobara
-            add nahi hongi.
+            Running the scan again should report 0 for &quot;newly queued&quot; — the same rows
+            will not be added.
           </p>
         </div>
       )}
@@ -709,8 +709,8 @@ function MediaMigration() {
       {data.total === 0 && (
         <EmptyState
           icon={CloudUpload}
-          title="Abhi tak scan nahi hua"
-          description="Upar se tables choose karo, phir 'Scan' dabao — ye dekhega kitni images purani site pe padi hain."
+          title="Not scanned yet"
+          description="Choose the tables above, then press 'Scan' — it checks how many images are still on the old site."
         />
       )}
 
@@ -725,7 +725,7 @@ function MediaMigration() {
   );
 }
 
-/** Table names ko padhne layak banao */
+/** Make table names readable */
 const TABLE_LABELS = {
   products: 'Product images',
   categories: 'Category images',
@@ -739,17 +739,17 @@ const TABLE_LABELS = {
 };
 
 /**
- * Migrate se pehle preview.
+ * Preview before migrating.
  *
- * source_url public site ki hai, isliye browser seedha load kar leta hai —
- * jo image toot rahi ho wo yahin dikh jaayegi, S3 pe 404 page chadhne se pehle.
+ * the source_url belongs to the public site, so the browser loads it directly —
+ * any broken image shows up right here, before a 404 page is pushed to S3.
  */
 function PreviewModal({ open, onClose, tables, total, onConfirm, canMigrate }) {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(24);
   const [broken, setBroken] = useState({});
 
-  // Modal khulne pe / tables badalne pe pehle page pe wapas
+  // Back to the first page when the modal opens / the tables change
   useEffect(() => {
     if (open) { setPage(1); setBroken({}); }
   }, [open, tables?.join(',')]);
@@ -770,22 +770,22 @@ function PreviewModal({ open, onClose, tables, total, onConfirm, canMigrate }) {
   return (
     <Modal
       open={open} onClose={onClose} size="xl"
-      title="Migrate hone se pehle dekh lo"
+      title="Review before migrating"
       subtitle={data
-        ? `${num(data.total)} images queue me hain · page ${page}/${num(totalPages)}`
+        ? `${num(data.total)} images in the queue · page ${page}/${num(totalPages)}`
         : undefined}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Wapas</Button>
+          <Button variant="secondary" onClick={onClose}>Back</Button>
           {canMigrate && (
             <Button variant="primary" icon={Play} onClick={onConfirm} disabled={!total}>
-              Haan, {num(total)} images migrate karo
+              Yes, migrate {num(total)} images
             </Button>
           )}
         </>
       }
     >
-      {/* Pagination + page size — top pe, taaki scroll na karna pade */}
+      {/* Pagination + page size — at the top, so no scrolling is needed */}
       {data?.total > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-line">
           <div className="flex items-center gap-1.5">
@@ -812,7 +812,7 @@ function PreviewModal({ open, onClose, tables, total, onConfirm, canMigrate }) {
             {checked > 0 && (
               <span className={cx('text-2xs tabular-nums',
                 brokenCount ? 'text-signal-danger' : 'text-signal-ok')}>
-                {brokenCount ? `${brokenCount} toot rahi` : 'sab load ho gayi'}
+                {brokenCount ? `${brokenCount} broken` : 'all loaded'}
               </span>
             )}
             <Select
@@ -841,11 +841,11 @@ function PreviewModal({ open, onClose, tables, total, onConfirm, canMigrate }) {
             <div className="flex items-start gap-2 text-2xs text-signal-warn bg-signal-warnBg border border-signal-warn/20 rounded px-3 py-2 mb-3">
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />
               <p>
-                Is page me <strong>{brokenCount}</strong> images load nahi ho rahi.
-                Agar <em>saari</em> toot rahi hain to path galat hai — backend ki .env me{' '}
-                <Code className="text-2xs">LEGACY_MEDIA_PATH</Code> theek karo, phir
-                &quot;URLs fix&quot; dabao. Sirf kuch toot rahi hain to wo source pe hain hi
-                nahi — migration unhe skip kar ke &quot;failed&quot; me daal dega.
+                <strong>{brokenCount}</strong> images on this page are not loading.
+                If <em>all</em> of them are broken, the path is wrong — in the backend .env{' '}
+                <Code className="text-2xs">LEGACY_MEDIA_PATH</Code>, then press
+                &quot;URLs fix&quot;. If only a few are broken, those are missing at the source
+                — the migration will skip them and mark them as &quot;failed&quot;.
               </p>
             </div>
           )}
@@ -882,7 +882,7 @@ function PreviewModal({ open, onClose, tables, total, onConfirm, canMigrate }) {
             ))}
           </div>
 
-          {/* Bottom pagination — lambi list me upar scroll na karna pade */}
+          {/* Bottom pagination — so you do not have to scroll up on a long list */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-1.5 mt-4 pt-3 border-t border-line">
               <Button size="xs" variant="secondary" disabled={page <= 1}
@@ -901,8 +901,8 @@ function PreviewModal({ open, onClose, tables, total, onConfirm, canMigrate }) {
         </>
       ) : (
         <EmptyState
-          icon={CloudUpload} title="Queue khaali hai"
-          description="Pehle 'Scan' dabao — ye DB padh ke migrate hone wali images ki list banata hai."
+          icon={CloudUpload} title="The queue is empty"
+          description="Press 'Scan' first — it reads the DB and builds the list of images to migrate."
         />
       )}
     </Modal>
@@ -915,7 +915,7 @@ function FailedModal({ open, onClose }) {
   return (
     <Modal open={open} onClose={onClose} size="xl"
       title="Failed migrations"
-      subtitle={data ? `${num(data.total)} images migrate nahi ho payi` : undefined}
+      subtitle={data ? `${num(data.total)} images could not be migrated` : undefined}
     >
       {loading ? <Skeleton className="h-40" /> : data?.rows?.length ? (
         <ul className="divide-y divide-line -mx-5">
@@ -935,7 +935,7 @@ function FailedModal({ open, onClose }) {
           ))}
         </ul>
       ) : (
-        <EmptyState icon={CheckCircle2} title="Koi failure nahi" />
+        <EmptyState icon={CheckCircle2} title="No failures" />
       )}
     </Modal>
   );

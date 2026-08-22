@@ -6,10 +6,10 @@ const { ok, fail, asyncHandler } = require('../../utils/response');
 /**
  * GET /api/admin/events?token=<jwt>
  *
- * EventSource browser API custom headers nahi bhej sakti, isliye token
- * query param me aata hai. Same-origin (nginx proxy) pe ye theek hai —
- * lekin access logs me token na aaye iske liye nginx me is path ka
- * logging band kar dena behtar hai:
+ * The EventSource browser API cannot send custom headers, so the token
+ * arrives in a query param. On same-origin (nginx proxy) this is fine —
+ * but to keep the token out of the access logs, disable logging for this path in nginx
+ * it is better to turn logging off:
  *
  *   location /api/admin/events { access_log off; proxy_buffering off; ... }
  */
@@ -21,7 +21,7 @@ async function stream(req, res) {
   try {
     decoded = jwt.verify(token, process.env.JWT_ADMIN_SECRET);
   } catch {
-    return res.status(401).json({ success: false, message: 'Invalid ya expired token' });
+    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
   }
 
   const permissions = await getRolePermissions(decoded.user_type);
@@ -36,7 +36,7 @@ async function stream(req, res) {
   return undefined;
 }
 
-/** GET /api/admin/events/status — kitne admins connected hain */
+/** GET /api/admin/events/status — how many admins are connected */
 const status = asyncHandler(async (req, res) => ok(res, {
   connected_clients: eventsService.clientCount(),
 }));

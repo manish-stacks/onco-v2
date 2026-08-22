@@ -17,6 +17,7 @@ const eventsCtrl = require('../controllers/admin/events.controller');
 const shipping = require('../controllers/admin/shipping.controller');
 const otpCtrl = require('../controllers/admin/otp.controller');
 const system = require('../controllers/admin/system.controller');
+const pos = require('../controllers/admin/pos.controller');
 
 const { adminAuth, requirePermission } = require('../middleware/adminAuth');
 const { validate } = require('../middleware/validate');
@@ -43,13 +44,13 @@ router.post('/auth/login', validate({
 }), auth.login);
 
 /**
- * SSE live stream. adminAuth se PEHLE hai kyunki EventSource custom headers
- * nahi bhej sakti — token query param me aata hai aur controller khud verify
- * karta hai.
+ * SSE live stream. Mounted BEFORE adminAuth because EventSource cannot send custom headers
+ * so the token arrives as a query param and the controller verifies it itself
+ * .
  */
 router.get('/events', eventsCtrl.stream);
 
-router.use(adminAuth); // ---- yahan se aage sab protected ----
+router.use(adminAuth); // ---- everything below this is protected ----
 
 router.get('/events/status', eventsCtrl.status);
 
@@ -68,8 +69,8 @@ router.get('/dashboard', requirePermission(P.DASHBOARD_VIEW), dashboard.overview
 router.get('/dashboard/quick-stats', requirePermission(P.DASHBOARD_VIEW), dashboard.quickStats);
 
 // ===========================================================================
-// ORDERS — web + app dono ek hi jagah
-//   ?orderFrom=web / ?orderFrom=app / (blank = dono)
+// ORDERS — web + app in one place
+//   ?orderFrom=web / ?orderFrom=app / (blank = both)
 // ===========================================================================
 router.get('/orders', requirePermission(P.ORDERS_VIEW), order.list);
 router.get('/orders/stats', requirePermission(P.ORDERS_VIEW), order.stats);
@@ -83,6 +84,13 @@ router.patch('/orders/:orderId/status', requirePermission(P.ORDERS_MANAGE), vali
 router.patch('/orders/:orderId/tracking', requirePermission(P.ORDERS_MANAGE), order.updateTracking);
 router.patch('/orders/:orderId/payment', requirePermission(P.ORDERS_MANAGE), order.updatePayment);
 router.post('/orders/:orderId/cancel', requirePermission(P.ORDERS_CANCEL), order.cancelOrder);
+router.patch('/orders/:orderId/prescription', requirePermission(P.PRESCRIPTIONS_MANAGE),
+  order.updatePrescriptionStatus);
+
+// ---- POS (admin creates a custom order) ----
+router.get('/pos/products', requirePermission(P.ORDERS_MANAGE), pos.searchProducts);
+router.get('/pos/customer', requirePermission(P.ORDERS_MANAGE), pos.lookupCustomer);
+router.post('/pos/orders', requirePermission(P.ORDERS_MANAGE), pos.createOrder);
 
 // ===========================================================================
 // SHIPPING — DTDC
@@ -97,7 +105,7 @@ router.get('/shipments/:awb/scans', requirePermission(P.SHIPPING_VIEW), shipping
 
 // ===========================================================================
 // OTP LOGS + NOTIFICATION LOGS
-// ⚠ otp.view live OTP dikhata hai — default sirf Super Admin ke paas hai
+// ⚠ otp.view shows the live OTP — by default only Super Admin has it
 // ===========================================================================
 router.get('/otp-logs', requirePermission(P.OTP_VIEW), otpCtrl.list);
 router.get('/otp-logs/stats', requirePermission(P.OTP_VIEW), otpCtrl.stats);
@@ -175,7 +183,7 @@ router.patch('/customers/:customerId', requirePermission(P.CUSTOMERS_MANAGE), cu
 router.patch('/customers/:customerId/status', requirePermission(P.CUSTOMERS_MANAGE), customer.setStatus);
 
 // ===========================================================================
-// PRESCRIPTIONS — web + app dono ek hi table se
+// PRESCRIPTIONS — web and app share one table
 // ===========================================================================
 router.get('/prescriptions', requirePermission(P.PRESCRIPTIONS_VIEW), prescription.list);
 router.get('/prescriptions/stats', requirePermission(P.PRESCRIPTIONS_VIEW), prescription.stats);
@@ -256,7 +264,7 @@ router.patch('/enquiries/:enquiryId', requirePermission(P.CMS_MANAGE), settings.
 router.delete('/enquiries/:enquiryId', requirePermission(P.CMS_MANAGE), settings.removeEnquiry);
 
 // ===========================================================================
-// ADMIN USERS / ROLES — sub-admin aur employee yahan se bante hain
+// ADMIN USERS / ROLES — sub-admins and employees are created here
 // ===========================================================================
 router.get('/admins', requirePermission(P.ADMINS_VIEW), adminUser.list);
 router.get('/admins/:adminId', requirePermission(P.ADMINS_VIEW), adminUser.detail);

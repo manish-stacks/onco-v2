@@ -60,7 +60,7 @@ export default function ProductForm() {
     async () => {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => {
-        if (IMAGE_FIELDS.includes(k)) return; // purani image path dobara mat bhejo
+        if (IMAGE_FIELDS.includes(k)) return; // do not resend the old image path
         if (k === 'categories') { fd.append('categories', JSON.stringify(v)); return; }
         if (v === null || v === undefined || v === '') return;
         fd.append(k, typeof v === 'boolean' ? (v ? 1 : 0) : v);
@@ -72,7 +72,7 @@ export default function ProductForm() {
         : api.form('/admin/products', fd, 'POST');
     },
     {
-      success: isEdit ? 'Product update ho gaya' : 'Product ban gaya',
+      success: isEdit ? 'Product updated' : 'Product created',
       onSuccess: () => navigate('/products'),
     }
   );
@@ -86,7 +86,7 @@ export default function ProductForm() {
       <PageHeader
         back="/products" backLabel="Products"
         title={isEdit ? form.product_name || 'Edit product' : 'New product'}
-        subtitle={isEdit ? `Product #${productId}` : 'Catalog me naya item add karo'}
+        subtitle={isEdit ? `Product #${productId}` : 'Add a new item to the catalog'}
         actions={
           <>
             <Button onClick={() => navigate('/products')}>Cancel</Button>
@@ -110,17 +110,17 @@ export default function ProductForm() {
               <Field label="SKU" hint="Internal stock code">
                 <Input mono value={form.sku} onChange={(e) => set('sku', e.target.value)} />
               </Field>
-              <Field label="HSN code" hint="GST filing ke liye">
+              <Field label="HSN code" hint="For GST filing">
                 <Input mono value={form.hsn_code} onChange={(e) => set('hsn_code', e.target.value)} />
               </Field>
               <Field
                 label="Brand / manufacturer"
                 hint={form.company_name && !form.brand_id
-                  ? `Purana text: "${form.company_name}" — brand select karo`
+                  ? `Old text: "${form.company_name}" — select a brand`
                   : undefined}
               >
                 <Select
-                  value={form.brand_id || ''} placeholder="— Koi brand nahi"
+                  value={form.brand_id || ''} placeholder="— No brand"
                   options={(brands || []).map((b) => ({
                     value: b.id,
                     label: `${b.title} (${b.live_product_count ?? 0})`,
@@ -160,7 +160,7 @@ export default function ProductForm() {
                       </button>
                     );
                   })}
-                  {!categories?.length && <p className="text-2xs text-ink-500">Pehle categories banao.</p>}
+                  {!categories?.length && <p className="text-2xs text-ink-500">Create categories first.</p>}
                 </div>
               </Field>
 
@@ -199,25 +199,25 @@ export default function ProductForm() {
                 <Input type="number" step="0.01" value={form.product_sp}
                   onChange={(e) => set('product_sp', e.target.value)} />
               </Field>
-              <Field label="GST %" hint="Har item pe alag lagta hai">
+              <Field label="GST %" hint="Leave empty to use the site GST rate from Settings">
                 <Input type="number" step="0.01" value={form.product_gst}
                   onChange={(e) => set('product_gst', e.target.value)} placeholder="12" />
               </Field>
 
               <Field
                 label={isEdit ? 'Current stock' : 'Opening stock'}
-                hint={isEdit ? 'Change karne ke liye Inventory page use karo (audit trail ke liye)' : 'Pehli baar ka stock'}
+                hint={isEdit ? 'Use the Inventory page to change it (for the audit trail)' : 'Opening stock'}
               >
                 <Input type="number" value={form.stock_quantity} disabled={isEdit}
                   onChange={(e) => set('stock_quantity', e.target.value)} />
               </Field>
-              <Field label="Low stock alert" hint="Isse neeche alert aayega">
+              <Field label="Low stock alert" hint="An alert is raised below this">
                 <Input type="number" value={form.low_stock_alert}
                   onChange={(e) => set('low_stock_alert', e.target.value)} />
               </Field>
               <Field label="Backorder">
                 <div className="pt-2">
-                  <Checkbox label="Stock 0 hone pe bhi order lo"
+                  <Checkbox label="Accept orders even when stock is 0"
                     checked={!!Number(form.allow_backorder)}
                     onChange={(e) => set('allow_backorder', e.target.checked ? 1 : 0)} />
                 </div>
@@ -226,7 +226,7 @@ export default function ProductForm() {
               <Field label="Batch number">
                 <Input mono value={form.batch_number} onChange={(e) => set('batch_number', e.target.value)} />
               </Field>
-              <Field label="Expiry date" hint="Expiry report isi se banti hai">
+              <Field label="Expiry date" hint="The expiry report is built from this">
                 <Input type="date" value={form.expiry_date} onChange={(e) => set('expiry_date', e.target.value)} />
               </Field>
               <Field label="Storage">
@@ -238,7 +238,7 @@ export default function ProductForm() {
 
           {tab === 'content' && (
             <div className="space-y-4 max-w-3xl">
-              <Field label="Short description" hint="Listing pe dikhta hai">
+              <Field label="Short description" hint="Shown on the listing">
                 <Textarea rows={2} value={form.short_description}
                   onChange={(e) => set('short_description', e.target.value)} />
               </Field>
@@ -269,7 +269,7 @@ export default function ProductForm() {
           {tab === 'media' && (
             <div>
               <p className="text-2xs text-ink-500 mb-3">
-                Pehli image listing pe dikhti hai. JPG, PNG ya WebP — 5MB tak.
+                The first image appears on the listing. JPG, PNG or WebP — up to 5MB.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 max-w-3xl">
                 {IMAGE_FIELDS.map((f, i) => (
@@ -288,7 +288,7 @@ export default function ProductForm() {
 
           {tab === 'seo' && (
             <div className="space-y-4 max-w-2xl">
-              <Field label="URL slug" hint={isEdit ? 'Badalne pe purane links tootenge' : 'Khaali chhodo to naam se ban jaayega'}>
+              <Field label="URL slug" hint={isEdit ? 'Changing this will break existing links' : 'Leave empty to generate it from the name'}>
                 <Input mono value={form.slug} onChange={(e) => set('slug', e.target.value)}
                   placeholder="tab-imatinib-400mg" />
               </Field>

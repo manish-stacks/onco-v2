@@ -28,7 +28,7 @@ export function Coupons() {
 
   const del = useMutation(
     (id) => api.del(`/admin/coupons/${id}`),
-    { success: 'Coupon delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } }
+    { success: 'Coupon deleted', onSuccess: () => { setToDelete(null); reload(); } }
   );
 
   const canManage = can(P.COUPONS_MANAGE);
@@ -110,7 +110,7 @@ export function Coupons() {
     <>
       <PageHeader
         title="Coupons"
-        subtitle="Discount codes aur unka usage"
+        subtitle="Discount codes and their usage"
         actions={canManage && <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>New coupon</Button>}
       />
 
@@ -132,7 +132,7 @@ export function Coupons() {
             if (c.number_of_total_uses !== null && c.number_of_total_uses <= 0) return 'warn';
             return 'ok';
           }}
-          emptyIcon={Ticket} emptyTitle="Koi coupon nahi"
+          emptyIcon={Ticket} emptyTitle="No coupons"
           emptyAction={canManage && <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>New coupon</Button>}
         />
         <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
@@ -144,7 +144,7 @@ export function Coupons() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.coupon_id)} loading={del.loading}
         title="Delete coupon" confirmLabel="Delete"
-        message={`"${toDelete?.coupon_code}" delete ho jaayega. Jo orders isse ban chuke hain wo waise hi rahenge.`}
+        message={`"${toDelete?.coupon_code}" will be deleted. Orders already placed with it are unaffected.`}
       />
     </>
   );
@@ -180,7 +180,7 @@ function CouponModal({ open, onClose, coupon, onDone }) {
         ? api.put(`/admin/coupons/${coupon.coupon_id}`, body)
         : api.post('/admin/coupons', body);
     },
-    { success: isEdit ? 'Coupon update ho gaya' : 'Coupon ban gaya', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Coupon updated' : 'Coupon created', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -220,7 +220,7 @@ function CouponModal({ open, onClose, coupon, onDone }) {
         )}
 
         {isPct && (
-          <Field label="Max discount cap (₹)" hint="Percentage discount ki upper limit">
+          <Field label="Max discount cap (₹)" hint="Upper limit for a percentage discount">
             <Input type="number" value={form.max_discount_amount || ''}
               onChange={(e) => set('max_discount_amount', e.target.value)} placeholder="500" />
           </Field>
@@ -231,12 +231,12 @@ function CouponModal({ open, onClose, coupon, onDone }) {
             onChange={(e) => set('minimum_amount', e.target.value)} placeholder="999" />
         </Field>
 
-        <Field label="Total uses" hint="Khaali = unlimited">
+        <Field label="Total uses" hint="Leave empty for unlimited">
           <Input type="number" value={form.number_of_total_uses ?? ''}
             onChange={(e) => set('number_of_total_uses', e.target.value)} placeholder="unlimited" />
         </Field>
 
-        <Field label="Per customer limit" hint="Ek customer kitni baar use kar sake">
+        <Field label="Per customer limit" hint="How many times one customer may use it">
           <Input type="number" value={form.per_customer_limit || ''}
             onChange={(e) => set('per_customer_limit', e.target.value)} placeholder="1" />
         </Field>
@@ -265,7 +265,7 @@ function UsageModal({ coupon, onClose }) {
     <Modal
       open={!!coupon} onClose={onClose} size="lg"
       title={`Usage — ${coupon?.coupon_code || ''}`}
-      subtitle={data ? `${num(data.times_used)} times used · ${inr(data.total_discount_given)} discount diya` : undefined}
+      subtitle={data ? `${num(data.times_used)} times used · ${inr(data.total_discount_given)} discount given` : undefined}
     >
       {loading ? (
         <p className="text-sm text-ink-500 py-6 text-center">Loading…</p>
@@ -288,7 +288,7 @@ function UsageModal({ coupon, onClose }) {
           ))}
         </ul>
       ) : (
-        <EmptyState icon={Ticket} title="Abhi tak koi use nahi" description="Ye coupon abhi tak kisi ne apply nahi kiya." />
+        <EmptyState icon={Ticket} title="No usage yet" description="Nobody has applied this coupon yet." />
       )}
     </Modal>
   );
@@ -311,11 +311,11 @@ export function Reviews() {
 
   const moderate = useMutation(
     ({ id, status }) => api.patch(`/admin/reviews/${id}`, { status }),
-    { success: 'Review update ho gaya', onSuccess: reload }
+    { success: 'Review updated', onSuccess: reload }
   );
   const del = useMutation(
     (id) => api.del(`/admin/reviews/${id}`),
-    { success: 'Review delete ho gaya', onSuccess: () => { setToDelete(null); reload(); } }
+    { success: 'Review deleted', onSuccess: () => { setToDelete(null); reload(); } }
   );
 
   const canManage = can(P.REVIEWS_MANAGE);
@@ -379,7 +379,7 @@ export function Reviews() {
 
   return (
     <>
-      <PageHeader title="Product reviews" subtitle="Approve hone ke baad hi site pe dikhte hain" />
+      <PageHeader title="Product reviews" subtitle="Only visible on the site once approved" />
 
       <Card dense>
         <Tabs tabs={REVIEW_TABS} value={filters.status ?? ''}
@@ -388,8 +388,8 @@ export function Reviews() {
         <DataTable
           columns={columns} rows={rows} loading={loading} rowKey="review_id"
           rowTone={(r) => (r.status === 'Approved' ? 'ok' : r.status === 'Rejected' ? 'danger' : 'warn')}
-          emptyIcon={Star} emptyTitle="Koi review nahi"
-          emptyDescription="Customers review denge to yahan moderation ke liye aayenge."
+          emptyIcon={Star} emptyTitle="No reviews"
+          emptyDescription="Customer reviews will arrive here for moderation."
         />
         <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
       </Card>
@@ -398,7 +398,7 @@ export function Reviews() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.review_id)} loading={del.loading}
         title="Delete review" confirmLabel="Delete"
-        message="Ye review permanently delete ho jaayega."
+        message="This review will be permanently deleted."
       />
     </>
   );

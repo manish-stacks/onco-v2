@@ -32,7 +32,7 @@ export function CustomerList() {
     setExporting(true);
     try {
       await api.download('/admin/customers/export', filters, `customers-${Date.now()}.csv`);
-      toast.success('Export download ho gaya');
+      toast.success('Export downloaded');
     } catch (e) { toast.error(e.message); } finally { setExporting(false); }
   };
 
@@ -110,7 +110,7 @@ export function CustomerList() {
           columns={columns} rows={rows} loading={loading} rowKey="customer_id"
           rowTone={(c) => (c.status === 'Active' ? 'ok' : 'idle')}
           onRowClick={(c) => navigate(`/customers/${c.customer_id}`)}
-          emptyIcon={Users} emptyTitle="Koi customer nahi mila"
+          emptyIcon={Users} emptyTitle="No customers found"
         />
         <Pagination pagination={pagination} onPage={(p) => setFilter('page', p)} />
       </Card>
@@ -129,11 +129,11 @@ export function CustomerDetail() {
 
   const setStatus = useMutation(
     (status) => api.patch(`/admin/customers/${customerId}/status`, { status }),
-    { success: 'Customer status update ho gaya', onSuccess: () => { setBlockOpen(false); reload(); } }
+    { success: 'Customer status updated', onSuccess: () => { setBlockOpen(false); reload(); } }
   );
 
   if (loading && !c) return <PageLoader />;
-  if (!c) return <EmptyState icon={Users} title="Customer nahi mila" />;
+  if (!c) return <EmptyState icon={Users} title="Customer not found" />;
 
   const s = c.stats || {};
   const blocked = c.status !== 'Active';
@@ -199,7 +199,7 @@ export function CustomerDetail() {
               ))}
             </ul>
           ) : (
-            <EmptyState icon={ShoppingCart} title="Abhi tak koi order nahi" />
+            <EmptyState icon={ShoppingCart} title="No orders yet" />
           )}
         </Card>
 
@@ -239,7 +239,7 @@ export function CustomerDetail() {
                 ))}
               </ul>
             ) : (
-              <EmptyState icon={MapPin} title="Koi address save nahi" />
+              <EmptyState icon={MapPin} title="No saved addresses" />
             )}
           </Card>
         </div>
@@ -253,8 +253,8 @@ export function CustomerDetail() {
         title={blocked ? 'Unblock customer' : 'Block customer'}
         confirmLabel={blocked ? 'Unblock' : 'Block'}
         message={blocked
-          ? `${c.customer_name} dobara login karke order kar payenge.`
-          : `${c.customer_name} login nahi kar payenge aur naye order nahi de payenge. Purane orders waise hi rahenge.`}
+          ? `${c.customer_name} will be able to log in and order again.`
+          : `${c.customer_name} will not be able to log in or place new orders. Existing orders are unaffected.`}
       />
     </>
   );

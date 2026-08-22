@@ -78,7 +78,7 @@ function dateRangeFromPreset(preset) {
   return { from: toMysqlDate(start), to };
 }
 
-/** undefined/null/'' keys hata do, taaki `SET ?` me junk na jaye */
+/** Drop undefined/null/'' keys so that junk does not reach `SET ?` */
 function pickDefined(obj, allowedKeys = null) {
   const out = {};
   Object.keys(obj || {}).forEach((k) => {
@@ -89,7 +89,7 @@ function pickDefined(obj, allowedKeys = null) {
   return out;
 }
 
-/** MySQL JSON column ko safely parse — driver kabhi string kabhi object deta hai */
+/** Safely parse a MySQL JSON column — the driver returns a string sometimes and an object other times */
 function parseJson(value, fallback = []) {
   if (value === null || value === undefined) return fallback;
   if (typeof value === 'object') return value;

@@ -20,7 +20,7 @@ async function findById(adId, customerId) {
 
 async function create(customerId, data) {
   return db.withTransaction(async (conn) => {
-    // pehla address automatically default ban jaata hai
+    // the first address automatically becomes the default
     const [[{ count }]] = await conn.query(`SELECT COUNT(*) AS count FROM addresses WHERE user_id = ?`, [customerId]);
     const isDefault = data.is_default || count === 0 ? 1 : 0;
 

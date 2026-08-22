@@ -82,7 +82,7 @@ export default function WishlistPage() {
         </span>
         <h1 className="mb-2 font-display text-2xl font-bold text-[var(--ink)]">Your wishlist is empty</h1>
         <p className="mb-6 max-w-sm text-[var(--ink-soft)]">Save medicines you care about here so you can order them later.</p>
-        <Button href="/search">Browse Medicines</Button>
+        <Button href="/shop">Browse Medicines</Button>
       </div>
     );
   }

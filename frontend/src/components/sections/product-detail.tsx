@@ -399,9 +399,9 @@ export function ProductDetail({
             />
           </div>
 
-          {/* Reviews — apni jagah alag, tab ke peeche chhipi hui nahi. Isse
-              customer bina click kiye seedha reviews dekh sakta hai, aur
-              "Be the first to review" jaisa CTA yahin scroll ho jaata hai. */}
+          {/* Reviews — in their own place, not hidden behind a tab. That way
+              the customer can jump straight to the reviews without clicking, and
+              "Be the first to review" style CTA scrolls to this point. */}
           <div id="reviews" className="mt-8 scroll-mt-24 border-t border-[var(--line)] pt-8">
             <p className="mb-5 flex items-center gap-2 font-display text-lg font-bold text-[var(--ink)]">
               <MessageSquareText size={18} className="text-[var(--blue-500)]" />

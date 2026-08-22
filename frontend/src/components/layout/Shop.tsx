@@ -33,7 +33,7 @@ const trustStrip = [
   { icon: Headphones, title: "Customer Support", desc: "We're here to help" },
 ];
 
-/** MegaMenu ki tarah — categories ke liye koi real per-item icon data nahi hai, isliye rotating neutral pool */
+/** Like MegaMenu — there is no real per-item icon data for categories, hence a rotating neutral pool */
 const CATEGORY_ICONS = [Layers, LayoutGrid];
 
 function ShopInner() {
@@ -57,8 +57,8 @@ function ShopInner() {
   const [brands, setBrands] = useState<BrandTag[]>([]);
   const [showAllCategories, setShowAllCategories] = useState(false);
 
-  // Brand list — Shop page ke paas apna brands endpoint nahi hai, home feed
-  // (already cached) se hi le lete hain.
+  // Brand list — the Shop page has no brands endpoint of its own, so the home feed
+  // (already cached) is reused instead.
   useEffect(() => {
     getHomeData().then((home) => setBrands(home.brands.map(brandToTag))).catch(() => setBrands([]));
   }, []);
@@ -75,7 +75,7 @@ function ShopInner() {
     const next = new URLSearchParams(params.toString());
     if (value) next.set(key, value);
     else next.delete(key);
-    if (key !== "page") next.delete("page"); // filter badalte hi page 1 pe wapas
+    if (key !== "page") next.delete("page"); // back to page 1 as soon as a filter changes
     router.push(`/shop?${next.toString()}`);
   }
 

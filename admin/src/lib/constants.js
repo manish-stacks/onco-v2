@@ -72,8 +72,8 @@ export const DATE_PRESETS = [
 ];
 
 /**
- * Status -> tone. Har list row ka left rail isi se colour leta hai,
- * to 50 rows ek nazar me scan ho jaati hain.
+ * Status -> tone. The left rail of every list row takes its colour from this,
+ * so 50 rows can be scanned at a glance.
  */
 export const STATUS_TONE = {
   // orders

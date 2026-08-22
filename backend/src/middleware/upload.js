@@ -3,12 +3,12 @@ const path = require('path');
 const storage = require('../services/storage.service');
 
 /**
- * Uploads ab memory me aate hain aur wahan se S3 pe jaate hain.
+ * Uploads now arrive in memory and go to S3 from there.
  *
- * Pehle multer seedha disk pe likhta tha — us model me S3 pe jaane ke liye
- * file do baar likhni padti (disk, phir S3) aur multi-server deploy pe
- * ek server ki disk pe padi file doosre ko nahi milti. Ab buffer seedha
- * storage service ko jaata hai, jo S3 ya (S3 na ho to) disk pe rakh deta hai.
+ * Previously multer wrote straight to disk — in that model, sending it to S3 meant
+ * the file had to be written twice (disk, then S3), and on a multi-server deploy
+ * a file on one server's disk is not visible to another. Now the buffer goes straight
+ * goes to the storage service, which puts it on S3 or (if S3 is absent) on disk.
  */
 
 const MAX_SIZE = parseInt(process.env.UPLOAD_MAX_MB || '5', 10) * 1024 * 1024;
@@ -20,7 +20,7 @@ function makeUploader() {
     limits: { fileSize: MAX_SIZE, files: 10 },
     fileFilter: (req, file, cb) => {
       const ok = ALLOWED.test(path.extname(file.originalname).toLowerCase());
-      if (!ok) return cb(new Error('Sirf jpg/png/webp/gif/pdf allowed hain'));
+      if (!ok) return cb(new Error('Only jpg/png/webp/gif/pdf are allowed'));
       return cb(null, true);
     },
   });
@@ -29,8 +29,8 @@ function makeUploader() {
 const uploader = makeUploader();
 
 /**
- * Ek file ko store karo.
- * @returns {string|null} public URL — yahi DB me jaata hai
+ * Store a single file.
+ * @returns {string|null} public URL — this is what goes into the DB
  */
 async function storeFile(file, folder) {
   if (!file) return null;
@@ -73,8 +73,8 @@ async function fieldsToUrls(files, folder, fieldNames) {
 }
 
 module.exports = {
-  // Saare uploaders same hain ab (folder upload ke waqt decide hota hai),
-  // lekin purane route signatures na tootein isliye naam bane hue hain
+  // All uploaders are identical now (the folder is decided at upload time),
+  // but the names are kept so old route signatures do not break
   uploadPrescription: uploader,
   uploadProduct: uploader,
   uploadCategory: uploader,
@@ -87,7 +87,7 @@ module.exports = {
   storeFiles,
   fieldsToUrls,
 
-  // purana helper — ab URL seedha storeFile se aata hai
+  // old helper — the URL now comes straight from storeFile
   filePath: (folder, file) => (file ? `/uploads/${folder}/${file.filename}` : null),
   filePaths: (folder, files = []) => files.map((f) => `/uploads/${folder}/${f.filename}`),
 };

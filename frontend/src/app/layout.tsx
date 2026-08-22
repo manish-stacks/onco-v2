@@ -9,9 +9,9 @@ import { ToastHost } from "@/components/ui/toast-host";
 import { SITE_URL } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  // Har page ke relative OG/twitter image URLs isi se resolve hote hain —
-  // bina iske Next.js build-time warning deta hai aur social preview me
-  // kabhi-kabhi image nahi dikhti.
+  // Every page's relative OG/twitter image URL resolves through this —
+  // without it Next.js emits a build-time warning and the social preview
+  // the image sometimes fails to load.
   metadataBase: new URL(SITE_URL),
   title: "Onco Healthmart: Online Medicine Supplier in Delhi, India",
   description:

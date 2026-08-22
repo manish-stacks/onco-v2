@@ -46,9 +46,9 @@ export function Categories() {
     reload,
   } = useResource(`/admin/categories?${queryParams.toString()}`, true);
 
-  // Parent-dropdown aur parent-name lookup ke liye — poori list chahiye,
-  // warna paginated table sirf current page tak simat jaati hai aur dusre
-  // page ka parent match hi nahi ho pata.
+  // For the parent dropdown and parent-name lookup — the full list is needed,
+  // otherwise the paginated table is limited to the current page and other
+  // the page's parent cannot be matched at all.
   const { data: allCategoriesRes } = useResource('/admin/categories?limit=1000', true);
   const allCategories = allCategoriesRes?.data || [];
 
@@ -71,7 +71,7 @@ export function Categories() {
   const del = useMutation(
     (id) => api.del(`/admin/categories/${id}`),
     {
-      success: 'Category delete ho gayi',
+      success: 'Category deleted',
       onSuccess: () => {
         setToDelete(null);
         if (rows.length === 1 && page > 1) {
@@ -131,7 +131,8 @@ export function Categories() {
     <>
       <PageHeader
         title="Categories"
-        subtitle="Catalog ka structure — sub-categories bhi bana sakte ho"
+        subtitle="Catalog structure — you can also create sub-categories.
+"
         actions={canManage && (
           <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add category</Button>
         )}
@@ -158,10 +159,10 @@ export function Categories() {
           columns={columns} rows={rows} loading={loading} rowKey="category_id"
           rowTone={(c) => (c.status === 'Active' ? 'ok' : 'idle')}
           emptyIcon={Tags}
-          emptyTitle={hasFilters ? 'No categories found' : 'Koi category nahi'}
+          emptyTitle={hasFilters ? 'No categories found' : 'No categories'}
           emptyDescription={hasFilters
-            ? 'Search/filter ke according koi category nahi mili.'
-            : 'Products organise karne ke liye pehli category banao.'}
+            ? 'No category matched the search/filter.'
+            : 'Create your first category to organise products.'}
           emptyAction={canManage && !hasFilters && (
             <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add category</Button>
           )}
@@ -182,7 +183,7 @@ export function Categories() {
         open={!!toDelete} onClose={() => setToDelete(null)}
         onConfirm={() => del.run(toDelete.category_id)} loading={del.loading}
         title="Delete category" confirmLabel="Delete"
-        message={`"${toDelete?.category_name}" delete ho jaayegi. Products delete nahi honge, bas is category se hat jaayenge.`}
+        message={`"${toDelete?.category_name}" will be deleted. No products will be deleted, they will just be removed from this category.`}
       />
     </>
   );
@@ -216,7 +217,7 @@ function CategoryModal({ open, onClose, category, categories, onDone }) {
         ? api.form(`/admin/categories/${category.category_id}`, fd, 'PUT')
         : api.form('/admin/categories', fd, 'POST');
     },
-    { success: isEdit ? 'Category update ho gayi' : 'Category ban gayi', onSuccess: () => { onClose(); onDone(); } }
+    { success: isEdit ? 'Category updated' : 'Category created', onSuccess: () => { onClose(); onDone(); } }
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -240,7 +241,7 @@ function CategoryModal({ open, onClose, category, categories, onDone }) {
             placeholder="Oncology" autoFocus />
         </Field>
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="Slug" hint="Khaali chhodo to auto ban jaayega">
+          <Field label="Slug" hint="Leave empty to generate it automatically">
             <Input mono value={form.slug || ''} onChange={(e) => set('slug', e.target.value)} />
           </Field>
           <Field label="Parent category">

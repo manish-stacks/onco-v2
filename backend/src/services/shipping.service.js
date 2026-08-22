@@ -7,23 +7,23 @@ const cache = require('../utils/cache');
 const { ORDER_STATUS } = require('../config/constants');
 
 /**
- * DTDC ko order flow se jodta hai.
+ * Connects DTDC to the order flow.
  *
- * Booking pe teen cheezein ek saath honi chahiye: AWB save, order status
- * Shipped, aur customer ko tracking message. Alag-alag jagah se karne pe
- * koi ek reh jaata hai, isliye sab yahan ek function me.
+ * Three things must happen together on booking: save the AWB, update order status
+ * Shipped, and a tracking message to the customer. Doing these in separate places
+ * one of them gets missed, so they all live in this one function.
  */
 
 async function bookOrder(orderId, opts = {}) {
   const order = await orderModel.findById(orderId);
-  if (!order) throw Object.assign(new Error('Order nahi mila'), { status: 404 });
+  if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
 
   if (order.status === ORDER_STATUS.CANCELLED) {
-    throw Object.assign(new Error('Cancelled order ship nahi ho sakta'), { status: 409 });
+    throw Object.assign(new Error('A cancelled order cannot be shipped'), { status: 409 });
   }
   if (order.awb_number) {
     throw Object.assign(
-      new Error(`Ye order pehle hi book hai (AWB ${order.awb_number}). Pehle cancel karo.`),
+      new Error(`This order is already booked (AWB ${order.awb_number}). Cancel it first.`),
       { status: 409 }
     );
   }
@@ -66,9 +66,9 @@ async function bookOrder(orderId, opts = {}) {
 
 async function cancelBooking(orderId, { cancelledBy } = {}) {
   const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
-  if (!order) throw Object.assign(new Error('Order nahi mila'), { status: 404 });
+  if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
   if (!order.awb_number) {
-    throw Object.assign(new Error('Is order ka koi AWB nahi hai'), { status: 409 });
+    throw Object.assign(new Error('This order has no AWB'), { status: 409 });
   }
 
   await dtdc.cancelShipment(order.awb_number);
@@ -88,7 +88,7 @@ async function cancelBooking(orderId, { cancelledBy } = {}) {
 async function refreshTracking(orderId) {
   const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
   if (!order?.awb_number) {
-    throw Object.assign(new Error('Is order ka koi AWB nahi hai'), { status: 409 });
+    throw Object.assign(new Error('This order has no AWB'), { status: 409 });
   }
 
   const tracking = await dtdc.trackShipment(order.awb_number);
@@ -115,17 +115,17 @@ async function refreshTracking(orderId) {
 }
 
 /**
- * DTDC webhook — status push karta hai.
- * Endpoint: POST /api/webhooks/dtdc  (public, koi auth nahi)
+ * DTDC webhook — pushes status updates.
+ * Endpoint: POST /api/webhooks/dtdc  (public, no auth)
  */
 async function handleWebhook(body) {
   const parsed = dtdc.parseWebhook(body);
-  if (!parsed.awb) return { ignored: 'AWB nahi mila' };
+  if (!parsed.awb) return { ignored: 'No AWB found' };
 
   const [[order]] = await db.query(
     `SELECT * FROM orders WHERE awb_number = ? LIMIT 1`, [parsed.awb]
   );
-  if (!order) return { ignored: `AWB ${parsed.awb} ka order nahi mila` };
+  if (!order) return { ignored: `No order found for AWB ${parsed.awb}` };
 
   await dtdc.syncScans(parsed.awb, [{
     action_code: parsed.code,
@@ -143,7 +143,7 @@ async function handleWebhook(body) {
     tracking_datetime: parsed.scanAt,
   });
 
-  // Sirf tabhi status badlo jab wo actually aage badha ho
+  // Only change the status when it has actually moved forward
   if (parsed.orderStatus && parsed.orderStatus !== order.status) {
     await orderModel.updateStatus(order.order_id, parsed.orderStatus, 'dtdc-webhook', parsed.description);
     notify.orderStatusChanged(order, parsed.orderStatus);

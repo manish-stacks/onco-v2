@@ -5,11 +5,11 @@ import { Button, EmptyState, Skeleton, Input, Select, cx } from './index';
 /**
  * columns: [{ key, label, render?, className?, align?, sortable? }]
  * rowTone: (row) => 'ok' | 'warn' | 'danger' | 'info' | 'idle'
- *   -> row ke left me 3px ka rail lagta hai, status padhe bina hi state samajh aa jaaye
+ *   -> a 3px rail appears on the left of the row, so the state is clear without reading the status
  */
 export function DataTable({
   columns, rows, loading, rowKey = 'id', rowTone, onRowClick,
-  emptyTitle = 'Kuch nahi mila', emptyDescription, emptyIcon = Inbox, emptyAction,
+  emptyTitle = 'Nothing found', emptyDescription, emptyIcon = Inbox, emptyAction,
   sort, onSort, compact,
 }) {
   if (loading) {

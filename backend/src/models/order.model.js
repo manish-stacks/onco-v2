@@ -1,12 +1,13 @@
 const db = require('../config/db');
 const { QueryBuilder, orderBy } = require('../utils/queryBuilder');
+const { parseJson } = require('../utils/helpers');
 
 const SORTABLE = ['order_id', 'order_date', 'amount', 'status', 'created_at'];
 
 /**
- * EK order table. Koi temp/staging table nahi.
- * Unpaid online order bhi yahi rehta hai `payment_status = 'Unpaid'` ke saath —
- * payment aane pe bas status update hota hai, data kahin move nahi hota.
+ * ONE order table. No temp/staging table.
+ * An unpaid online order also stays here with `payment_status = 'Unpaid'` —
+ * only the status is updated when payment arrives, no data moves anywhere.
  */
 
 async function create(conn, o) {
@@ -96,9 +97,12 @@ async function findById(orderId, { withItems = true, withHistory = true } = {}) 
   }
   if (order.prescription_id) {
     const [[presc]] = await db.query(
-      `SELECT prescription_id, images, status, reference_code FROM prescriptions WHERE prescription_id = ?`,
+      `SELECT prescription_id, images, status, reference_code, patient_name, doctor_name,
+              hospital_name, notes, rejection_reason, contact_number, created_at
+         FROM prescriptions WHERE prescription_id = ?`,
       [order.prescription_id]
     );
+    if (presc) presc.images = parseJson(presc.images, []);
     order.prescription = presc || null;
   }
   return order;
@@ -148,7 +152,7 @@ async function list(filters = {}, { limit = 20, offset = 0 } = {}, sort = {}) {
   return { rows, total };
 }
 
-/** Export ke liye — items ke saath flat rows, pagination nahi */
+/** For export — flat rows with items, no pagination */
 async function listForExport(filters = {}, maxRows = 5000) {
   const { sql: whereSql, params } = buildFilters(filters).build();
   const [rows] = await db.query(
@@ -168,7 +172,7 @@ async function listForExport(filters = {}, maxRows = 5000) {
 async function updateStatus(orderId, newStatus, changedBy, note) {
   return db.withTransaction(async (conn) => {
     const [[order]] = await conn.query(`SELECT status FROM orders WHERE order_id = ? FOR UPDATE`, [orderId]);
-    if (!order) throw Object.assign(new Error('Order nahi mila'), { status: 404 });
+    if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
 
     const extra = newStatus === 'Completed' ? ', delivered_at = NOW()' : '';
     await conn.query(`UPDATE orders SET status = ?${extra} WHERE order_id = ?`, [newStatus, orderId]);
@@ -220,7 +224,7 @@ async function getItems(orderId, conn = db) {
   return rows;
 }
 
-/** Customer ne ye product khareeda hai kya — review post karne se pehle check */
+/** Has the customer bought this product — checked before posting a review */
 async function customerHasPurchased(customerId, productId) {
   const [[row]] = await db.query(
     `SELECT 1 AS ok FROM orders o INNER JOIN order_items oi ON oi.order_id = o.order_id
@@ -261,11 +265,11 @@ async function stats(filters = {}) {
 }
 
 /**
- * Public tracking — login ke bina bhi order dhoond sakte hain, par sirf
- * order reference + registered phone number match karne pe. Isse random
- * order IDs enumerate karke kisi aur ka order dekhna possible nahi hai.
- * Phone match dono billing aur shipping phone se try hota hai, kyunki
- * customer confusion me kaunsa number diya tha bhool sakta hai.
+ * Public tracking — an order can be found without logging in, but only
+ * only when the order reference + registered phone number match. This makes random
+ * it is impossible to view someone else's order by enumerating order IDs.
+ * The phone is matched against both the billing and shipping phone, because
+ * a confused customer may forget which number they gave.
  */
 async function findByRefAndPhone(ref, phone) {
   const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
@@ -291,8 +295,8 @@ async function findByRefAndPhone(ref, phone) {
     [order.order_id]
   );
 
-  // Sirf tracking ke liye zaroori fields — full address/email/payment
-  // details ek anonymous lookup me expose nahi karte.
+  // Only the fields tracking needs — the full address/email/payment
+  // we do not expose details in an anonymous lookup.
   return {
     databaseOrderID: order.databaseOrderID,
     order_date: order.order_date,

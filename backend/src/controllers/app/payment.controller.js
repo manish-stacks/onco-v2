@@ -7,11 +7,23 @@ const notify = require('../../services/notification.service');
 const db = require('../../config/db');
 const { ok, fail, asyncHandler } = require('../../utils/response');
 
-/** GET /payments/gateways — checkout page ko batao kaunse options hain */
-const gateways = asyncHandler(async (req, res) => ok(res, {
-  available: paymentService.availableGateways(),
-  default: paymentService.defaultGateway(),
-}));
+/**
+ * GET /payments/gateways — tells the checkout page which options are live.
+ * Razorpay / PayU / COD can each be enabled or disabled from admin Settings.
+ */
+const gateways = asyncHandler(async (req, res) => {
+  const { list, cfg } = await paymentService.availableGatewaysLive();
+
+  // the default gateway must be one that is actually available
+  let def = paymentService.defaultGateway();
+  if (!list.some((g) => g.id === def)) def = list[0]?.id || def;
+
+  return ok(res, {
+    available: list,
+    default: def,
+    cod_enabled: !!cfg.cod,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // RAZORPAY
@@ -20,11 +32,11 @@ const gateways = asyncHandler(async (req, res) => ok(res, {
 /**
  * POST /api/app/payments/razorpay/webhook
  *
- * Razorpay Dashboard > Settings > Webhooks me URL daalo, events:
+ * Add the URL under Razorpay Dashboard > Settings > Webhooks, events:
  * payment.captured, payment.failed, refund.processed
  *
- * Raw body chahiye HMAC verify ke liye — server.js me is path pe
- * express.raw() laga hai.
+ * The raw body is needed for HMAC verification — server.js mounts
+ * express.raw() is applied.
  */
 async function razorpayWebhook(req, res) {
   try {
@@ -46,7 +58,7 @@ async function razorpayWebhook(req, res) {
 
     const order = await orderModel.findByRazorpayOrderId(gatewayOrderId);
     if (!order) {
-      console.warn('[webhook:razorpay] order nahi mila:', gatewayOrderId);
+      console.warn('[webhook:razorpay] order not found:', gatewayOrderId);
       return res.status(200).json({ success: true });
     }
 
@@ -75,7 +87,7 @@ async function razorpayWebhook(req, res) {
 
     return res.status(200).json({ success: true });
   } catch (err) {
-    // 200 hi bhejo — warna Razorpay hamari bug pe retries hammer karega
+    // Always return 200 — otherwise Razorpay will hammer retries because of our bug
     console.error('[webhook:razorpay] error:', err);
     return res.status(200).json({ success: false });
   }
@@ -86,8 +98,8 @@ async function razorpayWebhook(req, res) {
 // ---------------------------------------------------------------------------
 
 /**
- * PayU form-POST se wapas aata hai (browser redirect), JSON se nahi.
- * Isliye ye do routes HTML redirect karte hain, JSON nahi.
+ * PayU returns via a form POST (browser redirect), not JSON.
+ * That is why these two routes redirect with HTML instead of returning JSON.
  */
 function redirectToApp(res, path, params = {}) {
   const base = process.env.PUBLIC_SITE_URL || '';
@@ -95,13 +107,13 @@ function redirectToApp(res, path, params = {}) {
   return res.redirect(`${base}${path}${qs ? `?${qs}` : ''}`);
 }
 
-/** POST /api/app/payments/payu/success — PayU ka surl */
+/** POST /api/app/payments/payu/success — PayU surl */
 async function payuSuccess(req, res) {
   try {
     const result = payuService.verifyCallback(req.body);
 
     if (!result.valid) {
-      // Hash match nahi hua — koi fake POST kar raha hai. Paid mark mat karo.
+      // The hash did not match — someone is faking a POST. Do not mark it paid.
       console.error('[payu] hash mismatch, txnid:', result.txnid);
       notify.paymentFailedAlert({
         order: { databaseOrderID: result.txnid },
@@ -118,7 +130,7 @@ async function payuSuccess(req, res) {
       [result.txnid, result.txnid]
     );
     if (!order) {
-      console.error('[payu] order nahi mila:', result.txnid);
+      console.error('[payu] order not found:', result.txnid);
       return redirectToApp(res, '/payment/failed', { reason: 'order_not_found' });
     }
 
@@ -138,7 +150,7 @@ async function payuSuccess(req, res) {
   }
 }
 
-/** POST /api/app/payments/payu/failure — PayU ka furl */
+/** POST /api/app/payments/payu/failure — PayU furl */
 async function payuFailure(req, res) {
   try {
     const result = payuService.verifyCallback(req.body);
@@ -172,33 +184,33 @@ async function payuFailure(req, res) {
 /**
  * POST /payments/payu/verify — client-side confirmation.
  *
- * Mobile app me browser redirect handle karna mushkil hai, isliye app
- * PayU se wapas aake seedha ye call karta hai. Ye server-to-server
- * verify karta hai, client ki baat pe bharosa nahi karta.
+ * Handling a browser redirect inside the mobile app is hard, so the app
+ * Called directly after returning from PayU. This is the server-to-server
+ * verifies it and does not trust the client.
  */
 const payuVerify = asyncHandler(async (req, res) => {
   const { txnid } = req.body;
-  if (!txnid) return fail(res, 'txnid chahiye', 422);
+  if (!txnid) return fail(res, 'txnid is required', 422);
 
   const [[order]] = await db.query(
     `SELECT * FROM orders WHERE (gateway_order_id = ? OR databaseOrderID = ?) AND customer_id = ? LIMIT 1`,
     [txnid, txnid, req.customer.customer_id]
   );
-  if (!order) return fail(res, 'Order nahi mila', 404);
+  if (!order) return fail(res, 'Order not found', 404);
 
   if (order.payment_status === 'Paid') {
-    return ok(res, await orderModel.findById(order.order_id), 'Payment pehle hi confirm hai');
+    return ok(res, await orderModel.findById(order.order_id), 'The payment is already confirmed');
   }
 
   const status = await paymentService.verifyStatus('payu', { gatewayOrderId: txnid });
 
   if (!status.paid) {
     await orderService.markOrderPaymentFailed(order.order_id, status.paymentId);
-    return fail(res, 'Payment abhi tak confirm nahi hua', 409);
+    return fail(res, 'The payment has not been confirmed yet', 409);
   }
 
   const updated = await orderService.markOrderPaid(order.order_id, status.paymentId, 'payu-verify');
-  return ok(res, updated, 'Payment confirm ho gaya');
+  return ok(res, updated, 'Payment confirmed');
 });
 
 module.exports = {
@@ -207,6 +219,6 @@ module.exports = {
   payuSuccess,
   payuFailure,
   payuVerify,
-  // purana naam bhi export — routes na tootein
+  // legacy alias kept so existing routes do not break
   handleWebhook: razorpayWebhook,
 };
