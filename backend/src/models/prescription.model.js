@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const { QueryBuilder } = require('../utils/queryBuilder');
 const { parseJson, genRef } = require('../utils/helpers');
+const storage = require('../services/storage.service');
 
 /**
  * ONE prescriptions table — for both web and app. Images live in a JSON array,
@@ -122,7 +123,32 @@ async function setMedicines(prescriptionId, medicines = []) {
 }
 
 async function remove(prescriptionId) {
+  // Pull the image URLs first so we can clean them off S3 after the row is gone.
+  let images = [];
+  try {
+    const [[row]] = await db.query(`SELECT images FROM prescriptions WHERE prescription_id = ?`, [prescriptionId]);
+    images = parseJson(row?.images, []);
+  } catch { /* row may already be gone */ }
+
+  await db.query(`DELETE FROM prescription_medicines WHERE prescription_id = ?`, [prescriptionId]);
   await db.query(`DELETE FROM prescriptions WHERE prescription_id = ?`, [prescriptionId]);
+
+  // Best-effort S3 cleanup — a failed delete here must not fail the request.
+  for (const url of images) {
+    const key = keyFromUrl(url);
+    if (key) storage.remove(key).catch((e) => console.error('[prescription] s3 delete fail:', key, e.message));
+  }
+}
+
+/** Turn a stored image URL back into its S3 object key. */
+function keyFromUrl(url) {
+  if (!url) return null;
+  const s = String(url);
+  // Prescription images always live under the "prescriptions/" folder — grab from there.
+  const i = s.indexOf('prescriptions/');
+  if (i !== -1) return s.slice(i);
+  // Fallback: strip protocol/host and any /uploads or /media prefix.
+  return s.replace(/^https?:\/\/[^/]+\//, '').replace(/^(uploads|media)\//, '');
 }
 
 async function countByStatus() {

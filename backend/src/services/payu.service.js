@@ -27,8 +27,17 @@ const VERIFY_API = {
   test: 'https://test.payu.in/merchant/postservice.php?form=2',
 };
 
+// PayU's public sandbox merchant key. If this key is configured we must talk to
+// the TEST endpoint no matter what PAYU_MODE says — posting a sandbox key to the
+// live endpoint makes PayU reject the request and the checkout page never opens.
+// const SANDBOX_KEYS = new Set(['tfHdP8', 'gtKFFx', 'JBZaLc']);
+
 function config() {
-  const mode = process.env.PAYU_MODE === 'live' ? 'live' : 'test';
+  let mode = process.env.PAYU_MODE === 'live' ? 'live' : 'test';
+  // if (mode === 'live' && SANDBOX_KEYS.has(process.env.PAYU_MERCHANT_KEY)) {
+  //   console.warn('[payu] sandbox merchant key with PAYU_MODE=live — forcing the test endpoint');
+  //   mode = 'test';
+  // }
   return {
     mode,
     key: process.env.PAYU_MERCHANT_KEY,

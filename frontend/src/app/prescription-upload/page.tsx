@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { UploadCloud, FileText, CheckCircle2, X, ShieldCheck, Clock, Stethoscope, ArrowRight } from "lucide-react";
+import { UploadCloud, FileText, CheckCircle2, X, ShieldCheck, Clock, Stethoscope, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { prescriptionApi, ApiError } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
@@ -30,6 +30,8 @@ function PrescriptionUploadInner() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [patientName, setPatientName] = useState("");
   const [doctorName, setDoctorName] = useState("");
+  const [hospitalName, setHospitalName] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ files?: string; patient_name?: string; doctor_name?: string; hospital_name?: string }>({});
   const [result, setResult] = useState<Prescription | null>(null);
 
   const handleFiles = useCallback((list: FileList | null) => {
@@ -38,13 +40,22 @@ function PrescriptionUploadInner() {
   }, []);
 
   async function submit() {
-    if (files.length === 0) return;
+    // Patient, doctor and hospital are mandatory for a prescription order.
+    const errs: typeof fieldErrors = {};
+    if (files.length === 0) errs.files = "Please choose at least one file";
+    if (!patientName.trim()) errs.patient_name = "Patient name is required";
+    if (!doctorName.trim()) errs.doctor_name = "Doctor name is required";
+    if (!hospitalName.trim()) errs.hospital_name = "Hospital / clinic name is required";
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
     setStatus("uploading");
     setErrorMsg(null);
     try {
       const data = await prescriptionApi.upload<Prescription>(files, {
-        patient_name: patientName || undefined,
-        doctor_name: doctorName || undefined,
+        patient_name: patientName.trim(),
+        doctor_name: doctorName.trim(),
+        hospital_name: hospitalName.trim(),
       });
       setResult(data);
       setStatus("success");
@@ -79,9 +90,7 @@ function PrescriptionUploadInner() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
       <div className="mb-10 text-center">
-        <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)]">
-          <Stethoscope size={26} />
-        </span>
+        
         <h1 className="font-display text-3xl font-bold text-[var(--ink)]">Upload Your Prescription</h1>
         <p className="mx-auto mt-2 max-w-md text-[var(--ink-soft)]">
           Our licensed pharmacists will verify your prescription before we ship any restricted medicines.
@@ -94,7 +103,7 @@ function PrescriptionUploadInner() {
             key="success"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center rounded-[var(--radius-lg)] border border-[var(--line)] bg-white px-6 py-16 text-center"
+            className="flex flex-col items-center rounded-[var(--radius-lg)] border border-[var(--line)] bg-white px-6 py-8 text-center"
           >
             <motion.span
               initial={{ scale: 0 }}
@@ -152,7 +161,7 @@ function PrescriptionUploadInner() {
                 setDragging(false);
                 handleFiles(e.dataTransfer.files);
               }}
-              className={`relative flex flex-col items-center rounded-[var(--radius-lg)] border-2 border-dashed px-6 py-16 text-center transition-colors ${
+              className={`relative flex flex-col items-center rounded-[var(--radius-lg)] border-2 border-dashed px-6 py-6 text-center transition-colors ${
                 dragging ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)] bg-white"
               }`}
             >
@@ -166,6 +175,9 @@ function PrescriptionUploadInner() {
                 <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
               </label>
               <p className="mt-5 text-xs text-[var(--ink-soft)]">Supported: JPG, PNG, PDF — up to 10MB each</p>
+              {fieldErrors.files && (
+                <p className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.files}</p>
+              )}
             </div>
 
             {files.length > 0 && (
@@ -182,20 +194,51 @@ function PrescriptionUploadInner() {
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
 
+            {!result && isLoggedIn && (
+              <div className="mt-6 space-y-3">
+                <p className="text-xs font-medium text-[var(--ink-soft)]">
+                  Patient, doctor and hospital details are mandatory for a prescription order.
+                </p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <input
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    placeholder="Patient name (optional)"
-                    className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none"
-                  />
-                  <input
-                    value={doctorName}
-                    onChange={(e) => setDoctorName(e.target.value)}
-                    placeholder="Doctor name (optional)"
-                    className="h-11 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none"
-                  />
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Patient name</label>
+                    <input
+                      value={patientName}
+                      onChange={(e) => { setPatientName(e.target.value); setFieldErrors((s) => ({ ...s, patient_name: "" })); }}
+                      placeholder="Patient name"
+                      className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.patient_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
+                    />
+                    {fieldErrors.patient_name && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.patient_name}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Doctor name</label>
+                    <input
+                      value={doctorName}
+                      onChange={(e) => { setDoctorName(e.target.value); setFieldErrors((s) => ({ ...s, doctor_name: "" })); }}
+                      placeholder="Doctor name"
+                      className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.doctor_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
+                    />
+                    {fieldErrors.doctor_name && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.doctor_name}</p>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Hospital / clinic name</label>
+                    <input
+                      value={hospitalName}
+                      onChange={(e) => { setHospitalName(e.target.value); setFieldErrors((s) => ({ ...s, hospital_name: "" })); }}
+                      placeholder="Hospital / clinic name"
+                      className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.hospital_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
+                    />
+                    {fieldErrors.hospital_name && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.hospital_name}</p>
+                    )}
+                  </div>
                 </div>
 
                 <Button

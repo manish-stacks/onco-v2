@@ -22,9 +22,16 @@
  * (an order cannot be split into half COD and half online).
  */
 function isProductCodEligible(product) {
-  const codFlag = String(product?.isCOD ?? '0') === '1';
-  if (!codFlag) return false;
-  return !requiresColdChain(product?.storage);
+  // Cold-chain items are prepaid-only, always.
+  if (requiresColdChain(product?.storage)) return false;
+
+  // Opt-OUT model: COD is allowed unless the product is EXPLICITLY marked non-COD
+  // (isCOD === 0 / '0'). Legacy rows where isCOD is NULL/'' are treated as allowed,
+  // so the admin's global "Cash on delivery allowed" switch actually takes effect
+  // instead of being silently blocked by an unset per-product flag.
+  const flag = product?.isCOD;
+  if (flag === 0 || flag === '0') return false;
+  return true;
 }
 
 /**

@@ -1,5 +1,7 @@
 const prescriptionModel = require('../../models/prescription.model');
 const adminModel = require('../../models/admin.model');
+const customerModel = require('../../models/customer.model');
+const notify = require('../../services/notification.service');
 const { ok, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
 const { PRESCRIPTION_STATUSES } = require('../../config/constants');
@@ -62,6 +64,15 @@ const updateStatus = asyncHandler(async (req, res) => {
     action: 'status_change', module: 'prescriptions', record_id: req.params.id,
     description: `${presc.status} -> ${status}`, ip_address: req.ip,
   });
+
+  // Tell the customer (SMS + push) — old site sent "PrescriptionApproved" on approval
+  try {
+    const fresh = await prescriptionModel.findById(req.params.id);
+    const customer = fresh?.customer_id ? await customerModel.findById(fresh.customer_id) : null;
+    notify.prescriptionReviewed(fresh, customer);
+  } catch (e) {
+    console.error('[prescription] notify fail:', e.message);
+  }
 
   return ok(res, await prescriptionModel.findById(req.params.id), 'Status updated');
 });

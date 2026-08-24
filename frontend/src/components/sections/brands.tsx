@@ -32,7 +32,7 @@ export function Brands({ brands }: { brands: BrandTag[] }) {
       {/* Logos */}
       <div className="grid grid-cols-2 items-center gap-8 sm:grid-cols-3 lg:grid-cols-6">
         {brands.slice(0, 6).map((brand, index) => (
-          <Reveal key={brand.id} delay={index * 0.05}>
+          <Reveal key={index} delay={index * 0.05}>
             <Link
               href={`/shop?brand_id=${brand.id}`}
               className="flex h-24 items-center justify-center rounded-2xl border border-[#e0e0e0] bg-white p-4 transition hover:scale-105 hover:shadow-lg"

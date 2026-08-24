@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { api } from '@/lib/api';
 import { PERMISSIONS as P, toneOf, TONE_HEX } from '@/lib/constants';
-import { inr, compactInr, num, date, dateTime, ago } from '@/lib/format';
+import { inr, compactInr, num, date, dateTime, ago, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import {
   Card, Button, StatusPill, SourceTag, Code, PageLoader, EmptyState, cx,
@@ -127,6 +127,10 @@ export function CustomerDetail() {
   const { data: c, loading, reload } = useResource(`/admin/customers/${customerId}`);
   const [blockOpen, setBlockOpen] = useState(false);
 
+  // Full, paginated lists for this customer (server-side filtered by customer_id).
+  const ordersList = useList('/admin/orders', { customer_id: customerId });
+  const rxList = useList('/admin/prescriptions', { customer_id: customerId });
+
   const setStatus = useMutation(
     (status) => api.patch(`/admin/customers/${customerId}/status`, { status }),
     { success: 'Customer status updated', onSuccess: () => { setBlockOpen(false); reload(); } }
@@ -170,36 +174,39 @@ export function CustomerDetail() {
 
       <div className="grid lg:grid-cols-3 gap-4">
         <Card
-          title="Recent orders" className="lg:col-span-2"
-          action={<Link to={`/orders?customer_id=${c.customer_id}`} className="text-2xs text-teal hover:underline">All orders</Link>}
+          title={`Orders (${num(ordersList.pagination?.total ?? s.total_orders ?? 0)})`} className="lg:col-span-2"
+          action={<Link to={`/orders?customer_id=${c.customer_id}`} className="text-2xs text-teal hover:underline">Open in Orders</Link>}
           dense
         >
-          {c.recentOrders?.length ? (
-            <ul className="divide-y divide-line">
-              {c.recentOrders.map((o) => (
-                <li key={o.order_id}>
-                  <Link
-                    to={`/orders/${o.order_id}`}
-                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-paper transition-colors rail"
-                    style={{ '--rail': TONE_HEX[toneOf(o.status)] }}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <Code>{o.databaseOrderID}</Code>
-                        <SourceTag source={o.orderFrom} />
+          {ordersList.rows?.length ? (
+            <>
+              <ul className="divide-y divide-line">
+                {ordersList.rows.map((o) => (
+                  <li key={o.order_id}>
+                    <Link
+                      to={`/orders/${o.order_id}`}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-paper transition-colors rail"
+                      style={{ '--rail': TONE_HEX[toneOf(o.status)] }}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <Code>{orderRef(o)}</Code>
+                          <SourceTag source={o.orderFrom} />
+                        </div>
+                        <p className="text-2xs text-ink-500 mt-0.5">{dateTime(o.order_date)}</p>
                       </div>
-                      <p className="text-2xs text-ink-500 mt-0.5">{dateTime(o.order_date)}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[0.8125rem] font-semibold tabular-nums text-ink">{inr(o.amount)}</p>
-                      <StatusPill status={o.status} size="xs" />
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                      <div className="text-right shrink-0">
+                        <p className="text-[0.8125rem] font-semibold tabular-nums text-ink">{inr(o.amount)}</p>
+                        <StatusPill status={o.status} size="xs" />
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <Pagination pagination={ordersList.pagination} onPage={(p) => ordersList.setFilter('page', p)} />
+            </>
           ) : (
-            <EmptyState icon={ShoppingCart} title="No orders yet" />
+            <EmptyState icon={ShoppingCart} title={ordersList.loading ? 'Loading…' : 'No orders yet'} />
           )}
         </Card>
 
@@ -244,6 +251,44 @@ export function CustomerDetail() {
           </Card>
         </div>
       </div>
+
+      <Card
+        title={`Prescriptions (${num(rxList.pagination?.total ?? s.prescription_count ?? 0)})`}
+        className="mt-4"
+        action={<Link to={`/prescriptions?customer_id=${c.customer_id}`} className="text-2xs text-teal hover:underline">Open in Prescriptions</Link>}
+        dense
+      >
+        {rxList.rows?.length ? (
+          <>
+            <ul className="divide-y divide-line">
+              {rxList.rows.map((p) => (
+                <li key={p.prescription_id}>
+                  <Link
+                    to={`/prescriptions/${p.prescription_id}`}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-paper transition-colors rail"
+                    style={{ '--rail': TONE_HEX[toneOf(p.status)] }}
+                  >
+                    <FileText size={15} className="text-ink-300 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <Code>{p.reference_code || `#${p.prescription_id}`}</Code>
+                        <SourceTag source={p.source} />
+                      </div>
+                      <p className="text-2xs text-ink-500 mt-0.5">
+                        {[p.patient_name, p.doctor_name && `Dr. ${p.doctor_name}`].filter(Boolean).join(' · ') || dateTime(p.created_at)}
+                      </p>
+                    </div>
+                    <StatusPill status={p.status} size="xs" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <Pagination pagination={rxList.pagination} onPage={(p) => rxList.setFilter('page', p)} />
+          </>
+        ) : (
+          <EmptyState icon={FileText} title={rxList.loading ? 'Loading…' : 'No prescriptions'} />
+        )}
+      </Card>
 
       <ConfirmDialog
         open={blockOpen} onClose={() => setBlockOpen(false)}

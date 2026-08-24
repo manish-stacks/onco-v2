@@ -2,6 +2,8 @@ const orderModel = require('../../models/order.model');
 const prescriptionModel = require('../../models/prescription.model');
 const orderService = require('../../services/order.service');
 const adminModel = require('../../models/admin.model');
+const customerModel = require('../../models/customer.model');
+const notify = require('../../services/notification.service');
 const cache = require('../../utils/cache');
 const { ok, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination, getSort, toCsv } = require('../../utils/helpers');
@@ -268,6 +270,19 @@ const updatePrescriptionStatus = asyncHandler(async (req, res) => {
   });
 
   await cache.invalidate.orders();
+
+  // Same customer notification as the Prescriptions page (SMS + push)
+  try {
+    const fresh = await prescriptionModel.findById(order.prescription_id);
+    const customer = fresh?.customer_id ? await customerModel.findById(fresh.customer_id) : null;
+    notify.prescriptionReviewed(
+      { ...fresh, databaseOrderID: order.databaseOrderID },
+      customer
+    );
+  } catch (e) {
+    console.error('[order] prescription notify fail:', e.message);
+  }
+
   return ok(res, await orderModel.findById(req.params.orderId), 'Prescription status updated');
 });
 

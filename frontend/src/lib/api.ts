@@ -804,6 +804,8 @@ export const prescriptionApi = {
   detail: <T = unknown>(id: string | number) => api.data<T>(`/prescriptions/${id}`),
 
   cancel: <T = unknown>(id: string | number, reason: string) => api.del<T>(`/prescriptions/${id}`, { reason }),
+
+  remove: <T = unknown>(id: string | number) => api.del<T>(`/prescriptions/${id}`),
 };
 
 // =============================================================================

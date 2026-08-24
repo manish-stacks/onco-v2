@@ -81,9 +81,9 @@ export function BrandsDirectory({ brands }: { brands: BrandTag[] }) {
               </div>
 
               <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
-                {list.map((brand) => (
+                {list.map((brand,index) => (
                   <Link
-                    key={brand.id}
+                    key={index}
                     href={`/shop?brand_id=${brand.id}`}
                     className="group flex flex-col items-center gap-3 rounded-2xl border border-[#e0e0e0] bg-white p-4 transition hover:-translate-y-0.5 hover:border-[#1e90ff] hover:shadow-lg"
                   >

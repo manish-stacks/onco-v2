@@ -51,6 +51,20 @@ const SCAN_TO_SHIPMENT_STATUS = {
   OFD: 'Out for Delivery',
 };
 
+/**
+ * The same canonical order reference used across admin, the user dashboard and
+ * every message — ORD/<year>/<order_id padded>. This is what we send to DTDC as
+ * the customer reference number so the DTDC dashboard matches our order id.
+ */
+function orderRef(order) {
+  if (!order) return '';
+  const id = order.order_id ?? order.orderId;
+  if (!id) return order.databaseOrderID || '';
+  const d = order.order_date || order.created_at;
+  const year = d ? new Date(d).getFullYear() : new Date().getFullYear();
+  return `ORD/${year}/${String(id).padStart(6, '0')}`;
+}
+
 function config() {
   const mode = process.env.DTDC_MODE === 'test' ? 'test' : 'live';
   return {
@@ -120,7 +134,7 @@ async function bookShipment(order, opts = {}) {
 
   const consignment = {
     customer_code: c.customerCode,
-    service_type_id: "GROUND EXPRESS",
+    service_type_id: serviceType,
     load_type: 'NON-DOCUMENT',
     description: opts.description || 'Pharmaceutical Medicines',
     dimension_unit: 'cm',
@@ -135,7 +149,7 @@ async function bookShipment(order, opts = {}) {
     cod_amount: isCod ? order.amount : '',
     origin_details: originDetails(),
     destination_details: dest,
-    customer_reference_number: order.databaseOrderID || String(order.order_id),
+    customer_reference_number: orderRef(order),
     invoice_number: order.invoice_number || `INV${order.order_id}`,
     invoice_date: new Date().toLocaleDateString('en-GB').replace(/\//g, '-'),
   };

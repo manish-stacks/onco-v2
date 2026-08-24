@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button, Field, Input, PageLoader } from '@/components/ui';
 
 export default function Login() {
-  const { admin, loading, login } = useAuth();
+  const { admin, loading, login, verifyOtp, resendOtp } = useAuth();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,6 +26,11 @@ export default function Login() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // OTP step (second factor after the password check)
+  const [otpStage, setOtpStage] = useState(null); // { admin_id, mobile_hint }
+  const [otp, setOtp] = useState('');
+  const [info, setInfo] = useState('');
 
   if (loading) {
     return (
@@ -51,10 +56,22 @@ export default function Login() {
     setBusy(true);
 
     try {
-      await login(
+      const res = await login(
         form.username.trim(),
         form.password
       );
+
+      // Backend asked for an OTP — move to the second step instead of navigating.
+      if (res && res.otp_required) {
+        setOtpStage({ admin_id: res.admin_id, mobile_hint: res.mobile_hint });
+        setInfo(
+          res.dev_otp
+            ? `OTP sent. (dev: ${res.dev_otp})`
+            : `OTP sent to ${res.mobile_hint || 'your registered mobile'}.`
+        );
+        setBusy(false);
+        return;
+      }
 
       navigate(
         location.state?.from || '/',
@@ -67,6 +84,38 @@ export default function Login() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const submitOtp = async (e) => {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      await verifyOtp(otpStage.admin_id, otp.trim());
+      navigate(location.state?.from || '/', { replace: true });
+    } catch (err) {
+      setError(err?.message || 'The OTP is invalid or has expired.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    setError('');
+    setInfo('');
+    try {
+      const r = await resendOtp(otpStage.admin_id);
+      setInfo(r?.dev_otp ? `New OTP sent. (dev: ${r.dev_otp})` : 'A new OTP has been sent.');
+    } catch (err) {
+      setError(err?.message || 'Could not resend the OTP.');
+    }
+  };
+
+  const backToLogin = () => {
+    setOtpStage(null);
+    setOtp('');
+    setError('');
+    setInfo('');
   };
 
   return (
@@ -198,7 +247,66 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Form */}
+            {/* OTP step */}
+            {otpStage ? (
+              <form onSubmit={submitOtp}>
+                <div className="space-y-5">
+                  {info && (
+                    <p className="text-xs text-slate-500">
+                      {info} Enter the 6-digit code to continue.
+                    </p>
+                  )}
+
+                  <Field label="One-time password" required error={error}>
+                    <Input
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      required
+                      placeholder="Enter the OTP"
+                      className="h-12 rounded-xl tracking-[0.4em] text-center"
+                    />
+                  </Field>
+
+                  {error && (
+                    <div className="flex items-start gap-3 p-3.5 rounded-xl border border-red-200 bg-red-50">
+                      <div className="w-5 h-5 shrink-0 rounded-full bg-red-100 flex items-center justify-center mt-0.5">
+                        <span className="text-xs font-bold text-red-600">!</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-red-800">Verification failed</p>
+                        <p className="text-xs text-red-600 mt-0.5">{error}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    icon={busy ? undefined : ArrowRight}
+                    loading={busy}
+                    className="w-full h-12 rounded-xl !text-sm font-semibold shadow-lg shadow-blue-500/10"
+                  >
+                    {busy ? 'Verifying...' : 'Verify & sign in'}
+                  </Button>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <button type="button" onClick={backToLogin}
+                      className="text-slate-500 hover:text-slate-800 transition">
+                      ← Back
+                    </button>
+                    <button type="button" onClick={resend}
+                      className="font-semibold text-blue-600 hover:text-blue-800 transition">
+                      Resend OTP
+                    </button>
+                  </div>
+                </div>
+              </form>
+            ) : (
+            /* Form */
             <form onSubmit={submit}>
               <div className="space-y-5">
 
@@ -299,6 +407,7 @@ export default function Login() {
                 </Button>
               </div>
             </form>
+            )}
 
             {/* Security footer */}
             <div className="mt-8 pt-6 border-t border-slate-100">

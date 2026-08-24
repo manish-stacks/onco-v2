@@ -8,7 +8,7 @@ import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { api, mediaUrl } from '@/lib/api';
 import { PERMISSIONS as P, PAYMENT_STATUSES, toneOf, TONE_HEX } from '@/lib/constants';
-import { inr, num, dateTime, date } from '@/lib/format';
+import { inr, num, dateTime, date, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import {
   Card, Button, StatusPill, SourceTag, Code, Field, Input, Select, Textarea,
@@ -45,7 +45,7 @@ export default function OrderDetail() {
         backLabel="Orders"
         title={
           <span className="flex items-center gap-2.5 flex-wrap">
-            <span className="font-mono">{order.databaseOrderID || `#${order.order_id}`}</span>
+            <span className="font-mono">{orderRef(order)}</span>
             <StatusPill status={order.status} />
             <SourceTag source={order.orderFrom} />
           </span>

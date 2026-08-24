@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Download } from 'lucide-react';
+import { ShoppingCart, Download, Printer, XCircle } from 'lucide-react';
 import { useList, useDebounced } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { api } from '@/lib/api';
+import { api, tokenStore } from '@/lib/api';
 import { PERMISSIONS as P, ORDER_STATUSES, PAYMENT_STATUSES, toneOf } from '@/lib/constants';
-import { inr, num, dateTime, ago } from '@/lib/format';
+import { inr, num, dateTime, ago, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Button, StatusPill, SourceTag, Code, Tabs } from '@/components/ui';
 import {
@@ -33,10 +33,38 @@ export default function OrderList() {
   const debounced = useDebounced(search);
   const [exporting, setExporting] = useState(false);
 
-  const { rows, pagination, filters, setFilter, setManyFilters, resetFilters, loading } = useList(
+  const { rows, pagination, filters, setFilter, setManyFilters, resetFilters, loading, reload } = useList(
     '/admin/orders',
     { status: params.get('status') || '', orderFrom: params.get('orderFrom') || '' }
   );
+
+  const BASE = import.meta.env.VITE_API_BASE || '';
+  const canShip = can(P.SHIPPING_MANAGE);
+
+  // Print the DTDC label (auth header needed, so fetch the PDF blob and open it)
+  const printLabel = async (awb) => {
+    try {
+      const res = await fetch(`${BASE}/api/admin/shipments/${awb}/label`, {
+        headers: { Authorization: `Bearer ${tokenStore.get()}` },
+      });
+      if (!res.ok) throw new Error('Label could not be generated');
+      window.open(URL.createObjectURL(await res.blob()), '_blank');
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  // Cancel the DTDC booking straight from the list (order itself is NOT cancelled)
+  const cancelShipment = async (order) => {
+    if (!window.confirm(`Cancel DTDC booking ${order.awb_number}? The order stays, only the shipment is cancelled.`)) return;
+    try {
+      await api.del(`/admin/orders/${order.order_id}/ship`);
+      toast.success('Booking cancelled');
+      reload();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
 
   // debounced search -> filters
   if (filters.search !== debounced) setFilter('search', debounced);
@@ -62,7 +90,7 @@ export default function OrderList() {
       render: (o) => (
         <div>
           <div className="flex items-center gap-1.5">
-            <Code>{o.databaseOrderID || `#${o.order_id}`}</Code>
+            <Code>{orderRef(o)}</Code>
             <SourceTag source={o.orderFrom} />
           </div>
           <p className="text-2xs text-ink-500 mt-0.5">{ago(o.order_date)}</p>
@@ -108,6 +136,17 @@ export default function OrderList() {
       key: 'awb_number', label: 'Tracking',
       render: (o) => (o.awb_number
         ? <div><Code className="text-2xs">{o.awb_number}</Code><p className="text-2xs text-ink-500">{o.courier_name}</p></div>
+        : <span className="text-ink-300 text-2xs">—</span>),
+    },
+    {
+      key: '_ship_actions', label: 'Shipment', align: 'right',
+      render: (o) => (o.awb_number && canShip
+        ? (
+          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            <Button size="xs" icon={Printer} onClick={() => printLabel(o.awb_number)}>Label</Button>
+            <Button size="xs" variant="dangerGhost" icon={XCircle} onClick={() => cancelShipment(o)}>Cancel</Button>
+          </div>
+        )
         : <span className="text-ink-300 text-2xs">—</span>),
     },
   ];

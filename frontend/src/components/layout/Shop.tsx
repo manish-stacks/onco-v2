@@ -396,9 +396,9 @@ function FilterSidebar({
             >
               All Brands
             </button>
-            {brands.map((b) => (
+            {brands.map((b,i) => (
               <button
-                key={b.id}
+                key={i}
                 onClick={() => setParam("brand_id", b.id)}
                 className={cn(
                   "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm",

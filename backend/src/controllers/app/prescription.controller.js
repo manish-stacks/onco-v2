@@ -1,4 +1,5 @@
 const prescriptionModel = require('../../models/prescription.model');
+const db = require('../../config/db');
 const { storeFiles } = require('../../middleware/upload');
 const { ok, created, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
@@ -85,12 +86,19 @@ const prescriptionDetail = asyncHandler(async (req, res) => {
 const cancelPrescription = asyncHandler(async (req, res) => {
   const presc = await prescriptionModel.findById(req.params.id);
   if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription not found', 404);
-  if (!['Pending', 'Under Review'].includes(presc.status)) {
-    return fail(res, `A prescription with status '${presc.status}' cannot be cancelled`, 409);
+
+  // A prescription that is attached to any order cannot be deleted — it is part
+  // of that order's record.
+  const [[used]] = await db.query(
+    `SELECT COUNT(*) AS c FROM orders WHERE prescription_id = ?`, [req.params.id]
+  );
+  if (used.c > 0) {
+    return fail(res, 'This prescription is used in an order and cannot be deleted', 409);
   }
 
-  await prescriptionModel.updateStatus(req.params.id, 'Cancelled', { rejectionReason: req.body.reason });
-  return ok(res, null, 'Prescription cancelled');
+  // Hard delete — removes the row, its suggested medicines and the S3 images.
+  await prescriptionModel.remove(req.params.id);
+  return ok(res, null, 'Prescription deleted');
 });
 
 module.exports = {

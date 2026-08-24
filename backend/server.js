@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -7,82 +8,253 @@ const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const path = require('path');
 const cookieParser = require('cookie-parser');
+
 const routes = require('./src/routes');
 const { notFound, errorHandler } = require('./src/middleware/errorHandler');
 
 const app = express();
-app.set('trust proxy', 1); // nginx ke peeche chalega, real IP chahiye
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(compression({
-  // SSE stream compress mat karo — warna events buffer ho ke atak jaate hain
-  filter: (req, res) => (req.path === '/api/admin/events' ? false : compression.filter(req, res)),
-}));
-app.use(cors({
-  origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
-  credentials: true,
-}));
+/**
+ * Trust the reverse proxy (e.g. Nginx) so Express can correctly
+ * identify the client's real IP address.
+ */
+app.set('trust proxy', 1);
+
+/**
+ * Security headers.
+ */
+app.use(
+  helmet({
+    crossOriginResourcePolicy: {
+      policy: 'cross-origin',
+    },
+  })
+);
+
+/**
+ * Response compression.
+ *
+ * SSE (Server-Sent Events) streams must not be compressed because
+ * compression can buffer events and prevent them from being delivered
+ * to the client immediately.
+ */
+app.use(
+  compression({
+    filter: (req, res) =>
+      req.path === '/api/admin/events'
+        ? false
+        : compression.filter(req, res),
+  })
+);
+
+/**
+ * CORS configuration.
+ *
+ * CORS_ORIGINS can contain multiple comma-separated origins.
+ * If it is not configured, all origins are allowed.
+ */
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(',')
+      : '*',
+    credentials: true,
+  })
+);
+
+/**
+ * Cookie parsing middleware.
+ */
 app.use(cookieParser());
 
 /**
- * ZAROORI: Razorpay webhook ko RAW body chahiye (HMAC verify ke liye).
- * Isliye express.json() se pehle, sirf usi path pe raw parser lagta hai.
+ * IMPORTANT:
+ *
+ * Razorpay webhooks require the original raw request body
+ * for HMAC signature verification.
+ *
+ * Therefore, the raw body parser must be registered BEFORE
+ * express.json(), and only for the Razorpay webhook endpoint.
  */
-app.use('/api/app/payments/razorpay/webhook', express.raw({ type: '*/*' }));
+app.use(
+  '/api/app/payments/razorpay/webhook',
+  express.raw({
+    type: '*/*',
+  })
+);
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+/**
+ * Request body parsers.
+ */
+app.use(
+  express.json({
+    limit: '10mb',
+  })
+);
 
-// general rate limit
-app.use('/api', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX || '1000', 10),
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Bahut zyada requests, thodi der baad try karo' },
-}));
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: '10mb',
+  })
+);
 
-// auth endpoints pe sakht limit (brute force se bachao)
+/**
+ * HTTP request logging.
+ *
+ * Production  -> combined format
+ * Development -> dev format
+ */
+app.use(
+  morgan(
+    process.env.NODE_ENV === 'production'
+      ? 'combined'
+      : 'dev'
+  )
+);
+
+/**
+ * General API rate limiting.
+ *
+ * This protects all /api endpoints from excessive requests.
+ */
+app.use(
+  '/api',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: parseInt(
+      process.env.RATE_LIMIT_MAX || '1000',
+      10
+    ),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      success: false,
+      message:
+        'Too many requests. Please try again later.',
+    },
+  })
+);
+
+/**
+ * Strict rate limiting for authentication endpoints.
+ *
+ * This helps protect login and OTP endpoints from
+ * brute-force and abuse attempts.
+ */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  message: { success: false, message: 'Bahut baar try kiya, 15 minute baad try karo' },
+  message: {
+    success: false,
+    message:
+      'Too many attempts. Please try again after 15 minutes.',
+  },
 });
+
 app.use('/api/app/auth/login', authLimiter);
 app.use('/api/app/auth/otp/request', authLimiter);
 app.use('/api/admin/auth/login', authLimiter);
 
-// uploaded files (S3 se pehle wali, aur local fallback)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'), { maxAge: '7d' }));
+/**
+ * Static uploaded files.
+ *
+ * These files may be served from local storage as a fallback
+ * before or alongside S3-based storage.
+ *
+ * Files are cached by the browser/proxy for 7 days.
+ */
+app.use(
+  '/uploads',
+  express.static(
+    path.join(__dirname, 'uploads'),
+    {
+      maxAge: '7d',
+    }
+  )
+);
 
 /**
- * Cached image proxy. S3 se ek baar laata hai, disk pe rakhta hai, aage se
- * wahin se serve karta hai — har page load pe S3 hit nahi hoti.
- * CloudFront lag jaye to MEDIA_SERVE_MODE hata do, URLs seedha CDN ki ban jayengi.
+ * Cached media/image proxy.
+ *
+ * The proxy fetches an image from S3 once, stores it on disk,
+ * and serves the cached copy for subsequent requests.
+ *
+ * This prevents repeated S3 requests on every page load.
+ *
+ * If CloudFront is introduced later, MEDIA_SERVE_MODE can be
+ * removed and media URLs can point directly to the CDN.
  */
-app.use('/media', require('./src/routes/media.routes'));
+app.use(
+  '/media',
+  require('./src/routes/media.routes')
+);
 
+/**
+ * Main API routes.
+ */
 app.use('/api', routes);
 
+/**
+ * 404 handler.
+ *
+ * Handles requests that do not match any registered route.
+ */
 app.use(notFound);
+
+/**
+ * Global error handler.
+ *
+ * Must remain the last middleware so it can catch errors
+ * generated by previous middleware and routes.
+ */
 app.use(errorHandler);
 
+/**
+ * Start HTTP server.
+ */
 const PORT = process.env.PORT || 4000;
+
 const server = app.listen(PORT, () => {
-  console.log(`[server] oncohealthmart API — port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+  console.log(
+    `[server] OncoHealthMart API is running on port ${PORT} (${process.env.NODE_ENV || 'development'})`
+  );
+
+  // Weekly auto-purge of otp_logs + notification_logs
+  require('./src/services/cleanup.service').startLogCleanup();
 });
 
-// graceful shutdown — chal rahi requests complete hone do
+/**
+ * Graceful shutdown.
+ *
+ * When the process receives SIGTERM or SIGINT:
+ * 1. Stop accepting new connections.
+ * 2. Allow existing requests to complete.
+ * 3. Close the database connection.
+ * 4. Close the Redis connection.
+ * 5. Exit the process.
+ */
 ['SIGTERM', 'SIGINT'].forEach((signal) => {
   process.on(signal, () => {
-    console.log(`[server] ${signal} mila, band kar rahe hain...`);
+    console.log(
+      `[server] ${signal} received. Shutting down gracefully...`
+    );
+
     server.close(() => {
-      require('./src/config/db').end().catch(() => {});
-      require('./src/config/redis').quit().catch(() => {});
+      require('./src/config/db')
+        .end()
+        .catch(() => {});
+
+      require('./src/config/redis')
+        .quit()
+        .catch(() => {});
+
       process.exit(0);
     });
   });
 });
 
+/**
+ * Export the Express application.
+ */
 module.exports = app;

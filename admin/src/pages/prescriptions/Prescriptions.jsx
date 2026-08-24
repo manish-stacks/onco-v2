@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom'
 import { FileText, Check, X, Pill, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { useList, useResource, useMutation, useDebounced } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { api, mediaUrl } from '@/lib/api';
 import { PERMISSIONS as P, PRESCRIPTION_STATUSES, toneOf } from '@/lib/constants';
 import { dateTime, ago } from '@/lib/format';
@@ -25,15 +26,30 @@ const SOURCE_TABS = [
 
 export function PrescriptionList() {
   const navigate = useNavigate();
+  const { can } = useAuth();
+  const toast = useToast();
   const [params] = useSearchParams();
   const [search, setSearch] = useState('');
   const debounced = useDebounced(search);
 
-  const { rows, pagination, filters, setFilter, resetFilters, loading } = useList(
+  const { rows, pagination, filters, setFilter, resetFilters, loading, reload } = useList(
     '/admin/prescriptions',
     { status: params.get('status') || '' }
   );
   if (filters.search !== debounced) setFilter('search', debounced);
+
+  const canManage = can(P.PRESCRIPTIONS_MANAGE);
+
+  const deleteRx = async (p) => {
+    if (!window.confirm(`Delete ${p.reference_code || `#${p.prescription_id}`}? Images will also be removed from storage. This cannot be undone.`)) return;
+    try {
+      await api.del(`/admin/prescriptions/${p.prescription_id}`);
+      toast.success('Prescription deleted');
+      reload();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
 
   const columns = [
     {
@@ -93,6 +109,20 @@ export function PrescriptionList() {
         ? <span className="text-2xs tabular-nums text-ink-500">{dateTime(p.reviewed_at)}</span>
         : <span className="text-2xs text-ink-300">pending</span>),
     },
+    {
+      key: '_actions', label: '', align: 'right',
+      render: (p) => (canManage
+        ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); deleteRx(p); }}
+            className="text-coral-500 hover:text-coral-600 p-1"
+            title="Delete prescription"
+          >
+            <Trash2 size={15} />
+          </button>
+        )
+        : null),
+    },
   ];
 
   return (
@@ -141,10 +171,25 @@ export function PrescriptionList() {
 export function PrescriptionDetail() {
   const { id } = useParams();
   const { can } = useAuth();
+  const navigate = useNavigate();
   const { data: presc, loading, reload } = useResource(`/admin/prescriptions/${id}`);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [medOpen, setMedOpen] = useState(false);
   const [lightbox, setLightbox] = useState(null);
+
+  const remove = useMutation(
+    () => api.del(`/admin/prescriptions/${id}`),
+    {
+      success: 'Prescription deleted',
+      onSuccess: () => navigate('/prescriptions'),
+    }
+  );
+
+  const confirmDelete = () => {
+    if (window.confirm('Delete this prescription permanently? This cannot be undone.')) {
+      remove.run();
+    }
+  };
 
   if (loading && !presc) return <PageLoader />;
   if (!presc) return <EmptyState icon={FileText} title="Prescription not found" />;
@@ -168,6 +213,9 @@ export function PrescriptionDetail() {
           <>
             <Button icon={Pill} onClick={() => setMedOpen(true)}>Suggest medicines</Button>
             <Button variant="primary" icon={Check} onClick={() => setReviewOpen(true)}>Review</Button>
+            <Button variant="dangerGhost" icon={Trash2} loading={remove.loading} onClick={confirmDelete}>
+              Delete
+            </Button>
           </>
         )}
       />

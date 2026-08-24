@@ -110,8 +110,25 @@ function toCsv(rows, columns) {
   return `${header}\n${body}`;
 }
 
+/**
+ * The single canonical, human-friendly order identifier shown everywhere —
+ * admin panel, user dashboard and every SMS/WhatsApp message — so one order
+ * looks the same in all three places and is easy to search.
+ *   order_id 36154, placed 2026  ->  "ORD/2026/036154"
+ * The number is the orders table primary key, so /account/orders/<order_id>
+ * links straight to it.
+ */
+function orderRef(order) {
+  if (!order) return '';
+  const id = order.order_id ?? order.orderId;
+  if (!id) return order.databaseOrderID || '';
+  const d = order.order_date || order.created_at;
+  const year = d ? new Date(d).getFullYear() : new Date().getFullYear();
+  return `ORD/${year}/${String(id).padStart(6, '0')}`;
+}
+
 module.exports = {
-  getPagination, getSort, slugify, genRef, genInvoiceNumber, genOtp,
+  getPagination, getSort, slugify, genRef, genInvoiceNumber, genOtp, orderRef,
   money, normalizeMobile, toMysqlDate, dateRangeFromPreset,
   pickDefined, parseJson, toCsv,
 };

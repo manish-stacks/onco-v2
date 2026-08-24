@@ -43,6 +43,15 @@ router.post('/auth/login', validate({
   password: { required: true },
 }), auth.login);
 
+// OTP step of login — public (the admin is not authenticated yet)
+router.post('/auth/verify-otp', validate({
+  admin_id: { required: true },
+  otp: { required: true },
+}), auth.verifyOtp);
+router.post('/auth/resend-otp', validate({
+  admin_id: { required: true },
+}), auth.resendOtp);
+
 /**
  * SSE live stream. Mounted BEFORE adminAuth because EventSource cannot send custom headers
  * so the token arrives as a query param and the controller verifies it itself
@@ -88,6 +97,7 @@ router.patch('/orders/:orderId/prescription', requirePermission(P.PRESCRIPTIONS_
   order.updatePrescriptionStatus);
 
 // ---- POS (admin creates a custom order) ----
+router.get('/pos/config', requirePermission(P.ORDERS_MANAGE), pos.getConfig);
 router.get('/pos/products', requirePermission(P.ORDERS_MANAGE), pos.searchProducts);
 router.get('/pos/customer', requirePermission(P.ORDERS_MANAGE), pos.lookupCustomer);
 router.post('/pos/orders', requirePermission(P.ORDERS_MANAGE), pos.createOrder);

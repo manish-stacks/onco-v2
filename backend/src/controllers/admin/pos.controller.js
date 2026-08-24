@@ -5,8 +5,19 @@ const productModel = require('../../models/product.model');
 const orderService = require('../../services/order.service');
 const orderModel = require('../../models/order.model');
 const adminModel = require('../../models/admin.model');
+const settingsModel = require('../../models/settings.model');
 const cache = require('../../utils/cache');
 const { ok, created, fail, asyncHandler } = require('../../utils/response');
+
+/**
+ * GET /admin/pos/config — the POS estimate needs the same GST rules the server
+ * uses so the GST it shows matches the final amount. default_gst is the fallback
+ * rate; gst_override means that rate is applied to every item.
+ */
+const getConfig = asyncHandler(async (req, res) => {
+  const tax = await settingsModel.getTaxConfig();
+  return ok(res, { default_gst: tax.default_gst, gst_override: tax.gst_override });
+});
 
 /**
  * POS — lets an admin create a custom order (counter / phone order).
@@ -198,4 +209,4 @@ const createOrder = asyncHandler(async (req, res) => {
   }, 'POS order created');
 });
 
-module.exports = { searchProducts, lookupCustomer, createOrder };
+module.exports = { searchProducts, lookupCustomer, createOrder, getConfig };

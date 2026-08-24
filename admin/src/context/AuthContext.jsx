@@ -48,13 +48,33 @@ export function AuthProvider({ children }) {
     return () => { alive = false; };
   }, []);
 
+  // Applies a fully-authenticated session payload ({ token, admin, permissions }).
+  const applySession = useCallback((data) => {
+    tokenStore.set(data.token);
+    setAdmin(data.admin);
+    setPermissions(data.permissions || []);
+    return data.admin;
+  }, []);
+
+  // Step 1. Returns { otp_required, admin_id, mobile_hint, dev_otp? } when an OTP
+  // step is needed, otherwise logs straight in and returns the admin.
   const login = useCallback(async (username, password) => {
     const res = await api.post('/admin/auth/login', { username, password });
-    tokenStore.set(res.data.token);
-    setAdmin(res.data.admin);
-    setPermissions(res.data.permissions || []);
-    return res.data.admin;
-  }, []);
+    if (res.data?.otp_required) return res.data; // caller shows the OTP screen
+    return applySession(res.data);
+  }, [applySession]);
+
+  // Step 2. Verify the OTP and finish login.
+  const verifyOtp = useCallback(async (admin_id, otp) => {
+    const res = await api.post('/admin/auth/verify-otp', { admin_id, otp });
+    return applySession(res.data);
+  }, [applySession]);
+
+  // Resend the login OTP.
+  const resendOtp = useCallback(
+    (admin_id) => api.post('/admin/auth/resend-otp', { admin_id }).then((r) => r.data),
+    []
+  );
 
   const refresh = useCallback(async () => {
     const res = await api.get('/admin/auth/me');
@@ -70,8 +90,8 @@ export function AuthProvider({ children }) {
   }, [permissions]);
 
   const value = useMemo(
-    () => ({ admin, permissions, loading, login, logout, refresh, can }),
-    [admin, permissions, loading, login, logout, refresh, can]
+    () => ({ admin, permissions, loading, login, verifyOtp, resendOtp, logout, refresh, can }),
+    [admin, permissions, loading, login, verifyOtp, resendOtp, logout, refresh, can]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

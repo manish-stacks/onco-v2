@@ -1,43 +1,67 @@
 const axios = require('axios');
 const db = require('../config/db');
-const { normalizeMobile } = require('../utils/helpers');
 
 /**
- * SMS via Fast2SMS.
+ * SMS via 2Factor.in (same provider + templates as the old OncoHealthMart site).
  *
- * Two routes are supported:
- *   route=otp  — Fast2SMS ka built-in OTP route. Sirf `variables_values` me
- *                only the OTP is sent, no DLT template ID needed.
- *                Message is fixed: "Your OTP: 123456"
- *   route=dlt  — use this when you have your own DLT-approved template. Then
- *                FAST2SMS_DLT_TEMPLATE_ID and sender_id are required.
+ * The old site sent every SMS through 2Factor's TSMS route with DLT-approved
+ * templates, e.g. OTP -> "RegistrationConfirmation", order placed ->
+ * "OrderPlacementNotification". We keep exactly those template names so no new
+ * DLT approval is needed.
+ *
+ *   POST https://2factor.in/API/V1/<API_KEY>/ADDON_SERVICES/SEND/TSMS
+ *   body: { From, To, TemplateName, VAR1, VAR2, ... }
  *
  * .env:
- *   FAST2SMS_API_KEY=
- *   FAST2SMS_ROUTE=otp            (ya 'dlt')
- *   FAST2SMS_SENDER_ID=OHMART     (dlt route ke liye)
- *   FAST2SMS_DLT_TEMPLATE_ID=     (dlt route ke liye)
+ *   TWOFACTOR_API_KEY=          (falls back to the existing FAST2SMS_API_KEY value,
+ *                                which already holds the 2Factor key)
+ *   TWOFACTOR_SENDER=ONCOHM     (DLT header / From)
+ *   TWOFACTOR_OTP_TEMPLATE=RegistrationConfirmation
  *
- * Without a key the OTP is printed to the console — the local dev flow keeps working.
+ * Without a key the OTP is printed to the console so local dev keeps working.
  */
-const BASE = 'https://www.fast2sms.com/dev/bulkV2';
 
-function isConfigured() {
-  return !!process.env.FAST2SMS_API_KEY;
+function apiKey() {
+  // The current .env stores the 2Factor key under FAST2SMS_API_KEY — accept both.
+  return process.env.TWOFACTOR_API_KEY || process.env.FAST2SMS_API_KEY || '';
 }
 
-/** Fast2SMS accepts 10-digit numbers, without a country code */
+function senderId() {
+  return process.env.TWOFACTOR_SENDER || process.env.FAST2SMS_SENDER_ID || 'ONCOHM';
+}
+
+function otpTemplate() {
+  return process.env.TWOFACTOR_OTP_TEMPLATE || 'RegistrationConfirmation';
+}
+
+function isConfigured() {
+  return !!apiKey();
+}
+
+/** 2Factor accepts the 10-digit number; the old site prefixed it with +91 */
 function toTenDigit(mobile) {
   const digits = String(mobile || '').replace(/\D/g, '');
   return digits.slice(-10);
 }
 
-async function post(payload) {
-  const { data } = await axios.post(BASE, payload, {
-    headers: {
-      authorization: process.env.FAST2SMS_API_KEY,
-      'Content-Type': 'application/json',
-    },
+function receiver(mobile) {
+  return `+91${toTenDigit(mobile)}`;
+}
+
+/** Send a TSMS (transactional) message on a DLT-approved template. */
+async function sendTsms(mobile, templateName, variables = []) {
+  const url = `https://2factor.in/API/V1/${apiKey()}/ADDON_SERVICES/SEND/TSMS`;
+
+  const body = {
+    From: senderId(),
+    To: receiver(mobile),
+    TemplateName: templateName,
+  };
+  // 2Factor reads VAR1, VAR2, VAR3 ... in order.
+  variables.forEach((v, i) => { body[`VAR${i + 1}`] = String(v ?? ''); });
+
+  const { data } = await axios.post(url, body, {
+    headers: { 'Content-Type': 'application/json' },
     timeout: 15000,
   });
   return data;
@@ -48,7 +72,7 @@ async function post(payload) {
  *
  * @param {string} mobile
  * @param {string} otp
- * @param {object} meta { customerId, purpose, source, ip, expiresAt }
+ * @param {object} meta { customerId, purpose, source, ip, expiresAt, channel }
  */
 async function sendOtp(mobile, otp, meta = {}) {
   const number = toTenDigit(mobile);
@@ -60,32 +84,11 @@ async function sendOtp(mobile, otp, meta = {}) {
     console.log(`[sms] DEV MODE — OTP for ${number}: ${otp}`);
     result = { dev: true, otp };
   } else {
-    provider = 'fast2sms';
-    const route = process.env.FAST2SMS_ROUTE || 'otp';
-
+    provider = '2factor';
     try {
-      const payload = route === 'dlt'
-        ? {
-          route: 'dlt',
-          sender_id: process.env.FAST2SMS_SENDER_ID,
-          message: process.env.FAST2SMS_DLT_TEMPLATE_ID,
-          variables_values: String(otp),
-          numbers: number,
-          flash: 0,
-        }
-        : {
-          route: 'otp',
-          variables_values: String(otp),
-          numbers: number,
-          flash: 0,
-        };
-
-      result = await post(payload);
-      delivered = result?.return === true;
-
-      if (!delivered) {
-        console.error('[sms] Fast2SMS rejected it:', result);
-      }
+      result = await sendTsms(number, otpTemplate(), [otp]);
+      delivered = String(result?.Status).toLowerCase() === 'success';
+      if (!delivered) console.error('[sms] 2Factor rejected OTP:', result);
     } catch (err) {
       const msg = err.response?.data || err.message;
       console.error('[sms] OTP send fail:', msg);
@@ -93,14 +96,7 @@ async function sendOtp(mobile, otp, meta = {}) {
     }
   }
 
-  await logOtp({
-    mobile: number,
-    otp,
-    provider,
-    delivered,
-    response: result,
-    ...meta,
-  });
+  await logOtp({ mobile: number, otp, provider, delivered, response: result, ...meta });
 
   if (isConfigured() && !delivered) {
     throw Object.assign(
@@ -112,21 +108,20 @@ async function sendOtp(mobile, otp, meta = {}) {
   return result;
 }
 
-/** Transactional SMS — order updates etc. A DLT template is mandatory. */
-async function sendTransactional(mobile, templateId, variables = []) {
-  if (!isConfigured() || !templateId) {
-    console.log(`[sms] DEV MODE — ${toTenDigit(mobile)} | template ${templateId} |`, variables);
+/**
+ * Transactional SMS — order updates etc.
+ * @param {string} mobile
+ * @param {string} templateName  DLT template name (e.g. 'OrderPlacementNotification')
+ * @param {Array}  variables     [VAR1, VAR2, ...]
+ */
+async function sendTransactional(mobile, templateName, variables = []) {
+  if (!isConfigured() || !templateName) {
+    console.log(`[sms] DEV MODE — ${toTenDigit(mobile)} | template ${templateName} |`, variables);
     return { dev: true };
   }
+  const vars = Array.isArray(variables) ? variables : [variables];
   try {
-    return await post({
-      route: 'dlt',
-      sender_id: process.env.FAST2SMS_SENDER_ID,
-      message: templateId,
-      variables_values: variables.join('|'),
-      numbers: toTenDigit(mobile),
-      flash: 0,
-    });
+    return await sendTsms(mobile, templateName, vars);
   } catch (err) {
     // A failed SMS must not stop the main flow
     console.error('[sms] transactional fail:', err.response?.data || err.message);
@@ -136,8 +131,7 @@ async function sendTransactional(mobile, templateId, variables = []) {
 
 /**
  * OTP history — the admin support team checks this when a customer says
- * "OTP not received". This is stored deliberately, so it
- * is kept behind the `otp.view` permission.
+ * "OTP not received". Kept behind the `otp.view` permission.
  */
 async function logOtp({ mobile, otp, customerId, purpose, channel, provider, delivered, response, source, ip, expiresAt }) {
   try {

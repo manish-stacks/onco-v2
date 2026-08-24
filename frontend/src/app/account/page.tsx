@@ -10,7 +10,7 @@ import {
   ListChecks, Layers, Wallet, Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatINR, cn } from "@/lib/utils";
+import { formatINR, cn, orderRef } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
 import { useAuth } from "@/context/auth-context";
 import { addressApi, orderApi, prescriptionApi, authApi, wishlistApi, mediaUrl, ApiError } from "@/lib/api";
@@ -46,6 +46,7 @@ export default function AccountPage() {
     full_name: "", phone: "", house_no: "", stree_address: "", landmark: "", city: "", state: "", pincode: "", type: "Home",
   });
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) router.push("/login?redirect=/account");
@@ -92,14 +93,33 @@ export default function AccountPage() {
   async function handleAddAddress(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await addressApi.create<Address>(newAddress);
+      if (editingId != null) {
+        await addressApi.update<Address>(editingId, newAddress);
+      } else {
+        await addressApi.create<Address>(newAddress);
+      }
       const list = await addressApi.list<Address[]>();
       setAddresses(list ?? []);
-      setShowAddressForm(false);
-      setNewAddress({ full_name: "", phone: "", house_no: "", stree_address: "", landmark: "", city: "", state: "", pincode: "", type: "Home" });
+      resetAddressForm();
     } catch (err) {
       if (!(err instanceof ApiError)) throw err;
     }
+  }
+
+  function resetAddressForm() {
+    setShowAddressForm(false);
+    setEditingId(null);
+    setNewAddress({ full_name: "", phone: "", house_no: "", stree_address: "", landmark: "", city: "", state: "", pincode: "", type: "Home" });
+  }
+
+  function handleEditAddress(a: Address) {
+    setEditingId(a.ad_id ?? null);
+    setNewAddress({
+      full_name: a.full_name || "", phone: a.phone || "", house_no: a.house_no || "",
+      stree_address: a.stree_address || "", landmark: a.landmark || "", city: a.city || "",
+      state: a.state || "", pincode: a.pincode || "", type: a.type || "Home",
+    });
+    setShowAddressForm(true);
   }
 
   async function handleRemoveAddress(id: string | number) {
@@ -108,6 +128,27 @@ export default function AccountPage() {
       setAddresses((prev) => prev.filter((a) => a.ad_id !== id));
     } catch (err) {
       if (!(err instanceof ApiError)) throw err;
+    }
+  }
+
+  // Prescriptions attached to an order can't be deleted — the backend enforces
+  // this too (409), we just hide the button for a cleaner UX.
+  const usedPrescriptionIds = useMemo(
+    () => new Set(orders.map((o) => o.prescription_id).filter(Boolean).map(String)),
+    [orders]
+  );
+
+  async function handleDeletePrescription(id: string | number) {
+    if (!confirm("Delete this prescription? This cannot be undone.")) return;
+    try {
+      await prescriptionApi.remove(id);
+      setPrescriptions((prev) => prev.filter((p) => p.prescription_id !== id));
+    } catch (err) {
+      if (err instanceof ApiError) {
+        alert(err.status === 409 ? "This prescription is used in an order and can't be deleted." : err.message);
+        return;
+      }
+      throw err;
     }
   }
 
@@ -278,12 +319,13 @@ export default function AccountPage() {
                   <Card>
                     <div className="mb-5 flex items-center justify-between border-b border-[var(--line)] pb-4">
                       <p className="font-display text-lg font-bold text-[var(--ink)]">Address List</p>
-                      <button onClick={() => setShowAddressForm((s) => !s)} className="flex items-center gap-1.5 rounded-lg bg-[var(--blue-500)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--blue-600)]">
+                      <button onClick={() => { if (showAddressForm) { resetAddressForm(); } else { setEditingId(null); setShowAddressForm(true); } }} className="flex items-center gap-1.5 rounded-lg bg-[var(--blue-500)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--blue-600)]">
                         <Plus size={15} /> Add New
                       </button>
                     </div>
                     {showAddressForm && (
                       <form onSubmit={handleAddAddress} className="mb-6 grid grid-cols-1 gap-3 rounded-xl border border-[var(--line)] p-4 sm:grid-cols-2">
+                        <p className="font-display text-sm font-bold text-[var(--ink)] sm:col-span-2">{editingId != null ? "Edit Address" : "Add New Address"}</p>
                         <Input required placeholder="Full name" value={newAddress.full_name} onChange={(v) => setNewAddress({ ...newAddress, full_name: v })} />
                         <Input required placeholder="Mobile number" value={newAddress.phone} onChange={(v) => setNewAddress({ ...newAddress, phone: v })} />
                         <Input placeholder="House / Flat no." value={newAddress.house_no || ""} onChange={(v) => setNewAddress({ ...newAddress, house_no: v })} />
@@ -294,7 +336,10 @@ export default function AccountPage() {
                         <Input required placeholder="City" value={newAddress.city} onChange={(v) => setNewAddress({ ...newAddress, city: v })} />
                         <Input required placeholder="State" value={newAddress.state} onChange={(v) => setNewAddress({ ...newAddress, state: v })} />
                         <Input required placeholder="Pincode" value={newAddress.pincode} onChange={(v) => setNewAddress({ ...newAddress, pincode: v })} />
-                        <button type="submit" className="rounded-full bg-[var(--blue-500)] px-5 py-2.5 text-sm font-semibold text-white sm:col-span-2 sm:w-fit">Save Address</button>
+                        <div className="flex items-center gap-2 sm:col-span-2">
+                          <button type="submit" className="rounded-full bg-[var(--blue-500)] px-5 py-2.5 text-sm font-semibold text-white sm:w-fit">{editingId != null ? "Update Address" : "Save Address"}</button>
+                          <button type="button" onClick={resetAddressForm} className="rounded-full border border-[var(--line)] px-5 py-2.5 text-sm font-semibold text-[var(--ink-soft)] sm:w-fit">Cancel</button>
+                        </div>
                       </form>
                     )}
                     {addresses.length === 0 ? (
@@ -312,7 +357,10 @@ export default function AccountPage() {
                             </p>
                             <div className="flex items-center justify-between">
                               <p className="text-xs text-[var(--ink-soft)]">{a.phone}</p>
-                              <button onClick={() => a.ad_id && handleRemoveAddress(a.ad_id)} className="text-xs font-medium text-[var(--coral-500)]">Remove</button>
+                              <div className="flex items-center gap-3">
+                                <button onClick={() => handleEditAddress(a)} className="text-xs font-medium text-[var(--blue-600)]">Edit</button>
+                                <button onClick={() => a.ad_id && handleRemoveAddress(a.ad_id)} className="text-xs font-medium text-[var(--coral-500)]">Remove</button>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -345,7 +393,11 @@ export default function AccountPage() {
                               <p className="text-sm font-medium text-[var(--ink)]">{p.reference_code || `Prescription #${p.prescription_id}`}</p>
                               <p className="text-xs text-[var(--ink-soft)]">{p.doctor_name || "—"}</p>
                             </div>
+                            <a href={mediaUrl(p.images[0])} target="_blank" rel="noopener noreferrer" className={cn("rounded-full px-3 py-1 text-xs font-semibold capitalize")}>View</a>
                             <span className={cn("rounded-full px-3 py-1 text-xs font-semibold capitalize", statusTone(p.status))}>{p.status}</span>
+                            {p.prescription_id != null && !usedPrescriptionIds.has(String(p.prescription_id)) && (
+                              <button onClick={() => handleDeletePrescription(p.prescription_id!)} className="text-xs font-medium text-[var(--coral-500)]">Delete</button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -421,7 +473,7 @@ function OrdersTable({ orders }: { orders: Order[] }) {
             <tr key={o.order_id} className={cn("text-sm", i % 2 === 0 && "bg-[#F8FAFD]")}>
               <td className="rounded-l-lg px-3 py-3.5">
                 <Link href={`/account/orders/${o.order_id}`} className="font-semibold text-[var(--blue-600)] hover:underline">
-                  {o.invoice_number || `#${o.order_id}`}
+                  {orderRef(o)}
                 </Link>
               </td>
               <td className="px-3 py-3.5 text-[var(--ink-soft)]">

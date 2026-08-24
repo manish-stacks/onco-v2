@@ -24,6 +24,24 @@ function errorHandler(err, req, res, next) {
     return res.status(409).json({ success: false, message: 'This record is linked to another record, remove that one first' });
   }
 
+  // A raw failure from an outbound/vendor HTTP call (DTDC, PayU, Fast2SMS, 2Factor,
+  // BuzWap, …). Since axios 1.5 the VENDOR's HTTP status is copied onto err.status,
+  // so a DTDC 401/403 would otherwise be sent back as OUR 401 — and the admin panel
+  // treats every 401 as "session expired" and logs the user out. A failed upstream
+  // call is a gateway error on our side, never an auth problem with the admin's
+  // session, so always normalise it to 502.
+  if (err.isAxiosError) {
+    console.error('[error] upstream call failed:',
+      err.response?.status, err.config?.url || '', err.message);
+    const vendorMsg = err.response?.data?.message
+      || err.response?.data?.error
+      || err.message;
+    return res.status(502).json({
+      success: false,
+      message: `Upstream service error: ${String(vendorMsg || 'no response').slice(0, 200)}`,
+    });
+  }
+
   const status = err.status || 500;
   if (status >= 500) console.error('[error]', err);
 

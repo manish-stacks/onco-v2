@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Package, Loader2 } from "lucide-react";
 import { orderApi } from "@/lib/api";
-import { formatINR, cn } from "@/lib/utils";
+import { formatINR, cn, orderRef } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import type { Order } from "@/types";
 
@@ -76,7 +76,7 @@ export default function OrdersListPage() {
               className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] bg-white p-4 hover:border-[var(--blue-500)]"
             >
               <div>
-                <p className="font-semibold text-[var(--ink)]">{o.invoice_number || `#${o.order_id}`}</p>
+                <p className="font-semibold text-[var(--ink)]">{orderRef(o)}</p>
                 <p className="text-xs text-[var(--ink-soft)]">{new Date(o.order_date).toLocaleDateString()}</p>
               </div>
               <span

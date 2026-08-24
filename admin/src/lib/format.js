@@ -58,3 +58,14 @@ export const truncate = (s, n = 40) =>
 
 export const titleCase = (s) =>
   String(s || '').replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+// The one canonical order reference shown across admin, the user dashboard and
+// every SMS/WhatsApp — ORD/<year>/<order_id padded>. order_id is the table PK.
+export const orderRef = (o) => {
+  if (!o) return '';
+  const id = o.order_id ?? o.orderId;
+  if (!id) return o.databaseOrderID || '';
+  const d = o.order_date || o.created_at;
+  const year = d ? new Date(d).getFullYear() : new Date().getFullYear();
+  return `ORD/${year}/${String(id).padStart(6, '0')}`;
+};

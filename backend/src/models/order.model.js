@@ -129,10 +129,14 @@ function buildFilters(filters = {}) {
     .in('status', filters.statuses);
 
   if (filters.search) {
+    // Pasting a full ref like "ORD/2026/036154" (or "#36154") should still find
+    // the order — match the trailing number against order_id.
+    const trailing = String(filters.search).match(/(\d+)\s*$/);
+    const orderIdEq = trailing ? parseInt(trailing[1], 10) : (Number(filters.search) || 0);
     qb.raw(
       '(o.`customer_name` LIKE ? OR o.`customer_phone` LIKE ? OR o.`databaseOrderID` LIKE ? OR o.`order_id` = ? OR o.`awb_number` LIKE ?)',
       `%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`,
-      Number(filters.search) || 0, `%${filters.search}%`
+      orderIdEq, `%${filters.search}%`
     );
   }
   return qb;

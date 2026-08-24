@@ -8,7 +8,7 @@ import { ArrowLeft, Package, Truck, CheckCircle2, XCircle, RotateCcw, Loader2 } 
 import { Button } from "@/components/ui/button";
 import { orderApi, mediaUrl, ApiError } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
-import { formatINR, cn } from "@/lib/utils";
+import { formatINR, cn, orderRef } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import type { Order } from "@/types";
 
@@ -67,7 +67,7 @@ export default function OrderDetailPage() {
       }
       await openRazorpayCheckout({
         session: data.razorpay,
-        description: `Order #${order.databaseOrderID || order.order_id}`,
+        description: `Order ${orderRef(order)}`,
         onSuccess: async (response) => {
           try {
             await orderApi.verifyPayment(response);
@@ -116,7 +116,7 @@ export default function OrderDetailPage() {
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
         <div>
-          <p className="font-display text-xl font-bold text-[var(--ink)]">{order.invoice_number || `Order #${order.order_id}`}</p>
+          <p className="font-display text-xl font-bold text-[var(--ink)]">{orderRef(order)}</p>
           <p className="text-sm text-[var(--ink-soft)]">Placed on {new Date(order.order_date).toLocaleDateString()}</p>
         </div>
         <span className={cn("rounded-full px-4 py-1.5 text-sm font-semibold capitalize", order.status?.toLowerCase() === "completed" ? "bg-[var(--mint-50)] text-[var(--mint-600)]" : order.status?.toLowerCase() === "cancelled" || order.status?.toLowerCase() === "delivery failed" ? "bg-[#FFEDEA] text-[var(--coral-500)]" : "bg-[var(--blue-50)] text-[var(--blue-600)]")}>

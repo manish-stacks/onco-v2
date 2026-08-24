@@ -100,6 +100,10 @@ function CheckoutInner() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  // Prescription: either pick a saved one OR upload a new one — never both, to
+  // avoid the "do I need to do both?" confusion.
+  const [prescMode, setPrescMode] = useState<"saved" | "new">("saved");
+  const [viewRx, setViewRx] = useState<Prescription | null>(null);
   const [uploading, setUploading] = useState(false);
   const [prescErrors, setPrescErrors] = useState<Record<string, string>>({});
 
@@ -379,6 +383,7 @@ function CheckoutInner() {
       const merged = await loadPrescriptions(res?.prescription_id ?? null);
       const newId = res?.prescription_id ?? merged[0]?.prescription_id ?? null;
       if (newId) setSelectedPrescriptionId(newId);
+      setPrescMode("saved");
     } catch (err) {
       const fieldErrors = toFieldErrors(err);
       if (Object.keys(fieldErrors).length) setPrescErrors(fieldErrors);
@@ -649,7 +654,7 @@ function CheckoutInner() {
               </div>
 
               {/* Shipping address toggle */}
-              <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
+              <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6 hidden">
                 <label className="flex items-center gap-3 text-sm font-medium text-[var(--ink)]">
                   <input type="checkbox" checked={shippingSame} onChange={(e) => setShippingSame(e.target.checked)} className="h-4 w-4 accent-[var(--blue-500)]" />
                   Shipping address same as billing
@@ -680,6 +685,25 @@ function CheckoutInner() {
                   </p>
 
                   {prescriptions.length > 0 && (
+                    <div className="mb-4 inline-flex rounded-[var(--radius-sm)] border border-[var(--line)] p-0.5 text-sm">
+                      <button
+                        type="button"
+                        onClick={() => { setPrescMode("saved"); clearPickedFiles(); }}
+                        className={`rounded-[calc(var(--radius-sm)-2px)] px-3 py-1.5 font-medium ${prescMode === "saved" ? "bg-[var(--blue-500)] text-white" : "text-[var(--ink-soft)]"}`}
+                      >
+                        Use a saved prescription
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setPrescMode("new"); setSelectedPrescriptionId(null); }}
+                        className={`rounded-[calc(var(--radius-sm)-2px)] px-3 py-1.5 font-medium ${prescMode === "new" ? "bg-[var(--blue-500)] text-white" : "text-[var(--ink-soft)]"}`}
+                      >
+                        Upload a new one
+                      </button>
+                    </div>
+                  )}
+
+                  {prescriptions.length > 0 && prescMode === "saved" && (
                     <div className="space-y-2">
                       <p className="text-xs font-medium text-[var(--ink-soft)]">Select a saved prescription</p>
                       {prescriptions.map((p) => (
@@ -716,6 +740,13 @@ function CheckoutInner() {
                           }`}>
                             {p.status}
                           </span>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setViewRx(p); }}
+                            className="ml-1 rounded-full border border-[var(--line)] px-2.5 py-1 text-xs font-semibold text-[var(--blue-600)] hover:bg-[var(--blue-50)]"
+                          >
+                            View
+                          </button>
                         </label>
                       ))}
                       {selectedPrescriptionId
@@ -729,6 +760,7 @@ function CheckoutInner() {
                   )}
 
                   {/* Upload a new prescription right here */}
+                  {(prescMode === "new" || prescriptions.length === 0) && (
                   <div className="mt-5 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] p-4">
                     <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
                       <UploadCloud size={16} className="text-[var(--blue-500)]" /> Upload a new prescription
@@ -799,6 +831,32 @@ function CheckoutInner() {
                         </Link>
                       </p>
                     )}
+                  </div>
+                  )}
+                </div>
+              )}
+
+              {viewRx && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setViewRx(null)}>
+                  <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-[var(--radius-md)] bg-white p-5" onClick={(e) => e.stopPropagation()}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="font-semibold text-[var(--ink)]">{viewRx.reference_code || `Prescription #${viewRx.prescription_id}`}</p>
+                      <button onClick={() => setViewRx(null)} className="text-[var(--ink-soft)] hover:text-[var(--ink)]"><X size={18} /></button>
+                    </div>
+                    {(viewRx.patient_name || viewRx.doctor_name || viewRx.hospital_name) && (
+                      <p className="mb-3 text-xs text-[var(--ink-soft)]">
+                        {[viewRx.patient_name, viewRx.doctor_name && `Dr. ${viewRx.doctor_name}`, viewRx.hospital_name].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 gap-3">
+                      {(viewRx.images || []).map((img, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={i} src={mediaUrl(img)} alt={`prescription ${i + 1}`} className="w-full rounded-[var(--radius-sm)] border border-[var(--line)]" />
+                      ))}
+                      {(!viewRx.images || viewRx.images.length === 0) && (
+                        <p className="text-sm text-[var(--ink-soft)]">No images on this prescription.</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -878,7 +936,7 @@ function CheckoutInner() {
         </div>
 
         {/* Order summary */}
-        <div className="h-fit rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
+        <div className="h-fit self-start lg:sticky lg:top-24 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
           <p className="mb-4 font-semibold text-[var(--ink)]">Order Summary ({cartItems.length} items)</p>
           <div className="mb-4 max-h-64 space-y-3 overflow-y-auto pr-1">
             {cartItems.map((item) => (

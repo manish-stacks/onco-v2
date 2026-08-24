@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   description:
     "Buy online medicines from the best emergency & anti-cancer medicine supplier in Delhi, India. ✓70% OFF ✓Free-Fast-Delivery ✓100% Original Medicines.",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/favicon.jpg",
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
   },

@@ -60,6 +60,14 @@ export default function Pos() {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
+  // GST rules from admin settings so the estimate matches the server total.
+  const [tax, setTax] = useState({ default_gst: 0, gst_override: false });
+  useEffect(() => {
+    api.get('/admin/pos/config')
+      .then((res) => { if (res?.data) setTax(res.data); })
+      .catch(() => { /* fall back to per-product GST */ });
+  }, []);
+
   const set = (k, v) => {
     setForm((f) => ({ ...f, [k]: v }));
     setErrors((e) => ({ ...e, [k]: '' }));
@@ -123,10 +131,18 @@ export default function Pos() {
   }
 
   // Estimate only — final pricing, GST and discount are always computed on the server
+  // Same rule the server uses: override -> global rate for all; else product's
+  // own GST, falling back to the global rate when a product has none.
+  const gstPercentFor = (item) => {
+    if (tax.gst_override) return Number(tax.default_gst) || 0;
+    const own = Number(item.product_gst);
+    return own > 0 ? own : (Number(tax.default_gst) || 0);
+  };
+
   const estimate = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + (Number(i.product_sp) || 0) * i.quantity, 0);
     const gst = items.reduce(
-      (s, i) => s + ((Number(i.product_sp) || 0) * i.quantity * (Number(i.product_gst) || 0)) / 100, 0
+      (s, i) => s + ((Number(i.product_sp) || 0) * i.quantity * gstPercentFor(i)) / 100, 0
     );
     const dv = parseFloat(form.discount_value) || 0;
     const discount = form.discount_type === 'percent'
@@ -138,7 +154,7 @@ export default function Pos() {
       discount,
       total: Math.max(subtotal + gst - discount, 0),
     };
-  }, [items, form.discount_type, form.discount_value]);
+  }, [items, form.discount_type, form.discount_value, tax]);
 
   const needsPrescription = items.some((i) => i.presciption_required === 'Yes');
 
@@ -430,7 +446,7 @@ export default function Pos() {
                         <td className="py-2 pr-2">
                           <span className="block text-ink">{i.product_name}</span>
                           <span className="block text-2xs text-ink-500">
-                            {i.sku || '—'} · GST {Number(i.product_gst) || 0}%
+                            {i.sku || '—'} · GST {gstPercentFor(i)}%
                           </span>
                         </td>
                         <td className="py-2">

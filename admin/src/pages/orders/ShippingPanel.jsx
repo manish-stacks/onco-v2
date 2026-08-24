@@ -6,7 +6,7 @@ import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { api, tokenStore } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
-import { dateTime, inr } from '@/lib/format';
+import { dateTime, inr, orderRef } from '@/lib/format';
 import {
   Card, Button, Field, Input, Select, Code, StatusPill, EmptyState, cx,
 } from '@/components/ui';
@@ -199,7 +199,7 @@ function BookModal({ open, onClose, order, config, onDone }) {
   return (
     <Modal
       open={open} onClose={onClose}
-      title="Book with DTDC" subtitle={order.databaseOrderID}
+      title="Book with DTDC" subtitle={orderRef(order)}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
