@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Package, Truck, CheckCircle2, XCircle, RotateCcw, Loader2 } from "lucide-react";
+import { ArrowLeft, Package, Truck, CheckCircle2, RotateCcw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { orderApi, mediaUrl, ApiError } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
@@ -18,7 +18,6 @@ export default function OrderDetailPage() {
   const { isLoggedIn, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,23 +34,6 @@ export default function OrderDetailPage() {
       .catch(() => setOrder(null))
       .finally(() => setLoading(false));
   }, [isLoggedIn, id]);
-
-  async function handleCancel() {
-    if (!order) return;
-    const reason = window.prompt("Please tell us why you're cancelling this order:");
-    if (!reason) return;
-    setCancelling(true);
-    setError(null);
-    try {
-      await orderApi.cancel(order.order_id, reason);
-      const refreshed = await orderApi.detail<Order>(id);
-      setOrder(refreshed);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not cancel order");
-    } finally {
-      setCancelling(false);
-    }
-  }
 
   async function handleRetryPayment() {
     if (!order) return;
@@ -99,8 +81,6 @@ export default function OrderDetailPage() {
     );
   }
 
-  const CANCELLABLE = ["pending", "prescription pending", "new", "processing"];
-  const canCancel = CANCELLABLE.includes(order.status?.toLowerCase());
   const paymentFailed = order.payment_status?.toLowerCase() === "failed" || order.payment_status?.toLowerCase() === "unpaid";
   const canRetryPayment = order.payment_mode === "online" && paymentFailed && order.status?.toLowerCase() !== "cancelled";
 
@@ -195,16 +175,6 @@ export default function OrderDetailPage() {
           {order.customer_address}, {order.customer_city}, {order.customer_state} - {order.customer_pincode}
         </p>
       </div>
-
-      {canCancel && (
-        <button
-          onClick={handleCancel}
-          disabled={cancelling}
-          className="mt-6 flex items-center gap-1.5 text-sm font-semibold text-[var(--coral-500)] disabled:opacity-50"
-        >
-          <XCircle size={15} /> {cancelling ? "Cancelling…" : "Cancel Order"}
-        </button>
-      )}
     </div>
   );
 }

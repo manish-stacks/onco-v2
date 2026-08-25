@@ -160,6 +160,8 @@ router.get('/orders/:orderId', customerAuth, order.orderDetail);
 router.get('/orders/:orderId/track', customerAuth, order.trackOrder);
 router.post('/orders/:orderId/retry-payment', customerAuth, order.retryPayment);
 router.post('/orders/:orderId/cancel', customerAuth, order.cancelOrder);
+router.post('/orders/:orderId/reorder', customerAuth, order.reorder);
+router.get('/orders/:orderId/invoice', customerAuth, order.invoice);
 router.post('/orders/:orderId/review', customerAuth, validate({
   product_id: { required: true, type: 'int' },
   rating: { required: true, type: 'int', min: 1, max: 5 },

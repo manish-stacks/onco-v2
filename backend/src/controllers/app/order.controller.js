@@ -175,7 +175,119 @@ const trackPublic = asyncHandler(async (req, res) => {
   return ok(res, order);
 });
 
+/**
+ * POST /orders/:orderId/reorder
+ *
+ * Two-step to avoid surprises:
+ *   - no body / { confirm:false } -> PREVIEW: returns each item's current
+ *     availability so the UI can warn about out-of-stock products.
+ *   - { confirm:true }            -> adds the in-stock items to the cart and
+ *     reports what was skipped. Out-of-stock items are silently skipped, never
+ *     block the rest of the order.
+ */
+const reorder = asyncHandler(async (req, res) => {
+  const db = require('../../config/db');
+  const order = await orderModel.findById(req.params.orderId);
+  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order not found', 404);
+
+  const items = order.items || [];
+  const evals = [];
+  for (const it of items) {
+    const [[p]] = await db.query(
+      `SELECT product_id, product_name, status, stock_quantity FROM products WHERE product_id = ?`,
+      [it.product_id]
+    );
+    const quantity = Number(it.unit_quantity || it.quantity || 1);
+    const stock = Number(p?.stock_quantity ?? 0);
+    const available = !!p && p.status === 'Active' && stock >= quantity;
+    evals.push({
+      product_id: it.product_id,
+      name: it.product_name || p?.product_name || `#${it.product_id}`,
+      quantity,
+      available,
+      available_quantity: stock,
+      reason: !p ? 'No longer available'
+        : p.status !== 'Active' ? 'Currently unavailable'
+        : stock < quantity ? (stock > 0 ? `Only ${stock} left` : 'Out of stock')
+        : null,
+    });
+  }
+  const skipped = evals.filter((e) => !e.available);
+
+  // Preview — let the UI confirm before touching the cart
+  if (!req.body?.confirm) {
+    return ok(res, {
+      items: evals,
+      any_out_of_stock: skipped.length > 0,
+      all_out_of_stock: evals.length > 0 && skipped.length === evals.length,
+    });
+  }
+
+  // Confirmed — add whatever is in stock
+  const added = [];
+  for (const e of evals.filter((x) => x.available)) {
+    try {
+      await cartModel.addItem(req.customer.customer_id, { product_id: e.product_id, quantity: e.quantity });
+      added.push(e.name);
+    } catch { /* stock may have just changed — skip */ }
+  }
+
+  return ok(res, {
+    added_count: added.length,
+    added,
+    skipped: skipped.map((e) => ({ name: e.name, reason: e.reason })),
+    cart: await cartModel.getCartWithTotals(req.customer.customer_id),
+  }, added.length ? 'Available items added to your cart' : 'None of these items are in stock right now');
+});
+
+/** GET /orders/:orderId/invoice — the customer's own invoice data */
+const invoice = asyncHandler(async (req, res) => {
+  const order = await orderModel.findById(req.params.orderId);
+  if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order not found', 404);
+
+  const settings = await require('../../models/settings.model').get();
+
+  return ok(res, {
+    invoice_number: order.invoice_number || `INV/${order.order_id}`,
+    invoice_date: order.order_date,
+    reference: order.databaseOrderID,
+    order_id: order.order_id,
+    status: order.status,
+    seller: settings ? {
+      name: settings.organization,
+      address: settings.contact_address,
+      phone: settings.contact_phone,
+      email: settings.contact_email,
+      logo: settings.logo,
+    } : null,
+    buyer: {
+      name: order.customer_name,
+      phone: order.customer_phone,
+      email: order.customer_email,
+      shipping_address: order.customer_shipping_address,
+      city: order.customer_shipping_city || order.customer_city,
+      state: order.customer_shipping_state || order.customer_state,
+      pincode: order.customer_shipping_pincode || order.customer_pincode,
+    },
+    items: order.items,
+    totals: {
+      subtotal: order.subtotal,
+      gst: order.order_gst,
+      discount: order.coupon_discount,
+      shipping: order.shipping_charge,
+      additional: order.additional_charge,
+      total: order.amount,
+    },
+    payment: {
+      mode: order.payment_mode,
+      status: order.payment_status,
+      transaction: order.transaction_number,
+    },
+  });
+});
+
 module.exports = {
   quote, checkout, verifyPayment, retryPayment,
   myOrders, orderDetail, trackOrder, cancelOrder, submitReview, trackPublic,
+  reorder, invoice,
 };

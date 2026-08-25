@@ -47,7 +47,7 @@ export default function TrackPage() {
   async function handleTrack(e: React.FormEvent) {
     e.preventDefault();
     if (!orderRef.trim() || phone.replace(/\D/g, "").length !== 10) {
-      setError("Enter a valid Order ID and 10-digit mobile number.");
+      setError("Enter a valid Order ID / AWB and 10-digit mobile number.");
       return;
     }
     setError(null);
@@ -116,7 +116,7 @@ export default function TrackPage() {
       <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
         <p className="mb-1 font-semibold text-[var(--ink)]">Track without logging in</p>
         <p className="mb-4 text-xs text-[var(--ink-soft)]">
-          Enter your Order ID and the mobile number used while ordering. Both are in your order confirmation SMS/email.
+          Enter your Order ID (e.g. ORD/2026/036154) or AWB number, and the mobile number used while ordering.
         </p>
 
         {error && (
@@ -129,7 +129,7 @@ export default function TrackPage() {
           <input
             value={orderRef}
             onChange={(e) => setOrderRef(e.target.value)}
-            placeholder="Order ID (e.g. OHM12345)"
+            placeholder="Order ID or AWB number"
             className="h-12 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none"
           />
           <input

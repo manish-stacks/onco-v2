@@ -279,12 +279,17 @@ async function findByRefAndPhone(ref, phone) {
   const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
   if (!ref || cleanPhone.length !== 10) return null;
 
+  const raw = String(ref).trim();
+  // "ORD/2026/036154" / "#36154" -> the trailing number is the order_id
+  const trailing = raw.match(/(\d+)\s*$/);
+  const orderIdEq = trailing ? parseInt(trailing[1], 10) : 0;
+
   const [[order]] = await db.query(
     `SELECT * FROM orders
-     WHERE databaseOrderID = ?
+     WHERE (databaseOrderID = ? OR invoice_number = ? OR awb_number = ? OR order_id = ?)
        AND (RIGHT(customer_phone, 10) = ? OR RIGHT(customer_shipping_phone, 10) = ?)
      LIMIT 1`,
-    [ref, cleanPhone, cleanPhone]
+    [raw, raw, raw, orderIdEq, cleanPhone, cleanPhone]
   );
   if (!order) return null;
 

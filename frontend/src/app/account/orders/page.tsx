@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, Loader2 } from "lucide-react";
-import { orderApi } from "@/lib/api";
+import { Package, Loader2, FileText, RotateCcw } from "lucide-react";
+import { orderApi, ApiError } from "@/lib/api";
 import { formatINR, cn, orderRef } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import type { Order } from "@/types";
@@ -26,6 +26,34 @@ export default function OrdersListPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [status, setStatus] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [reorderBusy, setReorderBusy] = useState<string | number | null>(null);
+
+  async function handleReorder(e: React.MouseEvent, id: string | number) {
+    e.preventDefault();
+    e.stopPropagation();
+    setReorderBusy(id);
+    try {
+      // 1) Preview current stock so we can warn before touching the cart.
+      const preview = await orderApi.reorder<{ items: { name: string; available: boolean; reason?: string }[]; any_out_of_stock: boolean; all_out_of_stock: boolean }>(id, false);
+      if (preview.all_out_of_stock) {
+        alert("None of the items in this order are in stock right now.");
+        return;
+      }
+      if (preview.any_out_of_stock) {
+        const oos = preview.items.filter((i) => !i.available).map((i) => `• ${i.name}${i.reason ? ` — ${i.reason}` : ""}`).join("\n");
+        const proceed = window.confirm(`Some items are out of stock and will be skipped:\n\n${oos}\n\nAdd the available items to your cart?`);
+        if (!proceed) return;
+      }
+      // 2) Confirmed — add the in-stock items and go to the cart.
+      const res = await orderApi.reorder<{ added_count: number }>(id, true);
+      if (res.added_count > 0) router.push("/cart");
+      else alert("None of these items are in stock right now.");
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Could not reorder this order.");
+    } finally {
+      setReorderBusy(null);
+    }
+  }
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) router.push("/login?redirect=/account/orders");
@@ -70,15 +98,14 @@ export default function OrdersListPage() {
       ) : (
         <div className="space-y-3">
           {orders.map((o) => (
-            <Link
+            <div
               key={o.order_id}
-              href={`/account/orders/${o.order_id}`}
               className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] bg-white p-4 hover:border-[var(--blue-500)]"
             >
-              <div>
+              <Link href={`/account/orders/${o.order_id}`} className="min-w-0 flex-1">
                 <p className="font-semibold text-[var(--ink)]">{orderRef(o)}</p>
                 <p className="text-xs text-[var(--ink-soft)]">{new Date(o.order_date).toLocaleDateString()}</p>
-              </div>
+              </Link>
               <span
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-semibold capitalize",
@@ -88,7 +115,23 @@ export default function OrdersListPage() {
                 {o.status}
               </span>
               <p className="font-mono-nums font-semibold text-[var(--ink)]">{formatINR(o.amount)}</p>
-            </Link>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/account/orders/${o.order_id}/invoice`}
+                  className="flex items-center gap-1 rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:bg-[var(--paper)]"
+                >
+                  <FileText size={13} /> Invoice
+                </Link>
+                <button
+                  type="button"
+                  onClick={(e) => handleReorder(e, o.order_id)}
+                  disabled={reorderBusy === o.order_id}
+                  className="flex items-center gap-1 rounded-full bg-[var(--blue-500)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--blue-600)] disabled:opacity-50"
+                >
+                  {reorderBusy === o.order_id ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />} Reorder
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       )}

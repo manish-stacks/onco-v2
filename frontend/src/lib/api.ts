@@ -725,6 +725,10 @@ export const orderApi = {
 
   track: <T = unknown>(orderId: string | number) => api.data<T>(`/orders/${orderId}/track`),
 
+  reorder: <T = unknown>(orderId: string | number, confirm = false) =>
+    api.data<T>(`/orders/${orderId}/reorder`, undefined, { method: 'POST', body: { confirm } }),
+  invoice: <T = unknown>(orderId: string | number) => api.data<T>(`/orders/${orderId}/invoice`),
+
   cancel: <T = unknown>(orderId: string | number, reason: string) =>
     api.data<T>(`/orders/${orderId}/cancel`, undefined, { method: 'POST', body: { reason } }),
 
