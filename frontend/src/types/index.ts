@@ -156,6 +156,7 @@ export interface ApiProduct {
   key_features?: string;
   benifits?: string;
   how_to_use?: string;
+  specification?: string;
   side_effects?: string;
   caution?: string;
   storage?: string;
@@ -372,9 +373,11 @@ export interface Medicine {
   inStock: boolean;
   packSize: string;
   composition: string;
+  description: string;
   benefits: string;
   uses: string[];
   dosage: string;
+  specification: string;
   sideEffects: string[];
   storage: string;
   tags: string[];

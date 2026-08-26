@@ -3,6 +3,7 @@ import { PromoBanners } from "@/components/sections/promo-banners";
 import { CategoryGrid } from "@/components/sections/category-grid";
 import { ProductRail } from "@/components/sections/product-rail";
 import { WhyChooseUs } from "@/components/sections/why-choose-us";
+import { WhyOncoHealthMart } from "@/components/sections/why-oncohealthmart";
 import { PopularItemsTabs } from "@/components/sections/popular-items-tabs";
 import { FlashSale } from "@/components/sections/flash-sale";
 import { Brands } from "@/components/sections/brands";
@@ -42,6 +43,7 @@ export default async function Home() {
       <PromoBanners deals={home.deals} />
       <ProductRail title="Trending Items" medicines={featured.slice(0, 8)} href="/shop" />
       <WhyChooseUs />
+      <WhyOncoHealthMart />
       <PopularItemsTabs medicines={topSelling.length ? topSelling : latest} categories={categories} />
       {flashDeals.length > 0 && <FlashSale medicines={flashDeals.slice(0, 4)} />}
       <Brands brands={brands} />

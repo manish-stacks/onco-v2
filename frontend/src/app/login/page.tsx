@@ -16,6 +16,14 @@ import {
   Truck,
   Pill,
   CheckCircle2,
+  Stethoscope,
+  Syringe,
+  HeartPulse,
+  Activity,
+  FlaskConical,
+  ShieldPlus,
+  Cross,
+  UserRound,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -131,7 +139,7 @@ function LoginInner() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-4rem)]  px-4 py-10 sm:px-6 sm:py-14">
+    <main className="min-h-[calc(100vh-4rem)] px-4 py-10 sm:px-6 sm:py-14">
 
       {/* Background decoration */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -139,7 +147,9 @@ function LoginInner() {
         <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-teal-100/30 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto w-full max-w-[470px]">
+      <div className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-8 lg:grid-cols-[440px_1fr]">
+
+        <div>
 
         {/* Login Card */}
         <div className="rounded-3xl border border-slate-200/80 bg-white px-6 py-8 shadow-[0_20px_60px_rgba(15,23,42,0.08)] sm:px-9 sm:py-10">
@@ -559,10 +569,81 @@ function LoginInner() {
 
         </div>
 
+        {/* Rating widget */}
+        <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
+          <div className="flex -space-x-2">
+            {["a", "b", "c"].map((seed) => (
+              <Image
+                key={seed}
+                src={`https://api.dicebear.com/7.x/thumbs/svg?seed=${seed}`}
+                alt=""
+                width={32}
+                height={32}
+                unoptimized
+                className="h-8 w-8 rounded-full border-2 border-white bg-slate-100"
+              />
+            ))}
+          </div>
+          <div>
+            <p className="flex items-center gap-1 text-sm font-bold text-slate-900">
+              Rated 4.5+ <span aria-hidden>⭐</span> On Google
+            </p>
+            <a
+              href="https://www.google.com/search?q=onco+health+mart+reviews"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-blue-600 hover:underline"
+            >
+              Read Reviews
+            </a>
+          </div>
+        </div>
+
         {/* Bottom security text */}
         <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-400">
           <ShieldCheck size={14} className="text-teal-500" />
           Your information is protected and securely encrypted
+        </div>
+
+        </div>
+
+        {/* Illustration panel */}
+        <div className="relative hidden overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-blue-50 via-white to-teal-50 p-10 lg:flex lg:min-h-[600px] lg:flex-col lg:items-center lg:justify-center">
+          <div className="relative flex h-72 w-72 items-center justify-center">
+            {/* Floating medical icon badges */}
+            {[
+              { Icon: Stethoscope, pos: "left-2 top-2" },
+              { Icon: Syringe, pos: "left-1/2 -top-6 -translate-x-1/2" },
+              { Icon: Pill, pos: "right-2 top-2" },
+              { Icon: HeartPulse, pos: "-left-8 top-1/2 -translate-y-1/2" },
+              { Icon: Activity, pos: "-right-8 top-1/2 -translate-y-1/2" },
+              { Icon: FlaskConical, pos: "left-2 bottom-2" },
+              { Icon: ShieldPlus, pos: "left-1/2 -bottom-6 -translate-x-1/2" },
+              { Icon: Cross, pos: "right-2 bottom-2" },
+            ].map(({ Icon, pos }, i) => (
+              <span
+                key={i}
+                className={`absolute ${pos} flex h-14 w-14 items-center justify-center rounded-full bg-teal-500 text-white shadow-lg ring-4 ring-white`}
+              >
+                <Icon size={22} />
+              </span>
+            ))}
+
+            {/* Central avatar */}
+            <span className="flex h-40 w-40 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-500 text-white shadow-xl">
+              <UserRound size={72} strokeWidth={1.3} />
+            </span>
+          </div>
+
+          {/* Speciality medicines badge */}
+          <div className="mt-10 flex flex-col items-center rounded-2xl border border-slate-200 bg-white px-8 py-4 shadow-lg">
+            <p className="font-display text-3xl font-black text-slate-900">
+              900<span className="text-teal-500">+</span>
+            </p>
+            <p className="rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-1 text-sm font-semibold text-white">
+              Speciality Medicines
+            </p>
+          </div>
         </div>
 
       </div>

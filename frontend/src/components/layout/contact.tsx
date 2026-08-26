@@ -8,17 +8,17 @@ const contactInfo = [
   {
     icon: Phone,
     title: "Phone",
-    lines: ["+1 (800) 123-4567", "+1 (800) 765-4321"],
+    lines: [" +91 92890 08182"],
   },
   {
     icon: Mail,
     title: "Email",
-    lines: ["info@oncohealthmart.com", "support@oncohealthmart.com"],
+    lines: ["support@oncohealthmart.com"],
   },
   {
     icon: MapPin,
     title: "Address",
-    lines: ["123 Medical Plaza, Suite 400", "New York, NY 10001, USA"],
+    lines: ["4958/18, Netaji Subhash Marg, Daryaganj, Delhi-110002"],
   },
   {
     icon: Clock3,
@@ -94,7 +94,7 @@ export default function ContactPage() {
           <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--line)] bg-white shadow-sm">
             <iframe
               title="Our Location"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3022.215573291865!2d-73.98784368459423!3d40.75773167932669!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c25855c6480299%3A0x55194ec5a1ae072e!2sTimes%20Square!5e0!3m2!1sen!2sus!4v1614000000000"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3501.5061277702225!2d77.2405764!3d28.6445604!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x390cfd2fa2261a21%3A0x6fe148f01c7d29ec!2sOnco%20Healthmart%20-%20Specialty%20Medicine%20Pharmacy%20%26%20Supplier!5e0!3m2!1sen!2sin!4v1787724134697!5m2!1sen!2sin"
               className="h-64 w-full border-0 lg:h-full lg:min-h-[400px]"
               loading="lazy"
               allowFullScreen
@@ -128,7 +128,7 @@ export default function ContactPage() {
                         name="name"
                         value={form.name}
                         onChange={handleChange}
-                        placeholder="John Doe"
+                        placeholder="Your Name"
                         className="w-full rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--blue-500)] focus:ring-2 focus:ring-[var(--blue-500)]/20"
                       />
                     </div>
@@ -139,7 +139,7 @@ export default function ContactPage() {
                         type="email"
                         value={form.email}
                         onChange={handleChange}
-                        placeholder="john@email.com"
+                        placeholder="Your email"
                         className="w-full rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper)] px-4 py-2.5 text-sm outline-none transition focus:border-[var(--blue-500)] focus:ring-2 focus:ring-[var(--blue-500)]/20"
                       />
                     </div>

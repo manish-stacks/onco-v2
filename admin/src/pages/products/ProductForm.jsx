@@ -24,7 +24,7 @@ const EMPTY = {
   product_mrp: '', product_sp: '', product_gst: '', stock_quantity: '', low_stock_alert: '10',
   batch_number: '', expiry_date: '', allow_backorder: false,
   short_description: '', long_description: '', about_product: '', key_features: '',
-  benifits: '', how_to_use: '', side_effects: '', caution: '', storage: '',
+  benifits: '', how_to_use: '', side_effects: '', caution: '', storage: '', specification: '',
   slug: '', meta_title: '', meta_description: '',
   presciption_required: 'No', isCOD: 1, status: 'Active',
   is_featured: '0', deal_of_the_day: '0', top_selling: '0', latest_product: '0',
@@ -242,6 +242,10 @@ export default function ProductForm() {
                 <Textarea rows={2} value={form.short_description}
                   onChange={(e) => set('short_description', e.target.value)} />
               </Field>
+              <Field label="Long description" hint="Shown in the Description tab on the product page">
+                <Textarea rows={4} value={form.long_description}
+                  onChange={(e) => set('long_description', e.target.value)} />
+              </Field>
               <Field label="About this product">
                 <Textarea rows={4} value={form.about_product}
                   onChange={(e) => set('about_product', e.target.value)} />
@@ -255,6 +259,9 @@ export default function ProductForm() {
                 </Field>
                 <Field label="How to use">
                   <Textarea rows={3} value={form.how_to_use} onChange={(e) => set('how_to_use', e.target.value)} />
+                </Field>
+                <Field label="Specification" hint="Shown in the Specification tab on the product page">
+                  <Textarea rows={3} value={form.specification} onChange={(e) => set('specification', e.target.value)} />
                 </Field>
                 <Field label="Side effects">
                   <Textarea rows={3} value={form.side_effects} onChange={(e) => set('side_effects', e.target.value)} />

@@ -41,7 +41,7 @@ const TEMPLATES = {
     name: 'order_status_update',
     params: ['customer_name', 'order_id', 'status'],
   },
-  // Customer ko — ship hua
+  // Customer ko — ship details
   ORDER_SHIPPED: {
     name: 'order_shipped',
     params: ['customer_name', 'order_id', 'courier', 'awb', 'tracking_url'],

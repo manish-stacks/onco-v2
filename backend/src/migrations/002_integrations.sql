@@ -126,14 +126,14 @@ CREATE TABLE IF NOT EXISTS `shipment_scans` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
--- Orders — kaunsa gateway use hua
+-- Orders — payment gateway
 -- ----------------------------------------------------------------------------
 ALTER TABLE `orders`
   ADD COLUMN `payment_gateway` ENUM('razorpay','payu','cod','manual') DEFAULT NULL AFTER `payment_mode`,
   ADD COLUMN `gateway_order_id` VARCHAR(120) DEFAULT NULL AFTER `payment_gateway`,
   ADD INDEX `idx_orders_gateway_oid` (`gateway_order_id`);
 
--- Purane razorpay orders ko tag kar do
+-- Update existing orders
 UPDATE `orders` SET `payment_gateway` = 'razorpay'
 WHERE `razorpayOrderID` IS NOT NULL AND `razorpayOrderID` <> '' AND `payment_gateway` IS NULL;
 

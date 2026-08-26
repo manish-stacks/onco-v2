@@ -51,6 +51,7 @@ export function productToMedicine(p: ApiProduct): Medicine {
     inStock,
     packSize: p.weight_quantity || "",
     composition: p.salt || "",
+    description: stripInlineFormatting(p.long_description || p.short_description || "").trim(),
     // `benifits` is a prose paragraph — splitting on commas broke sentences
     // in half ("namely" became a bullet of its own
     // . We now keep the whole paragraph together and render it in the UI
@@ -60,6 +61,7 @@ export function productToMedicine(p: ApiProduct): Medicine {
     // split on newlines only — not on commas (commas occur mid-sentence).
     uses: (p.key_features || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
     dosage: p.how_to_use || "",
+    specification: stripInlineFormatting(p.specification || "").trim(),
     sideEffects: (p.side_effects || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean),
     storage: p.storage || "",
     tags: [],

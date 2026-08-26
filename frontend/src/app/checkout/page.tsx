@@ -82,7 +82,7 @@ function CheckoutInner() {
   const { isLoggedIn, user, refresh } = useAuth();
 
   const prescriptionIdFromUrl = params.get("prescription_id");
-  const { cartItems, summary, refreshCart } = useStore();
+  const { cartItems, summary, refreshCart, removeFromCart } = useStore();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | number | null>(null);
@@ -126,7 +126,7 @@ function CheckoutInner() {
 
   const [paymentMode, setPaymentMode] = useState<"cod" | "online">("cod");
   const [gateways, setGateways] = useState<PaymentGatewayOption[]>([]);
-  const [gateway, setGateway] = useState<"razorpay" | "payu">("razorpay");
+  const [gateway, setGateway] = useState<"razorpay" | "payu">("payu");
   const [codEnabled, setCodEnabled] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,7 +146,7 @@ function CheckoutInner() {
         setCodEnabled(res.cod_enabled !== false);
       })
       .catch(() => {
-        setGateways([{ id: "razorpay", label: "Razorpay", type: "sdk" }]);
+        setGateways([{ id: "payu", label: "PayU", type: "redirect" }]);
         setCodEnabled(true);
       });
   }, []);
@@ -349,10 +349,29 @@ function CheckoutInner() {
   // ------------------------------------------------------------ prescriptions
   function onPickFiles(files: FileList | null) {
     if (!files?.length) return;
-    const picked = Array.from(files).slice(0, 5);
-    setNewFiles(picked);
-    setPreviews(picked.map((f) => URL.createObjectURL(f)));
+    // Append to whatever is already picked (capped at 5) instead of replacing
+    // it — otherwise picking a second file wiped out the first one.
+    setNewFiles((prev) => {
+      const combined = [...prev, ...Array.from(files)].slice(0, 5);
+      setPreviews((prevPreviews) => {
+        prevPreviews.forEach((u) => URL.revokeObjectURL(u));
+        return combined.map((f) => URL.createObjectURL(f));
+      });
+      return combined;
+    });
     setPrescErrors((e) => ({ ...e, files: "" }));
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function removeNewFile(index: number) {
+    setNewFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setPreviews((prevPreviews) => {
+        prevPreviews.forEach((u) => URL.revokeObjectURL(u));
+        return next.map((f) => URL.createObjectURL(f));
+      });
+      return next;
+    });
   }
 
   function clearPickedFiles() {
@@ -536,10 +555,28 @@ function CheckoutInner() {
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <h1 className="mb-8 font-display text-3xl font-bold text-[var(--ink)]">Checkout</h1>
 
+      {/* Error popup — a top banner is easy to miss once the user has scrolled
+          down to the payment section, so surface it as a modal instead. */}
       {error && (
-        <div className="mb-6 flex items-start gap-2 rounded-[var(--radius-sm)] border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3 text-sm text-[var(--coral-500)]">
-          <AlertCircle size={15} className="mt-0.5 shrink-0" />
-          <span>{error}</span>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setError(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[var(--radius-lg)] bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            role="alertdialog"
+            aria-modal="true"
+          >
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFF1EE]">
+              <AlertCircle size={22} className="text-[var(--coral-500)]" />
+            </div>
+            <h3 className="mb-2 font-display text-lg font-bold text-[var(--ink)]">Something went wrong</h3>
+            <p className="mb-6 text-sm leading-relaxed text-[var(--ink-soft)]">{error}</p>
+            <Button className="w-full" onClick={() => setError(null)}>
+              Okay, got it
+            </Button>
+          </div>
         </div>
       )}
 
@@ -786,14 +823,31 @@ function CheckoutInner() {
                           <div key={src} className="relative h-20 w-20 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--line)]">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={src} alt={`preview ${i + 1}`} className="h-full w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeNewFile(i)}
+                              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white"
+                              aria-label={`Remove file ${i + 1}`}
+                            >
+                              <X size={11} />
+                            </button>
                           </div>
                         ))}
+                        {newFiles.length < 5 && (
+                          <button
+                            type="button"
+                            onClick={() => fileRef.current?.click()}
+                            className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] text-[10px] font-medium text-[var(--ink-soft)] hover:text-[var(--blue-600)]"
+                          >
+                            <Plus size={14} /> Add more
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={clearPickedFiles}
                           className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] text-[10px] font-medium text-[var(--ink-soft)] hover:text-[var(--coral-500)]"
                         >
-                          <X size={14} /> Clear
+                          <X size={14} /> Clear all
                         </button>
                       </div>
                     )}
@@ -949,6 +1003,13 @@ function CheckoutInner() {
                   <p className="text-xs text-[var(--ink-soft)]">Qty {item.product_quantity}</p>
                 </div>
                 <p className="font-mono-nums font-semibold">{formatINR(item.line_total)}</p>
+                <button
+                  onClick={() => removeFromCart(item.cart_id)}
+                  className="shrink-0 text-[var(--ink-soft)] hover:text-[var(--coral-500)]"
+                  aria-label={`Remove ${item.product_name}`}
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
             ))}
           </div>

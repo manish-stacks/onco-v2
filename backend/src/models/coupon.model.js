@@ -37,6 +37,21 @@ async function list(filters = {}, { limit = 20, offset = 0 } = {}) {
 }
 
 /**
+ * DATE columns come back from mysql2 as JS `Date` objects (not strings), so
+ * `String(coupon.start_date)` produces "Wed Jan 01 2026 00:00:00 GMT+..." —
+ * comparing that against "YYYY-MM-DD" lexicographically is wrong (letters
+ * sort after digits, so a start_date in the past looked like it was still
+ * in the future, and coupons with a start_date always failed to apply).
+ * Normalise both sides to a plain YYYY-MM-DD string before comparing.
+ */
+function toDateOnly(value) {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+/**
  * Whether a coupon is valid — used both when applying on the cart and at checkout.
  * Returns { valid, reason, coupon, discount }
  */
@@ -45,11 +60,13 @@ async function validateForCart({ code, customerId, subtotal, productIds = [] }) 
   if (!coupon) return { valid: false, reason: 'The coupon code is invalid' };
   if (coupon.status !== 'Active') return { valid: false, reason: 'This coupon is not active right now' };
 
-  const today = new Date().toISOString().slice(0, 10);
-  if (coupon.start_date && String(coupon.start_date).slice(0, 10) > today) {
+  const today = toDateOnly(new Date());
+  const startDate = toDateOnly(coupon.start_date);
+  const expiryDate = toDateOnly(coupon.expiry_date);
+  if (startDate && startDate > today) {
     return { valid: false, reason: 'This coupon has not started yet' };
   }
-  if (coupon.expiry_date && String(coupon.expiry_date).slice(0, 10) < today) {
+  if (expiryDate && expiryDate < today) {
     return { valid: false, reason: 'This coupon has expired' };
   }
   if (coupon.minimum_amount && subtotal < coupon.minimum_amount) {

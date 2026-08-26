@@ -127,14 +127,14 @@ export function Footer() {
               <span className="font-medium text-[var(--blue-600)]">Onco App</span> is now available on App Store &amp; Google Play.
             </p>
             <div className="mb-6 flex flex-nowrap gap-2">
-              <a href="#" className="flex items-center gap-2 rounded-lg bg-[var(--ink)] px-3 py-2 text-white transition-colors hover:bg-black">
+              <a href="https://play.google.com/store/search?q=oncohealth+mart&c=apps&hl=en" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-[var(--ink)] px-3 py-2 text-white transition-colors hover:bg-black">
                 <svg viewBox="0 0 512 512" className="h-5 w-5 shrink-0" fill="currentColor"><path d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c17.6-11.7 17.6-46.9-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z" /></svg>
                 <span className="leading-tight">
                   <span className="block text-[8px] uppercase text-white/70">Get It On</span>
                   <span className="block whitespace-nowrap text-[11px] font-bold">Google Play</span>
                 </span>
               </a>
-              <a href="#" className="flex items-center gap-2 rounded-lg bg-[var(--ink)] px-3 py-2 text-white transition-colors hover:bg-black">
+              <a href="https://apps.apple.com/in/app/onco-healthmart/id6754275714" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-[var(--ink)] px-3 py-2 text-white transition-colors hover:bg-black">
                 <svg viewBox="0 0 384 512" className="h-5 w-5 shrink-0" fill="currentColor"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141 0 184.4 0 272.9c0 26.5 4.9 53.9 14.6 82.2 13 37.7 59.6 130.1 108.2 128.6 25.4-.6 43.4-18.1 76.5-18.1 32.1 0 48.7 18.1 77 18.1 49 .8 91.1-83.7 103.5-121.5-65.9-31.1-61.1-91-61.1-93.5zM256.7 90.4c27.5-32.5 25-62.1 24.2-72.7-24.3 1.4-52.4 16.4-68.5 34.9-17.7 19.9-28.2 44.6-25.9 72.4 26.4 2 50.4-11.2 70.2-34.6z" /></svg>
                 <span className="leading-tight">
                   <span className="block text-[8px] uppercase text-white/70">Download on the</span>

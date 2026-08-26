@@ -243,7 +243,7 @@ async function main() {
       console.log('FAIL');
       console.error(`
 ------------------------------------------------------------------
-  Statement #${i + 1} fail hua
+  Statement #${i + 1} fail after ${(ms / 1000).toFixed(0)}s
 
   Error   : ${err.code} (${err.errno})
   Message : ${err.sqlMessage || err.message}

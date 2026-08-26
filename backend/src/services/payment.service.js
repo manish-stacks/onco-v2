@@ -13,8 +13,8 @@ const GATEWAYS = { RAZORPAY: 'razorpay', PAYU: 'payu' };
 
 /** Default in .env, can also be overridden per order */
 function defaultGateway() {
-  const g = String(process.env.DEFAULT_PAYMENT_GATEWAY || 'razorpay').toLowerCase();
-  return Object.values(GATEWAYS).includes(g) ? g : GATEWAYS.RAZORPAY;
+  const g = String(process.env.DEFAULT_PAYMENT_GATEWAY || 'payu').toLowerCase();
+  return Object.values(GATEWAYS).includes(g) ? g : GATEWAYS.PAYU;
 }
 
 /**

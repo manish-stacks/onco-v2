@@ -299,9 +299,26 @@ async function setCategories(productId, categoryIds = [], conn = db) {
   }
 }
 
-/** Products similar to a given product (same category) */
+/**
+ * "Similar Products" — same salt/composition as the given product first
+ * (that's what actually makes two medicines substitutable), falling back
+ * to same category when the product has no salt on file or no salt-matches exist.
+ */
 async function related(productId, limit = 8) {
-  const [rows] = await db.query(
+  const [[current]] = await db.query(`SELECT salt FROM products WHERE product_id = ?`, [productId]);
+  const salt = current?.salt?.trim();
+
+  if (salt) {
+    const [bySalt] = await db.query(
+      `SELECT DISTINCT p.* FROM products p
+       WHERE p.salt = ? AND p.product_id != ? AND p.status = 'Active'
+       LIMIT ?`,
+      [salt, productId, limit]
+    );
+    if (bySalt.length) return bySalt;
+  }
+
+  const [byCategory] = await db.query(
     `SELECT DISTINCT p.* FROM products p
      INNER JOIN product_categories pc ON pc.product_id = p.product_id
      WHERE pc.category_id IN (SELECT category_id FROM product_categories WHERE product_id = ?)
@@ -309,7 +326,7 @@ async function related(productId, limit = 8) {
      LIMIT ?`,
     [productId, productId, limit]
   );
-  return rows;
+  return byCategory;
 }
 
 async function incrementSold(productId, qty, conn = db) {

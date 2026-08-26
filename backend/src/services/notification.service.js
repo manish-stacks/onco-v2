@@ -111,7 +111,7 @@ async function orderPlaced(order, items = []) {
   );
 }
 
-/** Payment confirm hua */
+/** Payment confirm */
 async function paymentSuccess(order, items = []) {
   fireAndForget(
     wa.sendTemplate(order.customer_phone, wa.TEMPLATES.PAYMENT_SUCCESS, {
@@ -225,7 +225,7 @@ async function orderShipped(order, { courier, awb, trackingUrl }) {
   );
 }
 
-/** Order cancel hua */
+/** Order cancel */
 async function orderCancelled(order, reason) {
   fireAndForget(
     wa.sendTemplate(order.customer_phone, wa.TEMPLATES.ORDER_STATUS_UPDATE, {
@@ -252,7 +252,7 @@ async function orderCancelled(order, reason) {
   );
 }
 
-/** Prescription review hua */
+/** Prescription review notification */
 async function prescriptionReviewed(prescription, customer) {
   // SMS only on approval (old site sent "PrescriptionApproved")
   if (customer?.mobile && String(prescription.status).toLowerCase() === 'approved') {

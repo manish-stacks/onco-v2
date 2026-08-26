@@ -42,7 +42,7 @@ import type { Medicine } from "@/types";
 
 const buyBoxTrust = [
   { icon: ShieldCheck, title: "100% Genuine", desc: "Authentic Medicines" },
-  { icon: Truck, title: "24-48 hr Delivery", desc: "Fast & Reliable" },
+  { icon: Truck, title: "24-48 hr Delivery", desc: "Depend on our dekuvart address" },
   { icon: RotateCcw, title: "Easy Returns", desc: "Hassle free returns" },
 ];
 
@@ -244,6 +244,34 @@ export function ProductDetail({
             )}
           </p>
 
+          {/* Weight/Quantity + Storage — quick-glance facts, admin-editable */}
+          {(medicine.packSize || medicine.storage) && (
+            <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {medicine.packSize && (
+                <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
+                    <Package size={16} />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-[var(--ink)]">Weight / Quantity</p>
+                    <p className="text-sm text-[var(--ink-soft)]">{medicine.packSize}</p>
+                  </div>
+                </div>
+              )}
+              {medicine.storage && (
+                <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
+                    <Snowflake size={16} />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-[var(--ink)]">Stores</p>
+                    <p className="text-sm text-[var(--ink-soft)]">{medicine.storage}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center justify-center rounded-full border border-[var(--line)] sm:justify-start">
               <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="flex h-14 w-12 items-center justify-center sm:h-11" aria-label="Decrease quantity">
@@ -296,103 +324,91 @@ export function ProductDetail({
               onChange={setActiveTab}
               tabs={[
                 {
-                  label: "Overview",
+                  label: "Description",
                   content: (
-                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-[1fr_260px]">
-                      <div className="space-y-4">
-                        {medicine.composition && (
-                          <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-4">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
-                              <FlaskConical size={16} />
-                            </span>
-                            <div>
-                              <p className="text-sm font-semibold text-[var(--ink)]">Composition</p>
-                              <p className="text-sm text-[var(--ink-soft)]">{medicine.composition}</p>
-                            </div>
+                    <div className="space-y-4">
+                      {medicine.description ? (
+                        <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--ink-soft)]">
+                          {medicine.description}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-[var(--ink-soft)]">No description available for this product.</p>
+                      )}
+                      {medicine.composition && (
+                        <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-4">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
+                            <FlaskConical size={16} />
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--ink)]">Composition</p>
+                            <p className="text-sm text-[var(--ink-soft)]">{medicine.composition}</p>
                           </div>
-                        )}
-                        {medicine.uses.length > 0 && (
-                          <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-4">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
-                              <Stethoscope size={16} />
-                            </span>
-                            <div>
-                              <p className="text-sm font-semibold text-[var(--ink)]">Therapeutic Use</p>
-                              <p className="text-sm text-[var(--ink-soft)]">{medicine.uses.join(", ")}</p>
-                            </div>
+                        </div>
+                      )}
+                      {medicine.uses.length > 0 && (
+                        <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-4">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
+                            <Stethoscope size={16} />
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold text-[var(--ink)]">Therapeutic Use</p>
+                            <p className="text-sm text-[var(--ink-soft)]">{medicine.uses.join(", ")}</p>
                           </div>
-                        )}
-                        {medicine.packSize && (
-                          <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-4">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
-                              <Package size={16} />
-                            </span>
-                            <div>
-                              <p className="text-sm font-semibold text-[var(--ink)]">Pack Size</p>
-                              <p className="text-sm text-[var(--ink-soft)]">{medicine.packSize}</p>
-                            </div>
-                          </div>
-                        )}
-                        {!medicine.composition && medicine.uses.length === 0 && !medicine.packSize && (
-                          <p className="text-sm text-[var(--ink-soft)]">No additional details available for this product.</p>
-                        )}
-                      </div>
-
-                      {medicine.benefits && (
-                        <div className="h-fit rounded-[var(--radius-md)] border border-[var(--blue-50)] bg-[var(--blue-50)]/30 p-4">
-                          <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
-                            <ShieldCheck size={15} className="text-[var(--blue-600)]" /> Key Benefits
-                          </p>
-                          <p className={cn(
-                            "whitespace-pre-line text-sm leading-relaxed text-[var(--ink-soft)]",
-                            !benefitsExpanded && "line-clamp-6"
-                          )}>
-                            {medicine.benefits}
-                          </p>
-                          {medicine.benefits.length > 260 && (
-                            <button
-                              onClick={() => setBenefitsExpanded((v) => !v)}
-                              className="mt-2 flex items-center gap-1 text-xs font-semibold text-[var(--blue-600)]"
-                            >
-                              {benefitsExpanded ? "Show less" : "Read more"}
-                              <ChevronDown size={13} className={cn("transition-transform", benefitsExpanded && "rotate-180")} />
-                            </button>
-                          )}
                         </div>
                       )}
                     </div>
                   ),
                 },
                 {
-                  label: "Dosage & Safety",
-                  content: (
-                    <div className="space-y-4 text-sm leading-relaxed text-[var(--ink-soft)]">
-                      {medicine.dosage && (
-                        <div>
-                          <p className="mb-1 font-semibold text-[var(--ink)]">Dosage</p>
-                          <p>{medicine.dosage}</p>
-                        </div>
-                      )}
-                      {medicine.sideEffects.length > 0 && (
-                        <div>
-                          <p className="mb-1 font-semibold text-[var(--ink)]">Side Effects</p>
-                          <ul className="list-inside list-disc space-y-1">
-                            {medicine.sideEffects.map((s) => (
-                              <li key={s}>{s}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {medicine.storage && (
-                        <div>
-                          <p className="mb-1 font-semibold text-[var(--ink)]">Storage</p>
-                          <p>{medicine.storage}</p>
-                        </div>
-                      )}
-                      {!medicine.dosage && medicine.sideEffects.length === 0 && !medicine.storage && (
-                        <p>No dosage or safety information available for this product.</p>
+                  label: "Benefits",
+                  content: medicine.benefits ? (
+                    <div>
+                      <p className={cn(
+                        "whitespace-pre-line text-sm leading-relaxed text-[var(--ink-soft)]",
+                        !benefitsExpanded && "line-clamp-6"
+                      )}>
+                        {medicine.benefits}
+                      </p>
+                      {medicine.benefits.length > 260 && (
+                        <button
+                          onClick={() => setBenefitsExpanded((v) => !v)}
+                          className="mt-2 flex items-center gap-1 text-xs font-semibold text-[var(--blue-600)]"
+                        >
+                          {benefitsExpanded ? "Show less" : "Read more"}
+                          <ChevronDown size={13} className={cn("transition-transform", benefitsExpanded && "rotate-180")} />
+                        </button>
                       )}
                     </div>
+                  ) : (
+                    <p className="text-sm text-[var(--ink-soft)]">No benefits listed for this product.</p>
+                  ),
+                },
+                {
+                  label: "How to Use",
+                  content: medicine.dosage ? (
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--ink-soft)]">{medicine.dosage}</p>
+                  ) : (
+                    <p className="text-sm text-[var(--ink-soft)]">No usage instructions available for this product.</p>
+                  ),
+                },
+                {
+                  label: "Specification",
+                  content: medicine.specification ? (
+                    <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--ink-soft)]">{medicine.specification}</p>
+                  ) : (
+                    <p className="text-sm text-[var(--ink-soft)]">No specification available for this product.</p>
+                  ),
+                },
+                {
+                  label: "Side Effects",
+                  content: medicine.sideEffects.length > 0 ? (
+                    <ul className="list-inside list-disc space-y-1 text-sm leading-relaxed text-[var(--ink-soft)]">
+                      {medicine.sideEffects.map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-[var(--ink-soft)]">No side effects listed for this product.</p>
                   ),
                 },
               ]}
@@ -427,7 +443,7 @@ export function ProductDetail({
         ))}
       </div>
 
-      {related.length > 0 && <ProductRail title="Related Products" medicines={related} />}
+      {related.length > 0 && <ProductRail title="Similar Products" medicines={related} />}
     </div>
   );
 }

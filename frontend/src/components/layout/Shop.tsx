@@ -28,7 +28,7 @@ const VISIBLE_CATEGORIES = 8;
 
 const trustStrip = [
   { icon: ShieldCheck, title: "100% Genuine", desc: "Authentic Medicines" },
-  { icon: Truck, title: "24-48 hr Delivery", desc: "Fast & Reliable" },
+  { icon: Truck, title: "24-48 hr Delivery", desc: "Depend on our dekuvart address" },
   { icon: RotateCcw, title: "Easy Returns", desc: "Hassle free returns" },
   { icon: Headphones, title: "Customer Support", desc: "We're here to help" },
 ];
