@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { InlineOtpVerify } from "@/components/auth/InlineOtpVerify";
 import {
-  addressApi, orderApi, prescriptionApi, authApi, cartApi, mediaUrl, ApiError,
+  addressApi, orderApi, prescriptionApi, authApi, cartApi, mediaUrl, isPdfUrl, ApiError,
   type Address, type CheckoutPayload, type CheckoutResult, type PaymentGatewayOption,
 } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
@@ -680,7 +680,13 @@ function CheckoutInner() {
                             onChange={() => setSelectedPrescriptionId(p.prescription_id)}
                           />
                           {p.images?.[0] && (
-                            <Image src={mediaUrl(p.images[0])} alt="prescription" width={40} height={40} className="h-10 w-10 rounded object-cover" />
+                            isPdfUrl(p.images[0]) ? (
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-[var(--blue-50)] text-[10px] font-semibold text-[var(--blue-600)]">
+                                PDF
+                              </span>
+                            ) : (
+                              <Image src={mediaUrl(p.images[0])} alt="prescription" width={40} height={40} className="h-10 w-10 rounded object-cover" />
+                            )
                           )}
                           <span className="flex-1">
                             <span className="block font-medium">{p.reference_code || `Prescription #${p.prescription_id}`}</span>
@@ -754,8 +760,17 @@ function CheckoutInner() {
                     )}
                     <div className="grid grid-cols-1 gap-3">
                       {(viewRx.images || []).map((img, i) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img key={i} src={mediaUrl(img)} alt={`prescription ${i + 1}`} className="w-full rounded-[var(--radius-sm)] border border-[var(--line)]" />
+                        isPdfUrl(img) ? (
+                          <a
+                            key={i} href={mediaUrl(img)} target="_blank" rel="noreferrer"
+                            className="flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--blue-50)]/40 px-4 py-6 text-sm font-medium text-[var(--blue-600)]"
+                          >
+                            Open PDF (page {i + 1}) in a new tab
+                          </a>
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={mediaUrl(img)} alt={`prescription ${i + 1}`} className="w-full rounded-[var(--radius-sm)] border border-[var(--line)]" />
+                        )
                       ))}
                       {(!viewRx.images || viewRx.images.length === 0) && (
                         <p className="text-sm text-[var(--ink-soft)]">No images on this prescription.</p>

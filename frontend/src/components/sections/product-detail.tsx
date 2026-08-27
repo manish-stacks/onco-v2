@@ -42,7 +42,7 @@ import type { Medicine } from "@/types";
 
 const buyBoxTrust = [
   { icon: ShieldCheck, title: "100% Genuine", desc: "Authentic Medicines" },
-  { icon: Truck, title: "24-48 hr Delivery", desc: "Depend on our dekuvart address" },
+  { icon: Truck, title: "24-48 hr Delivery", desc: "Depend on your delivery address" },
   { icon: RotateCcw, title: "Easy Returns", desc: "Hassle free returns" },
 ];
 
@@ -172,7 +172,7 @@ export function ProductDetail({
           )}
 
           {/* Prescription upload notice */}
-          {medicine.prescriptionRequired && (
+          {/* {medicine.prescriptionRequired && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 p-4">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--blue-500)] text-white">
@@ -192,7 +192,7 @@ export function ProductDetail({
                 Upload Prescription
               </Button>
             </div>
-          )}
+          )} */}
         </div>
 
         {/* Info */}

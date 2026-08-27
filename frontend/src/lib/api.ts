@@ -316,6 +316,11 @@ export function mediaUrl(path: string | null | undefined, fallback = '/placehold
   return `${BASE}${p.startsWith('/') ? '' : '/'}${p}`;
 }
 
+/** A prescription (or any upload) can be a PDF, not just an image — next/image can't render those */
+export function isPdfUrl(path: string | null | undefined): boolean {
+  return !!path && /\.pdf($|\?)/i.test(String(path));
+}
+
 export { BASE as API_BASE, PLATFORM };
 
 // =============================================================================

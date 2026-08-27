@@ -326,7 +326,10 @@ async function placeOrder(p) {
     await db.query(`UPDATE orders SET payment_gateway = 'cod' WHERE order_id = ?`, [result.orderId]);
   }
 
-  if (!p.isPos) await cartModel.clear(p.customerId);
+  // Online payment: keep the cart intact until the payment actually succeeds
+  // (markOrderPaid clears it). Otherwise a failed/cancelled/abandoned payment
+  // would leave the customer with an empty cart even though nothing was paid.
+  if (!p.isPos && paymentMode !== PAYMENT_MODE.ONLINE) await cartModel.clear(p.customerId);
   await cache.invalidate.orders();
   await cache.invalidate.products();
 
@@ -376,6 +379,9 @@ async function markOrderPaid(orderId, paymentId, changedBy = 'system') {
     payment_status: PAYMENT_STATUS.PAID,
     transaction_number: paymentId,
   });
+
+  // Online payment just succeeded — this is the moment the cart should empty.
+  if (order.customer_id) await cartModel.clear(order.customer_id);
 
   if (order.status === ORDER_STATUS.PENDING) {
     await orderModel.updateStatus(orderId, ORDER_STATUS.NEW, changedBy, 'Payment confirmed');

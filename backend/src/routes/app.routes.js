@@ -182,6 +182,11 @@ router.post('/payments/payu/failure', payment.payuFailure);
 router.get('/payments/payu/success', payment.payuSuccess);
 router.get('/payments/payu/failure', payment.payuFailure);
 
+// PayU's server-to-server webhook — fires even if the customer's browser
+// never makes it back to /success or /failure. Add this URL under PayU
+// Dashboard > Settings > Webhooks. Same hash verification, no JWT.
+router.post('/payments/payu/webhook', payment.payuWebhook);
+
 // The mobile app cannot handle a browser redirect — it verifies directly
 router.post('/payments/payu/verify', customerAuth, payment.payuVerify);
 

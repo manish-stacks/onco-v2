@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { formatINR, cn, orderRef } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
 import { useAuth } from "@/context/auth-context";
-import { addressApi, orderApi, prescriptionApi, authApi, wishlistApi, mediaUrl, ApiError } from "@/lib/api";
+import { addressApi, orderApi, prescriptionApi, authApi, wishlistApi, mediaUrl, isPdfUrl, ApiError } from "@/lib/api";
 import type { Address } from "@/lib/api";
 import { productToMedicine } from "@/lib/adapters";
 import type { Order, Prescription, ApiProduct, Medicine } from "@/types";
@@ -384,7 +384,7 @@ export default function AccountPage() {
                       <div className="space-y-3">
                         {prescriptions.map((p) => (
                           <div key={p.prescription_id} className="flex items-center gap-3 rounded-xl border border-[var(--line)] p-4">
-                            {p.images?.[0] ? (
+                            {p.images?.[0] && !isPdfUrl(p.images[0]) ? (
                               <Image src={mediaUrl(p.images[0])} alt="prescription" width={40} height={40} className="rounded-lg object-cover" />
                             ) : (
                               <FileText size={18} className="text-[var(--blue-500)]" />

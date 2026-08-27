@@ -105,3 +105,6 @@ export const mediaUrl = (p) => {
   if (p.startsWith('http')) return p;
   return `${BASE}${p}`;
 };
+
+/** A prescription (or any upload) can be a PDF, not just an image — <img> can't render those */
+export const isPdfUrl = (p) => !!p && /\.pdf($|\?)/i.test(p);

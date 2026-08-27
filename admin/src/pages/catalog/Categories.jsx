@@ -112,6 +112,10 @@ export function Categories() {
       },
     },
     {
+      key: 'position', label: 'Position', align: 'right',
+      render: (c) => <span className="text-2xs tabular-nums text-ink-500">{c.position ?? 0}</span>,
+    },
+    {
       key: 'product_count', label: 'Products', align: 'right',
       render: (c) => <span className="text-[0.8125rem] tabular-nums text-ink-700">{num(c.product_count)}</span>,
     },
@@ -200,6 +204,7 @@ function CategoryModal({ open, onClose, category, categories, onDone }) {
       category_name: category?.category_name || '',
       slug: category?.slug || '',
       parent_id: category?.parent_id || '',
+      position: category?.position ?? 0,
       meta_title: category?.meta_title || '',
       meta_description: category?.meta_description || '',
       status: category?.status || 'Active',
@@ -254,6 +259,12 @@ function CategoryModal({ open, onClose, category, categories, onDone }) {
             />
           </Field>
         </div>
+        <Field label="Position" hint="Lower number shows first on the storefront. Same-position categories fall back to name order.">
+          <Input
+            type="number" value={form.position ?? 0}
+            onChange={(e) => set('position', e.target.value === '' ? 0 : Number(e.target.value))}
+          />
+        </Field>
         <Field label="Image">
           <Input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])}
             className="py-1.5 text-2xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-paper-sunk file:text-2xs" />

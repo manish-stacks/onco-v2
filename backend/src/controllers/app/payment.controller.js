@@ -182,6 +182,58 @@ async function payuFailure(req, res) {
 }
 
 /**
+ * POST /api/app/payments/payu/webhook
+ *
+ * PayU's server-to-server webhook (add this URL under PayU Dashboard >
+ * Settings > Webhooks, separate from the surl/furl redirect URLs).
+ *
+ * The customer's browser can be closed before it redirects back to
+ * /payments/payu/success, which would leave the order stuck as Unpaid even
+ * though the payment went through. This webhook fires from PayU's servers
+ * directly, so the order gets marked paid/failed independent of the
+ * customer's browser. Same hash verification as the surl/furl callback —
+ * never trust the POST body without it. Always respond 200 so PayU does
+ * not keep retrying because of a bug on our side.
+ */
+async function payuWebhook(req, res) {
+  try {
+    const result = payuService.verifyCallback(req.body);
+
+    if (!result.valid) {
+      console.warn('[webhook:payu] hash mismatch, txnid:', result.txnid);
+      return res.status(200).json({ status: 'ignored', reason: 'invalid hash' });
+    }
+
+    const [[order]] = await db.query(
+      `SELECT * FROM orders WHERE gateway_order_id = ? OR databaseOrderID = ? LIMIT 1`,
+      [result.txnid, result.txnid]
+    );
+    if (!order) {
+      console.warn('[webhook:payu] order not found:', result.txnid);
+      return res.status(200).json({ status: 'ignored', reason: 'order not found' });
+    }
+
+    if (result.success) {
+      await orderService.markOrderPaid(order.order_id, result.paymentId, 'payu-webhook');
+    } else {
+      await orderService.markOrderPaymentFailed(order.order_id, result.paymentId);
+      notify.paymentFailedAlert({
+        order,
+        paymentId: result.paymentId,
+        gatewayOrderId: result.txnid,
+        context: 'payu webhook',
+        error: result.error || result.status || 'payment failed',
+      });
+    }
+
+    return res.status(200).json({ status: 'received' });
+  } catch (err) {
+    console.error('[webhook:payu] error:', err);
+    return res.status(200).json({ status: 'error', message: err.message });
+  }
+}
+
+/**
  * POST /payments/payu/verify — client-side confirmation.
  *
  * Handling a browser redirect inside the mobile app is hard, so the app
@@ -218,6 +270,7 @@ module.exports = {
   razorpayWebhook,
   payuSuccess,
   payuFailure,
+  payuWebhook,
   payuVerify,
   // legacy alias kept so existing routes do not break
   handleWebhook: razorpayWebhook,

@@ -10,16 +10,6 @@ const reasons = [
     desc: "Every product is sourced directly from licensed manufacturers and distributors, so what you order is what you get.",
   },
   {
-    icon: PackageSearch,
-    title: "900+ Speciality & Imported Medicines",
-    desc: "A wide catalogue of speciality, oncology and hard-to-find imported medicines, curated for serious treatment needs.",
-  },
-  {
-    icon: HeartHandshake,
-    title: "Patient Assistance Program",
-    desc: "Dedicated support programs to help make critical and long-term treatment more affordable for patients and families.",
-  },
-  {
     icon: FileCheck2,
     title: "Verified Prescriptions",
     desc: "Our in-house licensed pharmacists review every prescription order before it ships, for your safety.",
@@ -47,7 +37,7 @@ export function WhyOncoHealthMart() {
         </p>
       </Reveal>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-2">
         {reasons.map(({ icon: Icon, title, desc }, i) => (
           <Reveal key={title} delay={i * 0.06}>
             <div className="flex h-full flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6 shadow-sm transition-shadow hover:shadow-md">

@@ -47,8 +47,8 @@ export default async function Home() {
       <PopularItemsTabs medicines={topSelling.length ? topSelling : latest} categories={categories} />
       {flashDeals.length > 0 && <FlashSale medicines={flashDeals.slice(0, 4)} />}
       <Brands brands={brands} />
-      <MegaSaleBanner />
-      <ProductRail title="Featured Items" medicines={topSelling.slice(0, 8)} href="/shop" />
+      {/* <MegaSaleBanner /> */}
+      <ProductRail title="Latest Items" medicines={topSelling.slice(0, 8)} href="/shop" />
       <Testimonials testimonials={testimonials} />
       <BlogPreview />
       <Newsletter />

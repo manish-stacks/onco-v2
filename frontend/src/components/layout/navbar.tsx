@@ -100,8 +100,6 @@ export function Navbar() {
             <span className="flex items-center gap-1 rounded-full bg-mint-500 px-2 py-0.5 text-[11px] font-bold text-white">
               <Percent size={11} /> FLAT 85% OFF
             </span>
-            <span className="hidden text-white/90 sm:inline">on First Medicine Order</span>
-            <span className="hidden text-white/40 md:inline">|</span>
             <span className="hidden text-white/90 md:inline">Free Delivery on Orders Above ₹1499</span>
             <span className="hidden text-white/40 lg:inline">|</span>
             <span className="hidden text-white/90 lg:inline">Genuine Medicines • Trusted by 50K+ Customers</span>

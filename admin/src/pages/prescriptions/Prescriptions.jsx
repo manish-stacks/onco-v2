@@ -4,7 +4,7 @@ import { FileText, Check, X, Pill, Plus, Trash2, ExternalLink } from 'lucide-rea
 import { useList, useResource, useMutation, useDebounced } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { api, mediaUrl } from '@/lib/api';
+import { api, mediaUrl, isPdfUrl } from '@/lib/api';
 import { PERMISSIONS as P, PRESCRIPTION_STATUSES, toneOf } from '@/lib/constants';
 import { dateTime, ago } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
@@ -71,9 +71,17 @@ export function PrescriptionList() {
         return (
           <div className="flex items-center gap-1">
             {imgs.slice(0, 3).map((img) => (
-              <img key={img} src={mediaUrl(img)} alt=""
-                className="w-8 h-8 rounded object-cover border border-line bg-paper-sunk"
-                onError={(e) => { e.target.style.visibility = 'hidden'; }} />
+              isPdfUrl(img) ? (
+                <a key={img} href={mediaUrl(img)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                  className="flex w-8 h-8 items-center justify-center rounded border border-line bg-paper-sunk text-2xs font-semibold text-ink-500"
+                  title="PDF — open in a new tab">
+                  PDF
+                </a>
+              ) : (
+                <img key={img} src={mediaUrl(img)} alt=""
+                  className="w-8 h-8 rounded object-cover border border-line bg-paper-sunk"
+                  onError={(e) => { e.target.style.visibility = 'hidden'; }} />
+              )
             ))}
             {imgs.length > 3 && (
               <span className="text-2xs text-ink-500 tabular-nums ml-0.5">+{imgs.length - 3}</span>
@@ -230,16 +238,29 @@ export function PrescriptionDetail() {
             {images.length ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4">
                 {images.map((img, i) => (
-                  <button
-                    key={img} onClick={() => setLightbox(img)}
-                    className="group relative aspect-[3/4] rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors"
-                  >
-                    <img src={mediaUrl(img)} alt={`Prescription page ${i + 1}`}
-                      className="w-full h-full object-cover" />
-                    <span className="absolute top-1.5 left-1.5 code-chip bg-ink/80 text-white border-transparent">
-                      {i + 1}
-                    </span>
-                  </button>
+                  isPdfUrl(img) ? (
+                    <a
+                      key={img} href={mediaUrl(img)} target="_blank" rel="noreferrer"
+                      className="group relative aspect-[3/4] rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors flex flex-col items-center justify-center gap-1.5"
+                    >
+                      <FileText size={22} className="text-ink-300" />
+                      <span className="text-2xs font-medium text-ink-500">Open PDF</span>
+                      <span className="absolute top-1.5 left-1.5 code-chip bg-ink/80 text-white border-transparent">
+                        {i + 1}
+                      </span>
+                    </a>
+                  ) : (
+                    <button
+                      key={img} onClick={() => setLightbox(img)}
+                      className="group relative aspect-[3/4] rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors"
+                    >
+                      <img src={mediaUrl(img)} alt={`Prescription page ${i + 1}`}
+                        className="w-full h-full object-cover" />
+                      <span className="absolute top-1.5 left-1.5 code-chip bg-ink/80 text-white border-transparent">
+                        {i + 1}
+                      </span>
+                    </button>
+                  )
                 ))}
               </div>
             ) : (

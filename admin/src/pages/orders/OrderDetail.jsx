@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
-import { api, mediaUrl } from '@/lib/api';
+import { api, mediaUrl, isPdfUrl } from '@/lib/api';
 import { PERMISSIONS as P, PAYMENT_STATUSES, toneOf, TONE_HEX } from '@/lib/constants';
 import { inr, num, dateTime, date, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
@@ -399,17 +399,27 @@ function PrescriptionBlock({ presc, order, onChanged }) {
         {images.length > 0 ? (
           <div className="grid grid-cols-3 gap-1.5">
             {images.slice(0, 6).map((img) => (
-              <button
-                key={img}
-                type="button"
-                onClick={() => setViewer(mediaUrl(img))}
-                className="relative aspect-square rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors group"
-              >
-                <img src={mediaUrl(img)} alt="" className="w-full h-full object-cover" />
-                <span className="absolute inset-0 hidden items-center justify-center bg-black/40 group-hover:flex">
-                  <Eye size={16} className="text-white" />
-                </span>
-              </button>
+              isPdfUrl(img) ? (
+                <a
+                  key={img} href={mediaUrl(img)} target="_blank" rel="noreferrer"
+                  className="relative aspect-square rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors flex flex-col items-center justify-center gap-1"
+                >
+                  <FileText size={16} className="text-ink-300" />
+                  <span className="text-2xs font-medium text-ink-500">PDF</span>
+                </a>
+              ) : (
+                <button
+                  key={img}
+                  type="button"
+                  onClick={() => setViewer(mediaUrl(img))}
+                  className="relative aspect-square rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors group"
+                >
+                  <img src={mediaUrl(img)} alt="" className="w-full h-full object-cover" />
+                  <span className="absolute inset-0 hidden items-center justify-center bg-black/40 group-hover:flex">
+                    <Eye size={16} className="text-white" />
+                  </span>
+                </button>
+              )
             ))}
           </div>
         ) : (

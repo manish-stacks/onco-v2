@@ -3,7 +3,7 @@ const { QueryBuilder } = require('../utils/queryBuilder');
 const { pickDefined, slugify } = require('../utils/helpers');
 
 const WRITABLE = ['category_name', 'slug', 'parent_id', 'meta_title', 'meta_keyword',
-  'meta_description', 'category_banner', 'category_image', 'footer_description', 'status'];
+  'meta_description', 'category_banner', 'category_image', 'footer_description', 'status', 'position'];
 
 async function list(filters = {}, { limit, offset } = {}) {
   const qb = new QueryBuilder('c');
@@ -38,7 +38,7 @@ async function list(filters = {}, { limit, offset } = {}) {
         ) AS product_count
       FROM categories c
       ${whereSql}
-      ORDER BY c.category_name ASC
+      ORDER BY c.position ASC, c.category_name ASC
       ${pagination}
     `,
     [...params, ...pageParams]
@@ -63,7 +63,7 @@ async function list(filters = {}, { limit, offset } = {}) {
 async function tree(status = 'Active') {
   const [rows] = await db.query(
     `SELECT c.*, (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id = c.category_id) AS product_count
-     FROM categories c WHERE c.status = ? ORDER BY c.category_name ASC`,
+     FROM categories c WHERE c.status = ? ORDER BY c.position ASC, c.category_name ASC`,
     [status]
   );
 

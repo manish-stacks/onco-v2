@@ -105,7 +105,7 @@ export default function CartPage() {
 </p>
             </div>
           )}
-          {summary?.requires_prescription && (
+          {/* {summary?.requires_prescription && (
             <div className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[#FCE1B8] bg-[#FFF8EC] p-4 text-sm text-[#8A5A0C]">
               <FileWarning size={18} className="mt-0.5 shrink-0" />
               <p>
@@ -113,7 +113,7 @@ export default function CartPage() {
                 <Link href="/prescription-upload" className="font-semibold underline">Upload now</Link>
               </p>
             </div>
-          )}
+          )} */}
           {summary?.has_out_of_stock && (
             <div className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[#FCC7BE] bg-[#FFF1EE] p-4 text-sm text-[var(--coral-500)]">
               <AlertTriangle size={18} className="mt-0.5 shrink-0" />

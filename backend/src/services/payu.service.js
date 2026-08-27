@@ -15,6 +15,10 @@ const axios = require('axios');
  *   PAYU_MERCHANT_SALT=
  *   PAYU_SUCCESS_URL=https://api.oncohealthmart.com/api/app/payments/payu/success
  *   PAYU_FAILURE_URL=https://api.oncohealthmart.com/api/app/payments/payu/failure
+ *
+ * Also add this as the server-to-server Webhook URL in the PayU dashboard
+ * (Settings > Webhooks) — it fires independent of the customer's browser:
+ *   https://api.oncohealthmart.com/api/app/payments/payu/webhook
  */
 
 const ENDPOINTS = {
