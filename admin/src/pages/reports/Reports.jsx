@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
-import { BarChart3, Download, TrendingUp, Package, Users, MapPin, FileText, Ticket, Receipt } from 'lucide-react';
+import { BarChart3, Download, TrendingUp, Package, Users, MapPin, FileText, Ticket } from 'lucide-react';
 import { useResource } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -22,7 +22,6 @@ const TABS = [
   { value: 'locations', label: 'Locations' },
   { value: 'prescriptions', label: 'Prescriptions' },
   { value: 'coupons', label: 'Coupons' },
-  { value: 'gst', label: 'GST' },
 ];
 
 export default function Reports() {
@@ -38,8 +37,7 @@ export default function Reports() {
   const exportCsv = async (type) => {
     setExporting(true);
     try {
-      const path = type === 'gst' ? '/admin/reports/gst' : '/admin/reports/export';
-      await api.download(path, { preset, orderFrom: source, type, format: 'csv' }, `${type}-report.csv`);
+      await api.download('/admin/reports/export', { preset, orderFrom: source, type, format: 'csv' }, `${type}-report.csv`);
       toast.success('Report downloaded');
     } catch (e) { toast.error(e.message); } finally { setExporting(false); }
   };
@@ -72,7 +70,6 @@ export default function Reports() {
       {tab === 'locations' && <LocationsReport qs={qs} />}
       {tab === 'prescriptions' && <PrescriptionsReport qs={qs} />}
       {tab === 'coupons' && <CouponsReport qs={qs} />}
-      {tab === 'gst' && <GstReport qs={qs} />}
     </>
   );
 }
@@ -113,7 +110,6 @@ function SalesReport({ qs }) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Metric label="Revenue" value={compactInr(s.revenue)} accent sub={`${num(s.orders)} orders`} />
         <Metric label="Avg order value" value={compactInr(s.avg_order_value)} />
-        <Metric label="GST collected" value={compactInr(s.gst_collected)} />
         <Metric label="Discount given" value={compactInr(s.discount_given)}
           sub={s.revenue ? pct(s.discount_given, s.revenue) : undefined} />
       </div>
@@ -449,38 +445,4 @@ function CouponsReport({ qs }) {
 }
 
 // ---------------------------------------------------------------------------
-function GstReport({ qs }) {
-  const { data, loading } = useResource(`/admin/reports/gst?${qs}`);
-  if (loading) return <Loading />;
 
-  const rows = data?.rows || [];
-  const totalTax = rows.reduce((s, r) => s + Number(r.tax_amount || 0), 0);
-  const totalTaxable = rows.reduce((s, r) => s + Number(r.taxable_value || 0), 0);
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <Metric label="Taxable value" value={compactInr(totalTaxable)} />
-        <Metric label="Tax collected" value={compactInr(totalTax)} accent />
-      </div>
-
-      <Card title="HSN-wise summary" subtitle="This is what the accountant needs" dense>
-        <DataTable
-          rowKey="hsn_code" rows={rows} compact
-          columns={[
-            { key: 'hsn_code', label: 'HSN', render: (r) => <Code>{r.hsn_code || '—'}</Code> },
-            { key: 'tax_percent', label: 'Rate', align: 'right',
-              render: (r) => <span className="tabular-nums text-ink-700">{r.tax_percent}%</span> },
-            { key: 'orders', label: 'Orders', align: 'right',
-              render: (r) => <span className="tabular-nums text-ink-700">{num(r.orders)}</span> },
-            { key: 'taxable_value', label: 'Taxable value', align: 'right',
-              render: (r) => <span className="tabular-nums text-ink-700">{inr(r.taxable_value)}</span> },
-            { key: 'tax_amount', label: 'Tax', align: 'right',
-              render: (r) => <span className="tabular-nums font-semibold text-ink">{inr(r.tax_amount)}</span> },
-          ]}
-          emptyIcon={Receipt} emptyTitle="No taxable sales in this period"
-        />
-      </Card>
-    </div>
-  );
-}

@@ -82,6 +82,7 @@ module.exports = {
   uploadBrand: uploader,
   uploadNews: uploader,
   uploadAvatar: uploader,
+  uploadInvoice: uploader,
 
   storeFile,
   storeFiles,

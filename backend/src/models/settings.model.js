@@ -116,11 +116,11 @@ async function getTaxConfig() {
  * Resolve the GST percent for one product against the tax config.
  * Pass the config in so a loop over cart items does not re-query settings.
  */
-function resolveGstPercent(productGst, taxConfig) {
-  const cfg = taxConfig || { default_gst: 0, gst_override: false };
-  if (cfg.gst_override) return cfg.default_gst;
-  const own = parseFloat(productGst);
-  return Number.isFinite(own) && own > 0 ? own : cfg.default_gst;
+function resolveGstPercent() {
+  // Product prices are GST-inclusive, so GST is never added on top separately.
+  // Kept as a function (instead of removing every call site) so nothing else
+  // needs to change — every caller now always gets 0.
+  return 0;
 }
 
 async function isCodEnabled() {

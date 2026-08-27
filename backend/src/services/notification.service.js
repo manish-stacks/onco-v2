@@ -260,7 +260,7 @@ async function prescriptionReviewed(prescription, customer) {
       sms.sendTransactional(
         customer.mobile,
         SMS.PRESCRIPTION_APPROVED,
-        [prescription.databaseOrderID || prescription.reference_code || '']
+        [orderRef(prescription) || prescription.reference_code || '']
       ),
       'prescriptionApproved sms'
     );

@@ -212,8 +212,14 @@ async function setInvoiceNumber(orderId, invoiceNumber) {
   await db.query(`UPDATE orders SET invoice_number = ? WHERE order_id = ?`, [invoiceNumber, orderId]);
 }
 
+/** Original invoice PDF uploaded by admin (usually while booking DTDC shipment). */
+async function setOriginalInvoice(orderId, url) {
+  await db.query(`UPDATE orders SET original_invoice_url = ? WHERE order_id = ?`, [url, orderId]);
+}
+
 async function updateFields(orderId, data) {
   const allowed = ['comment', 'cancellation_note', 'prescription_notes', 'gst_invoice',
+    'customer_phone', 'customer_address',
     'customer_shipping_name', 'customer_shipping_phone', 'customer_shipping_address',
     'customer_shipping_city', 'customer_shipping_state', 'customer_shipping_pincode'];
   const payload = {};
@@ -307,6 +313,7 @@ async function findByRefAndPhone(ref, phone) {
   // Only the fields tracking needs — the full address/email/payment
   // we do not expose details in an anonymous lookup.
   return {
+    order_id: order.order_id,
     databaseOrderID: order.databaseOrderID,
     order_date: order.order_date,
     status: order.status,
@@ -329,6 +336,6 @@ async function findByRefAndPhone(ref, phone) {
 module.exports = {
   create, addItems, logStatus, findById, findByRazorpayOrderId,
   list, listForExport, updateStatus, updateTracking, updatePayment,
-  setInvoiceNumber, updateFields, getItems, customerHasPurchased, stats,
+  setInvoiceNumber, setOriginalInvoice, updateFields, getItems, customerHasPurchased, stats,
   buildFilters, SORTABLE, findByRefAndPhone,
 };

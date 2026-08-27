@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import {
-  Truck, Package, Printer, RefreshCw, XCircle, MapPin, CheckCircle2, AlertTriangle,
+  Truck, Package, Printer, RefreshCw, XCircle, MapPin, CheckCircle2, AlertTriangle, FileUp, FileCheck2,
 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
-import { api, tokenStore } from '@/lib/api';
+import { api, tokenStore, mediaUrl } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { dateTime, inr, orderRef } from '@/lib/format';
 import {
@@ -124,6 +124,8 @@ export default function ShippingPanel({ order, onChanged }) {
               </div>
             )}
 
+            <InvoiceUpload order={order} canManage={canManage} onChanged={onChanged} />
+
             <div className="flex flex-wrap gap-1.5">
               <Button size="sm" icon={Printer} onClick={openLabel}>Label</Button>
               <Button size="sm" icon={RefreshCw} onClick={track.run} loading={track.loading}>
@@ -172,6 +174,71 @@ export default function ShippingPanel({ order, onChanged }) {
         message={`AWB ${order.awb_number} will be cancelled at DTDC and the order goes back to Processing. The order itself is not cancelled.`}
       />
     </Card>
+  );
+}
+
+function InvoiceUpload({ order, canManage, onChanged }) {
+  const [file, setFile] = useState(null);
+
+  const upload = useMutation(
+    () => {
+      const fd = new FormData();
+      fd.append('invoice', file);
+      return api.form(`/admin/orders/${order.order_id}/original-invoice`, fd);
+    },
+    { success: 'Original invoice uploaded', onSuccess: () => { setFile(null); onChanged?.(); } }
+  );
+
+  const has = !!order.original_invoice_url;
+
+  return (
+    <div className={cx(
+      'rounded p-2.5 border',
+      has ? 'bg-paper-sunk border-line' : 'bg-signal-warnBg border-signal-warn/20'
+    )}>
+      <div className="flex items-start gap-2">
+        {has ? (
+          <FileCheck2 size={14} className="text-signal-ok mt-0.5 shrink-0" />
+        ) : (
+          <AlertTriangle size={14} className="text-signal-warn mt-0.5 shrink-0" />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-2xs font-medium text-ink">
+            {has ? 'Original invoice uploaded' : 'Original invoice not uploaded yet'}
+          </p>
+          <p className="text-2xs text-ink-500 mt-0.5">
+            {has
+              ? 'Customer and admin now see this file instead of the auto-generated invoice.'
+              : 'Until this is uploaded, the auto-generated invoice is shown as usual.'}
+          </p>
+          {has && (
+            <a
+              href={mediaUrl(order.original_invoice_url)} target="_blank" rel="noopener noreferrer"
+              className="text-2xs font-medium text-teal hover:underline mt-1 inline-block"
+            >
+              View current file
+            </a>
+          )}
+          {canManage && (
+            <div className="flex items-center gap-1.5 mt-2">
+              <label className="flex items-center gap-1.5 text-2xs font-medium text-ink-700 border border-line rounded px-2 py-1 cursor-pointer hover:bg-paper-card">
+                <FileUp size={12} />
+                {file ? file.name : 'Choose PDF/image'}
+                <input
+                  type="file" accept="image/*,application/pdf" className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                />
+              </label>
+              {file && (
+                <Button size="xs" variant="primary" onClick={upload.run} loading={upload.loading}>
+                  {has ? 'Replace' : 'Upload'}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

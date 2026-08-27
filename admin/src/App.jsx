@@ -15,7 +15,6 @@ import Invoice from '@/pages/orders/Invoice';
 import Pos from '@/pages/pos/Pos';
 import ProductList from '@/pages/products/ProductList';
 import ProductForm from '@/pages/products/ProductForm';
-import Inventory from '@/pages/inventory/Inventory';
 import { CustomerList, CustomerDetail } from '@/pages/customers/Customers';
 import { PrescriptionList, PrescriptionDetail } from '@/pages/prescriptions/Prescriptions';
 import { Coupons, Reviews } from '@/pages/catalog/Coupons';
@@ -87,7 +86,6 @@ export default function App() {
               <Route path="products" element={<Guard perm={P.PRODUCTS_VIEW}><ProductList /></Guard>} />
               <Route path="products/new" element={<Guard perm={P.PRODUCTS_CREATE}><ProductForm /></Guard>} />
               <Route path="products/:productId/edit" element={<Guard perm={P.PRODUCTS_UPDATE}><ProductForm /></Guard>} />
-              <Route path="inventory" element={<Guard perm={P.INVENTORY_VIEW}><Inventory /></Guard>} />
               <Route path="categories" element={<Guard perm={P.CATEGORIES_VIEW}><Categories /></Guard>} />
               <Route path="brands" element={<Guard perm={P.BRANDS_VIEW}><Brands /></Guard>} />
               <Route path="coupons" element={<Guard perm={P.COUPONS_VIEW}><Coupons /></Guard>} />

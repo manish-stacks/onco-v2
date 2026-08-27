@@ -5,7 +5,7 @@ import {
 import { useList, useResource, useDebounced } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { PERMISSIONS as P } from '@/lib/constants';
-import { dateTime, ago, num, truncate } from '@/lib/format';
+import { dateTime, ago, num, truncate, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import {
   Card, Code, StatusPill, SourceTag, Tabs, Skeleton, EmptyState, Input, cx,
@@ -85,8 +85,8 @@ function MessageLogs() {
     },
     {
       key: 'databaseOrderID', label: 'Order',
-      render: (n) => (n.databaseOrderID
-        ? <Code className="text-2xs">{n.databaseOrderID}</Code>
+      render: (n) => (n.order_id
+        ? <Code className="text-2xs">{orderRef({ order_id: n.order_id, order_date: n.order_placed_date })}</Code>
         : <span className="text-ink-300 text-2xs">—</span>),
     },
     {

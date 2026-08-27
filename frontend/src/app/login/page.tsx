@@ -6,12 +6,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Phone,
-  Lock,
   KeyRound,
   ArrowRight,
   Loader2,
-  Eye,
-  EyeOff,
   ShieldCheck,
   Truck,
   Pill,
@@ -36,7 +33,7 @@ function LoginInner() {
 
   const redirectTo = params.get("redirect") || "/account";
 
-  const { requestOtp, verifyOtp, loginPassword, isLoggedIn, loading: authLoading } = useAuth();
+  const { requestOtp, verifyOtp, isLoggedIn, loading: authLoading } = useAuth();
 
   // No point showing the login page to someone who is already signed in —
   // send them straight to the redirect target (or their account).
@@ -44,10 +41,11 @@ function LoginInner() {
     if (!authLoading && isLoggedIn) router.replace(redirectTo);
   }, [authLoading, isLoggedIn, redirectTo, router]);
 
-  const [mode, setMode] = useState<"otp" | "password">("otp");
-
+  // Registration has been removed — every user (new or existing) logs in
+  // with just their mobile number + OTP. New accounts are created
+  // automatically on first verification; users update their name/email
+  // later from their profile.
   const [mobile, setMobile] = useState("");
-  const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
 
   const [customerId, setCustomerId] = useState<
@@ -58,8 +56,6 @@ function LoginInner() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [showPassword, setShowPassword] = useState(false);
 
   async function handleRequestOtp(e: React.FormEvent) {
     e.preventDefault();
@@ -106,38 +102,6 @@ function LoginInner() {
     }
   }
 
-  async function handlePasswordLogin(e: React.FormEvent) {
-    e.preventDefault();
-
-    setError(null);
-    setLoading(true);
-
-    try {
-      await loginPassword(mobile, password);
-
-      router.push(redirectTo);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Login failed"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function switchMode(next: "otp" | "password") {
-    setMode(next);
-    setError(null);
-
-    if (next === "otp") {
-      setCustomerId(null);
-      setOtp("");
-      setDevOtp(null);
-    }
-  }
-
   return (
     <main className="min-h-[calc(100vh-4rem)] px-4 py-10 sm:px-6 sm:py-14">
 
@@ -169,38 +133,6 @@ function LoginInner() {
 
           </div>
 
-          {/* Login Mode Toggle */}
-          <div className="mb-7 rounded-xl bg-slate-100 p-1">
-
-            <div className="grid grid-cols-2 gap-1">
-
-              <button
-                type="button"
-                onClick={() => switchMode("otp")}
-                className={`rounded-lg py-2.5 text-sm font-semibold transition-all ${
-                  mode === "otp"
-                    ? "bg-white text-blue-700 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                OTP Login
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchMode("password")}
-                className={`rounded-lg py-2.5 text-sm font-semibold transition-all ${
-                  mode === "password"
-                    ? "bg-white text-blue-700 shadow-sm"
-                    : "text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Password
-              </button>
-
-            </div>
-          </div>
-
           {/* Error */}
           {error && (
             <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
@@ -212,8 +144,7 @@ function LoginInner() {
 
           {/* ================= OTP LOGIN ================= */}
 
-          {mode === "otp" ? (
-            !customerId ? (
+          {!customerId ? (
 
               <form
                 onSubmit={handleRequestOtp}
@@ -401,152 +332,7 @@ function LoginInner() {
                 </Button>
 
               </form>
-            )
-
-          ) : (
-
-            /* ================= PASSWORD LOGIN ================= */
-
-            <form
-              onSubmit={handlePasswordLogin}
-              className="space-y-5"
-            >
-
-              {/* Mobile */}
-              <div>
-
-                <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Mobile Number
-                </label>
-
-                <div className="flex h-13 items-center rounded-xl border border-slate-200 bg-white px-4 transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
-
-                  <span className="mr-3 border-r border-slate-200 pr-3 text-sm font-semibold text-slate-700">
-                    +91
-                  </span>
-
-                  <Phone
-                    size={17}
-                    className="mr-2 shrink-0 text-slate-400"
-                  />
-
-                  <input
-                    required
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={10}
-                    value={mobile}
-                    onChange={(e) =>
-                      setMobile(
-                        e.target.value.replace(/\D/g, "")
-                      )
-                    }
-                    placeholder="Enter mobile number"
-                    className="h-full w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                  />
-
-                </div>
-
-              </div>
-
-              {/* Password */}
-              <div>
-
-                <div className="mb-2 flex items-center justify-between">
-
-                  <label className="text-sm font-semibold text-slate-700">
-                    Password
-                  </label>
-
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs font-semibold text-blue-600 hover:underline"
-                  >
-                    Forgot Password?
-                  </Link>
-
-                </div>
-
-                <div className="flex h-13 items-center rounded-xl border border-slate-200 bg-white px-4 transition-all focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-500/10">
-
-                  <Lock
-                    size={17}
-                    className="mr-2 shrink-0 text-slate-400"
-                  />
-
-                  <input
-                    required
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) =>
-                      setPassword(e.target.value)
-                    }
-                    placeholder="Enter your password"
-                    className="h-full w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowPassword((v) => !v)
-                    }
-                    className="ml-2 shrink-0 text-slate-400 transition hover:text-slate-700"
-                    aria-label={
-                      showPassword
-                        ? "Hide password"
-                        : "Show password"
-                    }
-                  >
-                    {showPassword ? (
-                      <EyeOff size={17} />
-                    ) : (
-                      <Eye size={17} />
-                    )}
-                  </button>
-
-                </div>
-
-              </div>
-
-              <Button
-                type="submit"
-                size="lg"
-                disabled={loading}
-                className="h-13 w-full rounded-xl bg-gradient-to-r from-blue-600 to-teal-500 text-white shadow-lg shadow-blue-500/15"
-                icon={
-                  loading ? (
-                    <Loader2
-                      size={17}
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <ArrowRight size={17} />
-                  )
-                }
-              >
-                {loading ? "Logging in..." : "Login"}
-              </Button>
-
-            </form>
-          )}
-
-
-          {/* Register */}
-          <div className="mt-6 border-t border-slate-100 pt-6 text-center">
-
-            <p className="text-sm text-slate-500">
-              New to Onco Health Mart?
-            </p>
-
-            <Link
-              href="/register"
-              className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700"
-            >
-              Create an account
-              <ArrowRight size={14} />
-            </Link>
-
-          </div>
+            )}
 
           {/* Footer */}
           <p className="mt-7 text-center text-[11px] leading-5 text-slate-400">

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useResource } from '@/hooks/useApi';
 import { DATE_PRESETS, TONE_HEX, toneOf } from '@/lib/constants';
-import { compactInr, inr, num, date, ago } from '@/lib/format';
+import { compactInr, inr, num, date, ago, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Select, StatusPill, Code, SourceTag, PageLoader, EmptyState, cx } from '@/components/ui';
 import { Health } from '@/pages/system/System';
@@ -335,7 +335,7 @@ function RecentOrders({ rows = [] }) {
           >
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <Code>{o.databaseOrderID}</Code>
+                <Code>{orderRef(o)}</Code>
                 <SourceTag source={o.orderFrom} />
               </div>
               <p className="text-2xs text-ink-500 truncate mt-0.5">

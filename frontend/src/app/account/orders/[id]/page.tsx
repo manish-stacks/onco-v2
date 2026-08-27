@@ -162,7 +162,6 @@ export default function OrderDetailPage() {
         </div>
         <div className="mt-4 space-y-1.5 border-t border-[var(--line)] pt-4 text-sm font-mono-nums">
           <div className="flex justify-between text-[var(--ink-soft)]"><span>Subtotal</span><span>{formatINR(order.subtotal ?? 0)}</span></div>
-          <div className="flex justify-between text-[var(--ink-soft)]"><span>GST</span><span>{formatINR(order.order_gst ?? 0)}</span></div>
           {!!order.shipping_charge && <div className="flex justify-between text-[var(--ink-soft)]"><span>Shipping</span><span>{formatINR(order.shipping_charge)}</span></div>}
           <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]"><span>Total</span><span>{formatINR(order.amount)}</span></div>
         </div>

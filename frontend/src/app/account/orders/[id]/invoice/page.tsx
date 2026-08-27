@@ -10,6 +10,7 @@ interface InvoiceItem { product_name?: string; unit_quantity?: number; quantity?
 interface Invoice {
   invoice_number: string;
   invoice_date: string;
+  original_invoice_url?: string | null;
   reference?: string;
   status?: string;
   seller?: { name?: string; address?: string; phone?: string; email?: string; logo?: string } | null;
@@ -43,6 +44,31 @@ export default function InvoicePage() {
 
   const t = inv.totals || {};
   const qtyOf = (it: InvoiceItem) => it.unit_quantity ?? it.quantity ?? 0;
+
+  // Once the pharmacy uploads the real invoice (right after it ships),
+  // that PDF replaces this auto-generated preview.
+  if (inv.original_invoice_url) {
+    return (
+      <div className="mx-auto max-w-3xl p-4 sm:p-8">
+        <div className="mb-4 flex items-center justify-between print:hidden">
+          <button onClick={() => router.back()} className="flex items-center gap-1.5 text-sm font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+            <ArrowLeft size={16} /> Back
+          </button>
+          <a
+            href={mediaUrl(inv.original_invoice_url)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-full bg-[var(--blue-500)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--blue-600)]"
+          >
+            <Printer size={15} /> Open / Download
+          </a>
+        </div>
+        <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--line)] bg-white" style={{ height: "80vh" }}>
+          <iframe src={mediaUrl(inv.original_invoice_url)} title="Invoice" className="h-full w-full border-0" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-8">

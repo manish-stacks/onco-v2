@@ -4,7 +4,7 @@ import { useList, useResource, useMutation, useDebounced } from '@/hooks/useApi'
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
-import { inr, num, date, dateTime } from '@/lib/format';
+import { inr, num, date, dateTime, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import {
   Card, Button, StatusPill, Code, Field, Input, Select, Textarea, Tabs, EmptyState, cx,
@@ -276,7 +276,7 @@ function UsageModal({ coupon, onClose }) {
               <div className="min-w-0 flex-1">
                 <p className="text-[0.8125rem] text-ink truncate">{u.customer_name || `Customer #${u.customer_id}`}</p>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <Code className="text-2xs">{u.databaseOrderID || `order #${u.order_id}`}</Code>
+                  <Code className="text-2xs">{orderRef(u) || `order #${u.order_id}`}</Code>
                   <span className="text-2xs text-ink-500">{dateTime(u.created_at)}</span>
                 </div>
               </div>

@@ -749,6 +749,7 @@ export const orderApi = {
 };
 
 export interface PublicTrackResult {
+  order_id?: number | string;
   databaseOrderID: string;
   order_date: string;
   status: string;

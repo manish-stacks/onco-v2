@@ -54,19 +54,13 @@ export default function Pos() {
   const [errors, setErrors] = useState({});
   const [markPaid, setMarkPaid] = useState(true);
   const [foundCustomerId, setFoundCustomerId] = useState(null);
+  const [prescriptionFiles, setPrescriptionFiles] = useState([]);
 
   const [search, setSearch] = useState('');
   const debounced = useDebounced(search, 350);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
 
-  // GST rules from admin settings so the estimate matches the server total.
-  const [tax, setTax] = useState({ default_gst: 0, gst_override: false });
-  useEffect(() => {
-    api.get('/admin/pos/config')
-      .then((res) => { if (res?.data) setTax(res.data); })
-      .catch(() => { /* fall back to per-product GST */ });
-  }, []);
 
   const set = (k, v) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -130,31 +124,20 @@ export default function Pos() {
     setItems((list) => list.filter((i) => i.product_id !== productId));
   }
 
-  // Estimate only — final pricing, GST and discount are always computed on the server
-  // Same rule the server uses: override -> global rate for all; else product's
-  // own GST, falling back to the global rate when a product has none.
-  const gstPercentFor = (item) => {
-    if (tax.gst_override) return Number(tax.default_gst) || 0;
-    const own = Number(item.product_gst);
-    return own > 0 ? own : (Number(tax.default_gst) || 0);
-  };
-
+  // Estimate only — final pricing and discount are always computed on the server.
+  // Product price is GST-inclusive, so nothing is added on top.
   const estimate = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + (Number(i.product_sp) || 0) * i.quantity, 0);
-    const gst = items.reduce(
-      (s, i) => s + ((Number(i.product_sp) || 0) * i.quantity * gstPercentFor(i)) / 100, 0
-    );
     const dv = parseFloat(form.discount_value) || 0;
     const discount = form.discount_type === 'percent'
       ? Math.min((subtotal * dv) / 100, subtotal)
       : Math.min(dv, subtotal);
     return {
       subtotal,
-      gst,
       discount,
-      total: Math.max(subtotal + gst - discount, 0),
+      total: Math.max(subtotal - discount, 0),
     };
-  }, [items, form.discount_type, form.discount_value, tax]);
+  }, [items, form.discount_type, form.discount_value]);
 
   const needsPrescription = items.some((i) => i.presciption_required === 'Yes');
 
@@ -213,29 +196,32 @@ export default function Pos() {
 
   // ------------------------------------------------------------------- submit
   const create = useMutation(
-    () => api.post('/admin/pos/orders', {
-      customer_id: foundCustomerId || undefined,
-      customer: {
+    () => {
+      const fd = new FormData();
+      if (foundCustomerId) fd.append('customer_id', foundCustomerId);
+      fd.append('customer', JSON.stringify({
         mobile: only10(form.mobile),
         customer_name: form.customer_name,
         email_id: form.email_id || null,
-      },
-      patient_name: form.patient_name || form.customer_name,
-      doctor_name: form.doctor_name || null,
-      hospital_name: form.hospital_name || null,
-      address: form.address,
-      city: form.city,
-      state: form.state,
-      pincode: form.pincode,
-      items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
-      coupon_code: form.coupon_code || null,
-      discount_type: form.discount_type,
-      discount_value: parseFloat(form.discount_value) || 0,
-      payment_mode: form.payment_method_label === 'COD' ? 'cod' : 'online',
-      payment_method_label: form.payment_method_label || 'Cash',
-      mark_paid: form.payment_method_label === 'COD' ? false : markPaid,
-      comment: form.comment || null,
-    }),
+      }));
+      fd.append('patient_name', form.patient_name || form.customer_name);
+      if (form.doctor_name) fd.append('doctor_name', form.doctor_name);
+      if (form.hospital_name) fd.append('hospital_name', form.hospital_name);
+      fd.append('address', form.address);
+      fd.append('city', form.city);
+      fd.append('state', form.state);
+      fd.append('pincode', form.pincode);
+      fd.append('items', JSON.stringify(items.map((i) => ({ product_id: i.product_id, quantity: i.quantity }))));
+      if (form.coupon_code) fd.append('coupon_code', form.coupon_code);
+      fd.append('discount_type', form.discount_type);
+      fd.append('discount_value', parseFloat(form.discount_value) || 0);
+      fd.append('payment_mode', form.payment_method_label === 'COD' ? 'cod' : 'online');
+      fd.append('payment_method_label', form.payment_method_label || 'Cash');
+      fd.append('mark_paid', form.payment_method_label === 'COD' ? false : markPaid);
+      if (form.comment) fd.append('comment', form.comment);
+      prescriptionFiles.forEach((f) => fd.append('prescription_images', f));
+      return api.form('/admin/pos/orders', fd, 'POST');
+    },
     {
       success: 'POS order created',
       onSuccess: (res) => {
@@ -243,6 +229,7 @@ export default function Pos() {
         setForm(EMPTY);
         setItems([]);
         setFoundCustomerId(null);
+        setPrescriptionFiles([]);
         if (id) navigate(`/orders/${id}`);
       },
       onError: (err) => {
@@ -358,6 +345,24 @@ export default function Pos() {
                 </Field>
               </div>
 
+              <Field
+                label="Prescription"
+                hint={needsPrescription
+                  ? "Required — the cart has prescription medicine. It's auto-approved since it's verified in person"
+                  : "Optional — photo of the prescription, if the customer has one"}
+              >
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  onChange={(e) => setPrescriptionFiles(Array.from(e.target.files || []))}
+                  className="block w-full text-xs text-ink-500 file:mr-3 file:rounded-md file:border-0 file:bg-paper-sunk file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal"
+                />
+                {prescriptionFiles.length > 0 && (
+                  <p className="mt-1 text-2xs text-ink-500">{prescriptionFiles.length} file(s) selected</p>
+                )}
+              </Field>
+
               <Field label="Address" error={errors.address} required>
                 <Textarea rows={3} value={form.address} onChange={(e) => set('address', e.target.value)} />
               </Field>
@@ -445,9 +450,7 @@ export default function Pos() {
                       <tr key={i.product_id}>
                         <td className="py-2 pr-2">
                           <span className="block text-ink">{i.product_name}</span>
-                          <span className="block text-2xs text-ink-500">
-                            {i.sku || '—'} · GST {gstPercentFor(i)}%
-                          </span>
+                          <span className="block text-2xs text-ink-500">{i.sku || '—'}</span>
                         </td>
                         <td className="py-2">
                           <div className="inline-flex items-center gap-1 rounded-md border border-line">
@@ -565,9 +568,6 @@ export default function Pos() {
             <div className="p-4 space-y-2 text-[0.8125rem]">
               <div className="flex justify-between text-ink-500">
                 <span>Subtotal</span><span className="tabular-nums">{inr(estimate.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-ink-500">
-                <span>GST</span><span className="tabular-nums">{inr(estimate.gst)}</span>
               </div>
               {estimate.discount > 0 && (
                 <div className="flex justify-between text-signal-ok">

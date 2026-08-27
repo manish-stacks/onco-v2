@@ -1,20 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Building2, Truck, Receipt, CreditCard, Share2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building2, Truck, CreditCard, Share2 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { api, mediaUrl } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Button, Field, Input, Textarea, Checkbox, Select, EmptyState } from '@/components/ui';
-
-/** GST rates allowed by Indian pharma/retail slabs */
-const GST_RATES = [
-  { value: '0', label: '0% — exempt' },
-  { value: '5', label: '5%' },
-  { value: '12', label: '12%' },
-  { value: '18', label: '18%' },
-  { value: '28', label: '28%' },
-];
 
 /** Small section wrapper so every block reads as its own card with a consistent header.
  *  break-inside-avoid keeps each card intact when flowing through CSS columns. */
@@ -58,11 +49,10 @@ export default function Settings() {
         if (k === 'id' || k === 'logo' || v === null || v === undefined) return;
         fd.append(k, v);
       });
-      // Always send the toggle/GST fields — otherwise an unchecked (0) value never saves
-      ['is_cod', 'gst_override', 'is_razorpay', 'is_payu'].forEach((k) => {
+      // Always send the toggle fields — otherwise an unchecked (0) value never saves
+      ['is_cod', 'is_razorpay', 'is_payu'].forEach((k) => {
         fd.set(k, Number(form[k]) ? 1 : 0);
       });
-      fd.set('default_gst', parseFloat(form.default_gst) || 0);
       if (logo) fd.append('logo', logo);
       return api.form(`/admin/settings/${data.id}`, fd, 'PUT');
     },
@@ -153,30 +143,6 @@ export default function Settings() {
             <Checkbox label="Cash on delivery allowed" checked={!!Number(form.is_cod)}
               onChange={(e) => set('is_cod', e.target.checked ? 1 : 0)} />
           </div>
-        </SettingsSection>
-
-        <SettingsSection icon={Receipt} title="Tax (GST)" hint="Applied to orders and the cart">
-          <div className="grid sm:grid-cols-2 gap-3 items-end">
-            <Field label="GST rate">
-              <Select
-                value={String(form.default_gst ?? '') === '' ? '' : String(parseFloat(form.default_gst))}
-                onChange={(e) => set('default_gst', e.target.value)}
-                options={GST_RATES}
-                placeholder="— Select a rate"
-              />
-            </Field>
-            <Checkbox
-              label="Override each product's own GST"
-              checked={!!Number(form.gst_override)}
-              onChange={(e) => set('gst_override', e.target.checked ? 1 : 0)}
-            />
-          </div>
-          <p className="text-2xs text-ink-500 bg-paper-sunk rounded-md p-2.5">
-            {Number(form.gst_override)
-              ? `Every item is taxed at ${parseFloat(form.default_gst) || 0}%, ignoring the GST set on individual products.`
-              : `Products keep their own GST. This rate (${parseFloat(form.default_gst) || 0}%) is only used where a product has none.`}
-            {' '}Existing orders are not affected — the rate is stored on each order when it is placed.
-          </p>
         </SettingsSection>
 
         <SettingsSection icon={CreditCard} title="Payment gateways">

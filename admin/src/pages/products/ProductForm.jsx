@@ -21,7 +21,7 @@ const IMAGE_FIELDS = ['image_1', 'image_2', 'image_3', 'image_4', 'image_5'];
 const EMPTY = {
   product_name: '', sku: '', hsn_code: '', company_name: '', brand_id: '',
   salt: '', weight_quantity: '',
-  product_mrp: '', product_sp: '', product_gst: '', stock_quantity: '', low_stock_alert: '10',
+  product_mrp: '', product_sp: '', stock_quantity: '', low_stock_alert: '10',
   batch_number: '', expiry_date: '', allow_backorder: false,
   short_description: '', long_description: '', about_product: '', key_features: '',
   benifits: '', how_to_use: '', side_effects: '', caution: '', storage: '', specification: '',
@@ -62,14 +62,22 @@ export default function ProductForm() {
       Object.entries(form).forEach(([k, v]) => {
         if (IMAGE_FIELDS.includes(k)) return; // do not resend the old image path
         if (k === 'categories') { fd.append('categories', JSON.stringify(v)); return; }
+        if (k === 'stock_quantity' && isEdit) return; // set separately, below — keeps the audit trail
         if (v === null || v === undefined || v === '') return;
         fd.append(k, typeof v === 'boolean' ? (v ? 1 : 0) : v);
       });
       Object.entries(files).forEach(([k, file]) => { if (file) fd.append(k, file); });
 
-      return isEdit
-        ? api.form(`/admin/products/${productId}`, fd, 'PUT')
-        : api.form('/admin/products', fd, 'POST');
+      const res = isEdit
+        ? await api.form(`/admin/products/${productId}`, fd, 'PUT')
+        : await api.form('/admin/products', fd, 'POST');
+
+      const newStock = parseInt(form.stock_quantity, 10);
+      const oldStock = parseInt(product?.stock_quantity, 10) || 0;
+      if (isEdit && Number.isFinite(newStock) && newStock !== oldStock) {
+        await api.patch(`/admin/inventory/${productId}`, { stock_quantity: newStock, note: 'Changed from the product page' });
+      }
+      return res;
     },
     {
       success: isEdit ? 'Product updated' : 'Product created',
@@ -199,16 +207,11 @@ export default function ProductForm() {
                 <Input type="number" step="0.01" value={form.product_sp}
                   onChange={(e) => set('product_sp', e.target.value)} />
               </Field>
-              <Field label="GST %" hint="Leave empty to use the site GST rate from Settings">
-                <Input type="number" step="0.01" value={form.product_gst}
-                  onChange={(e) => set('product_gst', e.target.value)} placeholder="12" />
-              </Field>
-
               <Field
                 label={isEdit ? 'Current stock' : 'Opening stock'}
-                hint={isEdit ? 'Use the Inventory page to change it (for the audit trail)' : 'Opening stock'}
+                hint={isEdit ? 'Set to 0 to mark it Out of Stock — it also drops automatically as orders come in' : 'Opening stock'}
               >
-                <Input type="number" value={form.stock_quantity} disabled={isEdit}
+                <Input type="number" value={form.stock_quantity}
                   onChange={(e) => set('stock_quantity', e.target.value)} />
               </Field>
               <Field label="Low stock alert" hint="An alert is raised below this">

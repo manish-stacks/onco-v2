@@ -4,8 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  MapPin, Plus, CreditCard, Wallet, Truck, FileWarning, Loader2, CheckCircle2, Stethoscope,
-  Pencil, Trash2, UploadCloud, X, AlertCircle, Tag,
+  MapPin, Plus, Minus, CreditCard, Wallet, Truck, FileWarning, Loader2, CheckCircle2, Stethoscope,
+  Pencil, Trash2, X, AlertCircle, Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InlineOtpVerify } from "@/components/auth/InlineOtpVerify";
@@ -15,7 +15,7 @@ import {
 } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import { submitToPayu } from "@/lib/payu";
-import { formatINR } from "@/lib/utils";
+import { formatINR, orderRef } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
 import { useAuth } from "@/context/auth-context";
 import { clearAppliedCoupon, getAppliedCoupon, saveAppliedCoupon } from "@/lib/coupon";
@@ -82,7 +82,7 @@ function CheckoutInner() {
   const { isLoggedIn, user, refresh } = useAuth();
 
   const prescriptionIdFromUrl = params.get("prescription_id");
-  const { cartItems, summary, refreshCart, removeFromCart } = useStore();
+  const { cartItems, summary, refreshCart, removeFromCart, updateQuantity } = useStore();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | number | null>(null);
@@ -95,16 +95,7 @@ function CheckoutInner() {
 
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [selectedPrescriptionId, setSelectedPrescriptionId] = useState<string | number | null>(null);
-
-  // New prescription upload, straight from the checkout page
-  const fileRef = useRef<HTMLInputElement | null>(null);
-  const [newFiles, setNewFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  // Prescription: either pick a saved one OR upload a new one — never both, to
-  // avoid the "do I need to do both?" confusion.
-  const [prescMode, setPrescMode] = useState<"saved" | "new">("saved");
   const [viewRx, setViewRx] = useState<Prescription | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [prescErrors, setPrescErrors] = useState<Record<string, string>>({});
 
   const [patientName, setPatientName] = useState("");
@@ -346,72 +337,6 @@ function CheckoutInner() {
     }
   }
 
-  // ------------------------------------------------------------ prescriptions
-  function onPickFiles(files: FileList | null) {
-    if (!files?.length) return;
-    // Append to whatever is already picked (capped at 5) instead of replacing
-    // it — otherwise picking a second file wiped out the first one.
-    setNewFiles((prev) => {
-      const combined = [...prev, ...Array.from(files)].slice(0, 5);
-      setPreviews((prevPreviews) => {
-        prevPreviews.forEach((u) => URL.revokeObjectURL(u));
-        return combined.map((f) => URL.createObjectURL(f));
-      });
-      return combined;
-    });
-    setPrescErrors((e) => ({ ...e, files: "" }));
-    if (fileRef.current) fileRef.current.value = "";
-  }
-
-  function removeNewFile(index: number) {
-    setNewFiles((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      setPreviews((prevPreviews) => {
-        prevPreviews.forEach((u) => URL.revokeObjectURL(u));
-        return next.map((f) => URL.createObjectURL(f));
-      });
-      return next;
-    });
-  }
-
-  function clearPickedFiles() {
-    previews.forEach((u) => URL.revokeObjectURL(u));
-    setNewFiles([]);
-    setPreviews([]);
-    if (fileRef.current) fileRef.current.value = "";
-  }
-
-  async function handleUploadPrescription() {
-    const e: Record<string, string> = {};
-    if (!newFiles.length) e.files = "Please choose at least one prescription image";
-    if (!patientName.trim()) e.patient_name = "Patient name is required";
-    if (!doctorName.trim()) e.doctor_name = "Doctor name is required";
-    if (!hospitalName.trim()) e.hospital_name = "Hospital / clinic name is required";
-    setPrescErrors(e);
-    if (Object.keys(e).length) return;
-
-    setUploading(true);
-    setError(null);
-    try {
-      const res = await prescriptionApi.upload<{ prescription_id: string | number }>(newFiles, {
-        patient_name: patientName.trim(),
-        doctor_name: doctorName.trim(),
-        hospital_name: hospitalName.trim(),
-      });
-      clearPickedFiles();
-      const merged = await loadPrescriptions(res?.prescription_id ?? null);
-      const newId = res?.prescription_id ?? merged[0]?.prescription_id ?? null;
-      if (newId) setSelectedPrescriptionId(newId);
-      setPrescMode("saved");
-    } catch (err) {
-      const fieldErrors = toFieldErrors(err);
-      if (Object.keys(fieldErrors).length) setPrescErrors(fieldErrors);
-      else setError(err instanceof ApiError ? err.message : "Could not upload the prescription");
-    } finally {
-      setUploading(false);
-    }
-  }
-
   // ------------------------------------------------------------------- order
   async function placeOrder() {
     if (!isLoggedIn) return;
@@ -467,14 +392,14 @@ function CheckoutInner() {
         ...(shippingSame
           ? {}
           : {
-              customer_shipping_name: shippingAddress.full_name,
-              customer_shipping_phone: shippingAddress.phone,
-              customer_shipping_address: addressLine(shippingAddress),
-              customer_shipping_city: shippingAddress.city,
-              customer_shipping_state: shippingAddress.state,
-              customer_shipping_pincode: shippingAddress.pincode,
-              customer_shipping_country: "India",
-            }),
+            customer_shipping_name: shippingAddress.full_name,
+            customer_shipping_phone: shippingAddress.phone,
+            customer_shipping_address: addressLine(shippingAddress),
+            customer_shipping_city: shippingAddress.city,
+            customer_shipping_state: shippingAddress.state,
+            customer_shipping_pincode: shippingAddress.pincode,
+            customer_shipping_country: "India",
+          }),
         coupon_code: appliedCoupon || undefined,
         payment_mode: paymentMode,
         payment_gateway: paymentMode === "online" ? gateway : undefined,
@@ -501,7 +426,7 @@ function CheckoutInner() {
       if (payment.type === "sdk" && payment.gateway === "razorpay" && payment.razorpay) {
         await openRazorpayCheckout({
           session: payment.razorpay,
-          description: `Order #${order.databaseOrderID || order.order_id}`,
+          description: `Order #${orderRef(order)}`,
           onSuccess: async (response) => {
             try {
               await orderApi.verifyPayment(response);
@@ -602,9 +527,8 @@ function CheckoutInner() {
                   {addresses.map((a) => (
                     <div
                       key={a.ad_id}
-                      className={`flex items-start gap-3 rounded-[var(--radius-sm)] border p-4 text-sm transition ${
-                        selectedAddressId === a.ad_id ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)]"
-                      }`}
+                      className={`flex items-start gap-3 rounded-[var(--radius-sm)] border p-4 text-sm transition ${selectedAddressId === a.ad_id ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)]"
+                        }`}
                     >
                       <input
                         type="radio"
@@ -717,40 +641,38 @@ function CheckoutInner() {
               {/* Prescription */}
               {summary?.requires_prescription && (
                 <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
-                  <p className="mb-4 flex items-center gap-2 font-semibold text-[var(--ink)]">
+                  <p className="mb-1.5 flex items-center gap-2 font-semibold text-[var(--ink)]">
                     <FileWarning size={17} className="text-[#8A5A0C]" /> Prescription Required
+                  </p>
+                  <p className="mb-4 text-xs text-[var(--ink-soft)]">
+                    Some items in your order need a valid prescription. {prescriptions.length > 0
+                      ? "Pick one you've already uploaded, or add a new one."
+                      : "Upload it below along with the patient, doctor and hospital/clinic details."}
                   </p>
 
                   {prescriptions.length > 0 && (
-                    <div className="mb-4 inline-flex rounded-[var(--radius-sm)] border border-[var(--line)] p-0.5 text-sm">
-                      <button
-                        type="button"
-                        onClick={() => { setPrescMode("saved"); clearPickedFiles(); }}
-                        className={`rounded-[calc(var(--radius-sm)-2px)] px-3 py-1.5 font-medium ${prescMode === "saved" ? "bg-[var(--blue-500)] text-white" : "text-[var(--ink-soft)]"}`}
+                    <div className="mb-4 flex items-center justify-between">
+                      <span className="text-xs font-medium text-[var(--ink-soft)]">
+                        Select a saved prescription
+                      </span>
+                      <Link
+                        href="/prescription-upload?redirect=/checkout"
+                        className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--blue-600)] hover:bg-[var(--blue-50)]"
                       >
-                        Use a saved prescription
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setPrescMode("new"); setSelectedPrescriptionId(null); }}
-                        className={`rounded-[calc(var(--radius-sm)-2px)] px-3 py-1.5 font-medium ${prescMode === "new" ? "bg-[var(--blue-500)] text-white" : "text-[var(--ink-soft)]"}`}
-                      >
-                        Upload a new one
-                      </button>
+                        + Upload a new one
+                      </Link>
                     </div>
                   )}
 
-                  {prescriptions.length > 0 && prescMode === "saved" && (
+                  {prescriptions.length > 0 ? (
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-[var(--ink-soft)]">Select a saved prescription</p>
                       {prescriptions.map((p) => (
                         <label
                           key={p.prescription_id}
-                          className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-3 text-sm ${
-                            String(selectedPrescriptionId) === String(p.prescription_id)
+                          className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-3 text-sm ${String(selectedPrescriptionId) === String(p.prescription_id)
                               ? "border-[var(--blue-500)] bg-[var(--blue-50)]"
                               : "border-[var(--line)]"
-                          }`}
+                            }`}
                         >
                           <input
                             type="radio"
@@ -768,13 +690,12 @@ function CheckoutInner() {
                               </span>
                             )}
                           </span>
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                            p.status === "Approved" || p.status === "Completed"
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${p.status === "Approved" || p.status === "Completed"
                               ? "bg-[var(--mint-50)] text-[var(--mint-600)]"
                               : p.status === "Rejected" || p.status === "Cancelled"
                                 ? "bg-[#FFEDEA] text-[var(--coral-500)]"
                                 : "bg-[#FFF4E0] text-[#8A5A0C]"
-                          }`}>
+                            }`}>
                             {p.status}
                           </span>
                           <button
@@ -788,104 +709,33 @@ function CheckoutInner() {
                       ))}
                       {selectedPrescriptionId
                         && prescriptions.find((p) => String(p.prescription_id) === String(selectedPrescriptionId))?.status !== "Approved" && (
-                        <p className="text-xs text-[var(--ink-soft)]">
-                          A pharmacist is still verifying this prescription — the order will be placed with the status
-                          &quot;Prescription Pending&quot; until it is approved.
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Upload a new prescription right here */}
-                  {(prescMode === "new" || prescriptions.length === 0) && (
-                  <div className="mt-5 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] p-4">
-                    <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--ink)]">
-                      <UploadCloud size={16} className="text-[var(--blue-500)]" /> Upload a new prescription
-                    </p>
-
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*,application/pdf"
-                      multiple
-                      onChange={(e) => onPickFiles(e.target.files)}
-                      className="block w-full text-xs text-[var(--ink-soft)] file:mr-3 file:rounded-full file:border-0 file:bg-[var(--blue-50)] file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[var(--blue-600)]"
-                    />
-                    {prescErrors.files && (
-                      <p className="mt-1.5 flex items-center gap-1 text-xs text-[var(--coral-500)]">
-                        <AlertCircle size={12} /> {prescErrors.files}
-                      </p>
-                    )}
-
-                    {previews.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-3">
-                        {previews.map((src, i) => (
-                          <div key={src} className="relative h-20 w-20 overflow-hidden rounded-[var(--radius-sm)] border border-[var(--line)]">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={src} alt={`preview ${i + 1}`} className="h-full w-full object-cover" />
-                            <button
-                              type="button"
-                              onClick={() => removeNewFile(i)}
-                              className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white"
-                              aria-label={`Remove file ${i + 1}`}
-                            >
-                              <X size={11} />
-                            </button>
-                          </div>
-                        ))}
-                        {newFiles.length < 5 && (
-                          <button
-                            type="button"
-                            onClick={() => fileRef.current?.click()}
-                            className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] text-[10px] font-medium text-[var(--ink-soft)] hover:text-[var(--blue-600)]"
-                          >
-                            <Plus size={14} /> Add more
-                          </button>
+                          <p className="text-xs text-[var(--ink-soft)]">
+                            A pharmacist is still verifying this prescription — the order will be placed with the status
+                            &quot;Prescription Pending&quot; until it is approved.
+                          </p>
                         )}
-                        <button
-                          type="button"
-                          onClick={clearPickedFiles}
-                          className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] text-[10px] font-medium text-[var(--ink-soft)] hover:text-[var(--coral-500)]"
-                        >
-                          <X size={14} /> Clear all
-                        </button>
+                      <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <FieldInput label="Patient name" value={patientName} error={prescErrors.patient_name}
+                          onChange={(v) => { setPatientName(v); setPrescErrors((e) => ({ ...e, patient_name: "" })); }} />
+                        <FieldInput label="Doctor name" value={doctorName} error={prescErrors.doctor_name}
+                          onChange={(v) => { setDoctorName(v); setPrescErrors((e) => ({ ...e, doctor_name: "" })); }} />
+                        <FieldInput label="Hospital / clinic name" className="sm:col-span-2" value={hospitalName} error={prescErrors.hospital_name}
+                          onChange={(v) => { setHospitalName(v); setPrescErrors((e) => ({ ...e, hospital_name: "" })); }} />
                       </div>
-                    )}
-
-                    <p className="mt-4 text-xs font-medium text-[var(--ink-soft)]">
-                      Patient, doctor and hospital details are mandatory for a prescription order.
-                    </p>
-                    <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <FieldInput label="Patient name" value={patientName} error={prescErrors.patient_name}
-                        onChange={(v) => { setPatientName(v); setPrescErrors((e) => ({ ...e, patient_name: "" })); }} />
-                      <FieldInput label="Doctor name" value={doctorName} error={prescErrors.doctor_name}
-                        onChange={(v) => { setDoctorName(v); setPrescErrors((e) => ({ ...e, doctor_name: "" })); }} />
-                      <FieldInput label="Hospital / clinic name" className="sm:col-span-2" value={hospitalName} error={prescErrors.hospital_name}
-                        onChange={(v) => { setHospitalName(v); setPrescErrors((e) => ({ ...e, hospital_name: "" })); }} />
                     </div>
-
-                    {newFiles.length > 0 && (
-                      <Button
-                        type="button"
-                        size="md"
-                        className="mt-4"
-                        disabled={uploading}
-                        onClick={handleUploadPrescription}
-                        icon={uploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
-                      >
-                        {uploading ? "Uploading…" : `Upload ${newFiles.length} file(s)`}
-                      </Button>
-                    )}
-
-                    {prescriptions.length === 0 && newFiles.length === 0 && (
-                      <p className="mt-3 text-xs text-[var(--ink-soft)]">
-                        Prefer the full upload page?{" "}
-                        <Link href="/prescription-upload?redirect=/checkout" className="font-semibold text-[var(--blue-600)]">
-                          Open it here
-                        </Link>
+                  ) : (
+                    // No prescriptions on file — send them to the upload page
+                    <div className="flex flex-col items-center gap-3 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] p-6 text-center">
+                      <p className="text-sm text-[var(--ink-soft)]">
+                        You haven&apos;t uploaded any prescription yet.
                       </p>
-                    )}
-                  </div>
+                      <Link
+                        href="/prescription-upload?redirect=/checkout"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--blue-500)] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[var(--blue-600)]"
+                      >
+                        <Plus size={15} /> Upload Prescription
+                      </Link>
+                    </div>
                   )}
                 </div>
               )}
@@ -1000,7 +850,25 @@ function CheckoutInner() {
                 </div>
                 <div className="flex-1">
                   <p className="line-clamp-1 font-medium text-[var(--ink)]">{item.product_name}</p>
-                  <p className="text-xs text-[var(--ink-soft)]">Qty {item.product_quantity}</p>
+                  <div className="mt-1.5 flex items-center rounded-full border border-[var(--line)] w-fit">
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(item.cart_id, item.product_quantity - 1)}
+                      className="flex h-6 w-6 items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                      aria-label={`Decrease quantity of ${item.product_name}`}
+                    >
+                      <Minus size={11} />
+                    </button>
+                    <span className="w-6 text-center text-xs font-semibold font-mono-nums">{item.product_quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(item.cart_id, item.product_quantity + 1)}
+                      className="flex h-6 w-6 items-center justify-center text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                      aria-label={`Increase quantity of ${item.product_name}`}
+                    >
+                      <Plus size={11} />
+                    </button>
+                  </div>
                 </div>
                 <p className="font-mono-nums font-semibold">{formatINR(item.line_total)}</p>
                 <button
@@ -1055,14 +923,13 @@ function CheckoutInner() {
 
           <div className="space-y-2 border-t border-[var(--line)] pt-4 text-sm font-mono-nums">
             <div className="flex justify-between text-[var(--ink-soft)]"><span>Subtotal</span><span>{formatINR(summary?.subtotal ?? 0)}</span></div>
-            <div className="flex justify-between text-[var(--ink-soft)]"><span>GST</span><span>{formatINR(summary?.gst ?? 0)}</span></div>
             {discount > 0 && (
               <div className="flex justify-between text-[var(--mint-600)]">
                 <span>Coupon ({appliedCoupon})</span><span>- {formatINR(discount)}</span>
               </div>
             )}
             <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]"><span>Total</span><span>{formatINR(Math.max((summary?.total ?? 0) - discount, 0))}</span></div>
-            {!isLoggedIn && <p className="pt-1 text-xs text-[var(--ink-soft)]">Estimated — final GST/shipping after mobile verification.</p>}
+            {!isLoggedIn && <p className="pt-1 text-xs text-[var(--ink-soft)]">Estimated — final shipping charge after mobile verification.</p>}
           </div>
           {isLoggedIn ? (
             <Button

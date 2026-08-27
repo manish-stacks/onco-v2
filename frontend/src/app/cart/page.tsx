@@ -101,7 +101,7 @@ export default function CartPage() {
             <div className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 p-4 text-sm text-[var(--blue-600)]">
               <Info size={18} className="mt-0.5 shrink-0" />
              <p>
-  This is only an estimated total. The exact GST, shipping charges, and coupon discount will be displayed at checkout after mobile verification. Your cart will remain safely saved on your phone.
+  This is only an estimated total. The exact shipping charges and coupon discount will be displayed at checkout after mobile verification. Your cart will remain safely saved on your phone.
 </p>
             </div>
           )}
@@ -203,10 +203,6 @@ export default function CartPage() {
             <div className="flex justify-between text-[var(--ink-soft)]">
               <span>Subtotal</span>
               <span>{formatINR(summary?.subtotal ?? 0)}</span>
-            </div>
-            <div className="flex justify-between text-[var(--ink-soft)]">
-              <span>GST</span>
-              <span>{formatINR(summary?.gst ?? 0)}</span>
             </div>
             {discount > 0 && (
               <div className="flex justify-between text-[var(--mint-600)]">

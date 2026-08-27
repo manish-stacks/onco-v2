@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Truck, XCircle, CreditCard, Receipt, User, MapPin, Pill, Clock, PackageCheck, Printer,
-  Check, Eye, FileText, Plus, ExternalLink,
+  Check, Eye, FileText, Plus, ExternalLink, Pencil,
 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
@@ -26,6 +26,7 @@ export default function OrderDetail() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
 
   const cancel = useMutation(
     (reason) => api.post(`/admin/orders/${orderId}/cancel`, { reason }),
@@ -85,11 +86,23 @@ export default function OrderDetail() {
         </div>
 
         <div className="space-y-4">
-          <Card title="Customer" dense>
+          <Card
+            title="Customer"
+            dense
+            action={canManage && (
+              <Button size="xs" icon={Pencil} onClick={() => setContactOpen(true)}>Edit</Button>
+            )}
+          >
             <CustomerBlock order={order} />
           </Card>
 
-          <Card title="Delivery address" dense>
+          <Card
+            title="Delivery address"
+            dense
+            action={canManage && (
+              <Button size="xs" icon={Pencil} onClick={() => setContactOpen(true)}>Edit</Button>
+            )}
+          >
             <AddressBlock order={order} />
           </Card>
 
@@ -116,6 +129,10 @@ export default function OrderDetail() {
       <CancelModal
         open={cancelOpen} onClose={() => setCancelOpen(false)}
         order={order} onConfirm={cancel.run} loading={cancel.loading}
+      />
+      <ContactModal
+        open={contactOpen} onClose={() => setContactOpen(false)}
+        order={order} onDone={reload}
       />
     </>
   );
@@ -174,7 +191,6 @@ function ItemsTable({ order }) {
       <div className="border-t border-line px-4 py-3 bg-paper">
         <dl className="ml-auto max-w-xs space-y-1.5 text-[0.8125rem]">
           <Row label="Subtotal" value={inr(order.subtotal)} />
-          <Row label="GST" value={inr(order.order_gst)} />
           {Number(order.coupon_discount) > 0 && (
             <Row
               label={<>Discount {order.coupon_code && <Code className="text-2xs ml-1">{order.coupon_code}</Code>}</>}
@@ -610,6 +626,75 @@ function StatusModal({ open, onClose, order, onDone }) {
   );
 }
 
+function ContactModal({ open, onClose, order, onDone }) {
+  const [form, setForm] = useState({
+    customer_phone: order.customer_phone || '',
+    customer_address: order.customer_address || '',
+    customer_shipping_name: order.customer_shipping_name || '',
+    customer_shipping_phone: order.customer_shipping_phone || '',
+    customer_shipping_address: order.customer_shipping_address || '',
+    customer_shipping_city: order.customer_shipping_city || '',
+    customer_shipping_state: order.customer_shipping_state || '',
+    customer_shipping_pincode: order.customer_shipping_pincode || '',
+  });
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  const save = useMutation(
+    () => api.patch(`/admin/orders/${order.order_id}`, form),
+    { success: 'Contact & address updated', onSuccess: () => { onClose(); onDone(); } }
+  );
+
+  return (
+    <Modal
+      open={open} onClose={onClose} title="Edit contact & address"
+      subtitle="Correct the customer's mobile number or shipping address for this order"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={save.run} loading={save.loading}>Save</Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-3">
+          <p className="label">Customer</p>
+          <Field label="Customer mobile number">
+            <Input mono value={form.customer_phone} onChange={set('customer_phone')} />
+          </Field>
+          <Field label="Customer address" hint="Used on invoices; shipping address below is what the courier uses">
+            <Textarea rows={2} value={form.customer_address} onChange={set('customer_address')} />
+          </Field>
+        </div>
+
+        <div className="space-y-3 pt-3 border-t border-line">
+          <p className="label">Shipping / delivery address</p>
+          <Field label="Recipient name">
+            <Input value={form.customer_shipping_name} onChange={set('customer_shipping_name')} />
+          </Field>
+          <Field label="Recipient mobile number">
+            <Input mono value={form.customer_shipping_phone} onChange={set('customer_shipping_phone')} />
+          </Field>
+          <Field label="Address">
+            <Textarea rows={2} value={form.customer_shipping_address} onChange={set('customer_shipping_address')} />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="City">
+              <Input value={form.customer_shipping_city} onChange={set('customer_shipping_city')} />
+            </Field>
+            <Field label="State">
+              <Input value={form.customer_shipping_state} onChange={set('customer_shipping_state')} />
+            </Field>
+          </div>
+          <Field label="Pincode">
+            <Input mono value={form.customer_shipping_pincode} onChange={set('customer_shipping_pincode')} />
+          </Field>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function PaymentModal({ open, onClose, order, onDone }) {
   const [form, setForm] = useState({
     payment_status: order.payment_status,
@@ -654,7 +739,7 @@ function CancelModal({ open, onClose, order, onConfirm, loading }) {
   return (
     <Modal
       open={open} onClose={onClose} title="Cancel this order"
-      subtitle={order.databaseOrderID}
+      subtitle={orderRef(order)}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={loading}>Keep as is</Button>

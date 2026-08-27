@@ -6,7 +6,9 @@ const orderService = require('../../services/order.service');
 const orderModel = require('../../models/order.model');
 const adminModel = require('../../models/admin.model');
 const settingsModel = require('../../models/settings.model');
+const prescriptionModel = require('../../models/prescription.model');
 const cache = require('../../utils/cache');
+const { storeFiles } = require('../../middleware/upload');
 const { ok, created, fail, asyncHandler } = require('../../utils/response');
 
 /**
@@ -138,7 +140,13 @@ const createOrder = asyncHandler(async (req, res) => {
   const customerName = String(c.customer_name || b.customer_name || '').trim();
   if (!customerName) errors.customer_name = 'Customer name is required';
 
-  const items = Array.isArray(b.items) ? b.items.filter((i) => i && i.product_id) : [];
+  // When prescription images are attached the request is multipart/form-data,
+  // so `items` arrives as a JSON string instead of a real array.
+  let itemsInput = b.items;
+  if (typeof itemsInput === 'string') {
+    try { itemsInput = JSON.parse(itemsInput); } catch { itemsInput = []; }
+  }
+  const items = Array.isArray(itemsInput) ? itemsInput.filter((i) => i && i.product_id) : [];
   if (!items.length) errors.items = 'Add at least one product to the order';
 
   if (!String(b.address || '').trim()) errors.address = 'Address is required';
@@ -157,6 +165,29 @@ const createOrder = asyncHandler(async (req, res) => {
     state: b.state,
     pincode: b.pincode,
   });
+
+  // A prescription can be uploaded right here on the POS screen — the admin is
+  // looking at the physical copy at the counter, so it is auto-approved instead
+  // of sitting in the usual pharmacist review queue.
+  let prescriptionId = b.prescription_id || null;
+  const files = req.files || [];
+  if (files.length) {
+    const images = await storeFiles(files, 'prescriptions');
+    const presc = await prescriptionModel.create({
+      customer_id: customerId,
+      images,
+      patient_name: b.patient_name || customerName,
+      doctor_name: b.doctor_name || null,
+      hospital_name: b.hospital_name || null,
+      source: 'web',
+      direct_upload: true,
+    });
+    await prescriptionModel.updateStatus(presc.prescription_id, 'Approved', {
+      reviewedBy: req.admin?.admin_username,
+      notes: `Uploaded and verified at POS by ${req.admin?.admin_username || 'admin'}`,
+    });
+    prescriptionId = presc.prescription_id;
+  }
 
   const result = await orderService.placeOrder({
     isPos: true,
@@ -179,7 +210,7 @@ const createOrder = asyncHandler(async (req, res) => {
     patient_name: b.patient_name || customerName,
     doctor_name: b.doctor_name || null,
     hospital_name: b.hospital_name || null,
-    prescription_id: b.prescription_id || null,
+    prescription_id: prescriptionId,
     coupon_code: b.coupon_code || null,
     discount_type: b.discount_type === 'percent' ? 'percent' : 'flat',
     discount_value: parseFloat(b.discount_value) || 0,

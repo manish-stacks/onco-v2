@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard, ShoppingCart, Package, Boxes, Users, FileText, Tags,
+  LayoutDashboard, ShoppingCart, Package, Users, FileText, Tags,
   Ticket, Star, BarChart3, Settings, ShieldCheck, Newspaper, X, Building2, Bell, Activity,
   Image, Tag, MapPin, Inbox, MonitorSmartphone,
 } from 'lucide-react';
@@ -29,7 +29,6 @@ const NAV = [
     section: 'Catalog',
     items: [
       { to: '/products', label: 'Products', icon: Package, perm: P.PRODUCTS_VIEW },
-      { to: '/inventory', label: 'Inventory', icon: Boxes, perm: P.INVENTORY_VIEW },
       { to: '/categories', label: 'Categories', icon: Tags, perm: P.CATEGORIES_VIEW },
       { to: '/brands', label: 'Brands', icon: Building2, perm: P.BRANDS_VIEW },
       { to: '/coupons', label: 'Coupons', icon: Ticket, perm: P.COUPONS_VIEW },

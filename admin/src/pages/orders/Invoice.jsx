@@ -28,18 +28,34 @@ export default function Invoice() {
   if (loading) return <PageLoader />;
   if (!data) return <EmptyState icon={Receipt} title="Invoice could not be built" description="The order may not exist." />;
 
-  const { seller, buyer, items = [], totals = {}, payment = {} } = data;
+  // Once the admin has uploaded the original invoice (usually right after
+  // DTDC booking), that file replaces this auto-generated one everywhere.
+  if (data.original_invoice_url) {
+    return (
+      <>
+        <div className="no-print flex items-center justify-between gap-3 mb-4">
+          <Link
+            to={`/orders/${orderId}`}
+            className="inline-flex items-center gap-1 text-2xs font-medium text-ink-500 hover:text-teal transition-colors"
+          >
+            <ChevronLeft size={13} /> Back to order
+          </Link>
+          <Button variant="primary" icon={Printer} onClick={() => window.open(mediaUrl(data.original_invoice_url), '_blank')}>
+            Open original invoice
+          </Button>
+        </div>
+        <div className="card max-w-4xl mx-auto bg-white overflow-hidden" style={{ height: '85vh' }}>
+          <iframe
+            src={mediaUrl(data.original_invoice_url)}
+            title="Original invoice"
+            className="w-full h-full border-0"
+          />
+        </div>
+      </>
+    );
+  }
 
-  // Group GST by HSN/rate — that is what the accountant needs
-  const taxGroups = items.reduce((acc, it) => {
-    const key = `${it.hsn_code || '—'}|${it.tax_percent || 0}`;
-    if (!acc[key]) {
-      acc[key] = { hsn: it.hsn_code || '—', rate: it.tax_percent || 0, taxable: 0, tax: 0 };
-    }
-    acc[key].taxable += Number(it.line_subtotal || 0);
-    acc[key].tax += Number(it.tax_amount || 0);
-    return acc;
-  }, {});
+  const { seller, buyer, items = [], totals = {}, payment = {} } = data;
 
   return (
     <>
@@ -137,8 +153,6 @@ export default function Invoice() {
               <th className="text-left font-semibold uppercase tracking-wider text-ink-500 pb-2">Item</th>
               <th className="text-right font-semibold uppercase tracking-wider text-ink-500 pb-2">Rate</th>
               <th className="text-right font-semibold uppercase tracking-wider text-ink-500 pb-2">Qty</th>
-              <th className="text-right font-semibold uppercase tracking-wider text-ink-500 pb-2">Taxable</th>
-              <th className="text-right font-semibold uppercase tracking-wider text-ink-500 pb-2">GST</th>
               <th className="text-right font-semibold uppercase tracking-wider text-ink-500 pb-2">Amount</th>
             </tr>
           </thead>
@@ -155,48 +169,16 @@ export default function Invoice() {
                 </td>
                 <td className="py-2 text-right tabular-nums text-ink-700 align-top">{inr(it.unit_price)}</td>
                 <td className="py-2 text-right tabular-nums text-ink-700 align-top">{num(it.unit_quantity)}</td>
-                <td className="py-2 text-right tabular-nums text-ink-700 align-top">{inr(it.line_subtotal)}</td>
-                <td className="py-2 text-right tabular-nums text-ink-500 align-top">
-                  {inr(it.tax_amount)}
-                  {it.tax_percent > 0 && (
-                    <span className="block text-[0.625rem]">@{it.tax_percent}%</span>
-                  )}
-                </td>
                 <td className="py-2 text-right tabular-nums font-medium text-ink align-top">{inr(it.line_total)}</td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Totals + tax summary */}
-        <section className="flex flex-col sm:flex-row justify-between gap-8 mt-5 pt-4 border-t-2 border-ink print-break">
-          <div className="sm:max-w-xs w-full">
-            <p className="text-2xs font-semibold uppercase tracking-wider text-ink-500 mb-2">Tax summary</p>
-            <table className="w-full text-[0.625rem]">
-              <thead>
-                <tr className="text-ink-500">
-                  <th className="text-left font-medium pb-1">HSN</th>
-                  <th className="text-right font-medium pb-1">Rate</th>
-                  <th className="text-right font-medium pb-1">Taxable</th>
-                  <th className="text-right font-medium pb-1">Tax</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {Object.values(taxGroups).map((g) => (
-                  <tr key={`${g.hsn}-${g.rate}`}>
-                    <td className="py-1 font-mono text-ink-700">{g.hsn}</td>
-                    <td className="py-1 text-right tabular-nums text-ink-700">{g.rate}%</td>
-                    <td className="py-1 text-right tabular-nums text-ink-700">{inr(g.taxable)}</td>
-                    <td className="py-1 text-right tabular-nums text-ink">{inr(g.tax)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
+        {/* Totals */}
+        <section className="flex justify-end mt-5 pt-4 border-t-2 border-ink print-break">
           <dl className="sm:w-64 w-full space-y-1.5 text-2xs">
             <TotalRow label="Subtotal" value={inr(totals.subtotal)} />
-            <TotalRow label="GST" value={inr(totals.gst)} />
             {Number(totals.discount) > 0 && (
               <TotalRow label="Discount" value={`− ${inr(totals.discount)}`} tone="ok" />
             )}

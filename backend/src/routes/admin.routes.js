@@ -22,7 +22,8 @@ const pos = require('../controllers/admin/pos.controller');
 const { adminAuth, requirePermission } = require('../middleware/adminAuth');
 const { validate } = require('../middleware/validate');
 const {
-  uploadProduct, uploadCategory, uploadBanner, uploadBrand, uploadNews, uploadAvatar,
+  uploadProduct, uploadCategory, uploadBanner, uploadBrand, uploadNews, uploadAvatar, uploadInvoice,
+  uploadPrescription,
 } = require('../middleware/upload');
 const { PERMISSIONS: P } = require('../config/constants');
 
@@ -86,6 +87,7 @@ router.get('/orders/stats', requirePermission(P.ORDERS_VIEW), order.stats);
 router.get('/orders/export', requirePermission(P.ORDERS_EXPORT), order.exportCsv);
 router.get('/orders/:orderId', requirePermission(P.ORDERS_VIEW), order.detail);
 router.get('/orders/:orderId/invoice', requirePermission(P.ORDERS_VIEW), order.invoice);
+router.post('/orders/:orderId/original-invoice', requirePermission(P.SHIPPING_MANAGE), uploadInvoice.single('invoice'), order.uploadOriginalInvoice);
 router.patch('/orders/:orderId', requirePermission(P.ORDERS_MANAGE), order.updateOrder);
 router.patch('/orders/:orderId/status', requirePermission(P.ORDERS_MANAGE), validate({
   status: { required: true },
@@ -100,7 +102,8 @@ router.patch('/orders/:orderId/prescription', requirePermission(P.PRESCRIPTIONS_
 router.get('/pos/config', requirePermission(P.ORDERS_MANAGE), pos.getConfig);
 router.get('/pos/products', requirePermission(P.ORDERS_MANAGE), pos.searchProducts);
 router.get('/pos/customer', requirePermission(P.ORDERS_MANAGE), pos.lookupCustomer);
-router.post('/pos/orders', requirePermission(P.ORDERS_MANAGE), pos.createOrder);
+router.post('/pos/orders', requirePermission(P.ORDERS_MANAGE),
+  uploadPrescription.array('prescription_images', 10), pos.createOrder);
 
 // ===========================================================================
 // SHIPPING — DTDC

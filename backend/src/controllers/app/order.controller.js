@@ -250,6 +250,7 @@ const invoice = asyncHandler(async (req, res) => {
   return ok(res, {
     invoice_number: order.invoice_number || `INV/${order.order_id}`,
     invoice_date: order.order_date,
+    original_invoice_url: order.original_invoice_url || null,
     reference: order.databaseOrderID,
     order_id: order.order_id,
     status: order.status,

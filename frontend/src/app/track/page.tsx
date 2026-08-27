@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { orderApi, ApiError, type PublicTrackResult } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
-import { formatINR, cn } from "@/lib/utils";
+import { formatINR, cn, orderRef } from "@/lib/utils";
 import type { Order } from "@/types";
 
 const STATUS_TONE: Record<string, string> = {
@@ -89,7 +89,7 @@ export default function TrackPage() {
                   <div className="flex items-center gap-3">
                     <Package size={16} className="text-[var(--blue-500)]" />
                     <div>
-                      <p className="font-medium text-[var(--ink)]">{o.databaseOrderID}</p>
+                      <p className="font-medium text-[var(--ink)]">{orderRef(o)}</p>
                       <p className="text-xs text-[var(--ink-soft)]">{new Date(o.order_date).toLocaleDateString("en-IN")}</p>
                     </div>
                   </div>
@@ -165,7 +165,7 @@ function TrackingResult({ data }: { data: PublicTrackResult }) {
             {isCancelled ? <XCircle size={20} /> : <Package size={20} />}
           </span>
           <div>
-            <p className="font-semibold text-[var(--ink)]">Order {data.databaseOrderID}</p>
+            <p className="font-semibold text-[var(--ink)]">Order {orderRef(data)}</p>
             <p className="text-xs text-[var(--ink-soft)]">Placed on {new Date(data.order_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
           </div>
         </div>

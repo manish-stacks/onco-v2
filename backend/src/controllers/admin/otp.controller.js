@@ -112,7 +112,7 @@ const notificationLogs = asyncHandler(async (req, res) => {
   const { sql: whereSql, params } = qb.build();
 
   const [rows] = await db.query(
-    `SELECT n.*, o.databaseOrderID
+    `SELECT n.*, o.databaseOrderID, o.order_date AS order_placed_date
      FROM notification_logs n
      LEFT JOIN orders o ON o.order_id = n.order_id
      ${whereSql} ORDER BY n.id DESC LIMIT ? OFFSET ?`,

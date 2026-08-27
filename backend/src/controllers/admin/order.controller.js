@@ -8,6 +8,7 @@ const cache = require('../../utils/cache');
 const { ok, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination, getSort, toCsv } = require('../../utils/helpers');
 const { ORDER_STATUSES, ORDER_STATUS_FLOW, PAYMENT_STATUS } = require('../../config/constants');
+const { orderRef: orderRefUtil } = require('../../utils/helpers');
 
 /**
  * One set of endpoints for both web and app orders.
@@ -202,6 +203,7 @@ const invoice = asyncHandler(async (req, res) => {
   return ok(res, {
     invoice_number: order.invoice_number || `INV/${order.order_id}`,
     invoice_date: order.order_date,
+    original_invoice_url: order.original_invoice_url || null,
     seller: settings ? {
       name: settings.organization,
       address: settings.contact_address,
@@ -237,6 +239,32 @@ const invoice = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /admin/orders/:orderId/original-invoice
+ * Admin uploads the real invoice PDF (usually right after DTDC booking).
+ * Once this exists, it replaces the auto-generated (temp) invoice everywhere —
+ * customer app, admin panel, and any future emails/prints. Before this is
+ * uploaded, the auto-generated invoice keeps working exactly as before.
+ */
+const uploadOriginalInvoice = asyncHandler(async (req, res) => {
+  if (!req.file) return fail(res, 'Invoice file is required', 422);
+
+  const order = await orderModel.findById(req.params.orderId);
+  if (!order) return fail(res, 'Order not found', 404);
+
+  const { storeFile } = require('../../middleware/upload');
+  const url = await storeFile(req.file, 'invoices');
+  await orderModel.setOriginalInvoice(req.params.orderId, url);
+
+  await adminModel.logActivity({
+    admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
+    action: 'invoice_upload', module: 'orders', record_id: req.params.orderId,
+    description: 'Original invoice uploaded', ip_address: req.ip,
+  });
+
+  return ok(res, { original_invoice_url: url }, 'Original invoice uploaded');
+});
+
+/**
  * PATCH /admin/orders/:orderId/prescription
  * Approve / reject the prescription straight from the order detail page,
  * so there is no need to jump to the separate Prescriptions page.
@@ -266,7 +294,7 @@ const updatePrescriptionStatus = asyncHandler(async (req, res) => {
   await adminModel.logActivity({
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
     action: 'status_change', module: 'prescriptions', record_id: order.prescription_id,
-    description: `Order ${order.databaseOrderID} — prescription -> ${status}`, ip_address: req.ip,
+    description: `Order ${orderRefUtil(order)} — prescription -> ${status}`, ip_address: req.ip,
   });
 
   await cache.invalidate.orders();
@@ -276,7 +304,7 @@ const updatePrescriptionStatus = asyncHandler(async (req, res) => {
     const fresh = await prescriptionModel.findById(order.prescription_id);
     const customer = fresh?.customer_id ? await customerModel.findById(fresh.customer_id) : null;
     notify.prescriptionReviewed(
-      { ...fresh, databaseOrderID: order.databaseOrderID },
+      { ...fresh, order_id: order.order_id, order_date: order.order_date, databaseOrderID: order.databaseOrderID },
       customer
     );
   } catch (e) {
@@ -288,5 +316,5 @@ const updatePrescriptionStatus = asyncHandler(async (req, res) => {
 
 module.exports = {
   list, stats, detail, updateStatus, cancelOrder, updateTracking,
-  updatePayment, updateOrder, exportCsv, invoice, updatePrescriptionStatus,
+  updatePayment, updateOrder, exportCsv, invoice, uploadOriginalInvoice, updatePrescriptionStatus,
 };
