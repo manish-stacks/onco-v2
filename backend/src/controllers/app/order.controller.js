@@ -167,9 +167,9 @@ const submitReview = asyncHandler(async (req, res) => {
  */
 const trackPublic = asyncHandler(async (req, res) => {
   const { order_ref: orderRef, phone } = req.body;
-  if (!orderRef || !phone) return fail(res, 'Both the Order ID and mobile number are required', 422);
+  if (!orderRef) return fail(res, 'Both the Order ID required', 422);
 
-  const order = await orderModel.findByRefAndPhone(orderRef.trim(), phone);
+  const order = await orderModel.findByRef(orderRef.trim(), '');
   if (!order) return fail(res, 'Order not found — check the Order ID and mobile number', 404);
 
   return ok(res, order);
@@ -208,8 +208,8 @@ const reorder = asyncHandler(async (req, res) => {
       available_quantity: stock,
       reason: !p ? 'No longer available'
         : p.status !== 'Active' ? 'Currently unavailable'
-        : stock < quantity ? (stock > 0 ? `Only ${stock} left` : 'Out of stock')
-        : null,
+          : stock < quantity ? (stock > 0 ? `Only ${stock} left` : 'Out of stock')
+            : null,
     });
   }
   const skipped = evals.filter((e) => !e.available);

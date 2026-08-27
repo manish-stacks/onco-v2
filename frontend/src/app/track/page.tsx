@@ -25,7 +25,7 @@ function statusBadgeClass(status: string) {
 export default function TrackPage() {
   const { isLoggedIn } = useAuth();
 
-  const [orderRef, setOrderRef] = useState("");
+  const [orderRefInput, setOrderRefInput] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,15 +46,15 @@ export default function TrackPage() {
 
   async function handleTrack(e: React.FormEvent) {
     e.preventDefault();
-    if (!orderRef.trim() || phone.replace(/\D/g, "").length !== 10) {
-      setError("Enter a valid Order ID / AWB and 10-digit mobile number.");
-      return;
-    }
+    // if (!orderRefInput.trim() || phone.replace(/\D/g, "").length !== 10) {
+    //   setError("Enter a valid Order ID / AWB and 10-digit mobile number.");
+    //   return;
+    // }
     setError(null);
     setLoading(true);
     setResult(null);
     try {
-      const data = await orderApi.trackPublic(orderRef.trim(), phone);
+      const data = await orderApi.trackPublic(orderRefInput.trim(), phone);
       if (!data) throw new ApiError("Order not found", 404);
       setResult(data);
     } catch (err) {
@@ -67,15 +67,15 @@ export default function TrackPage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8 text-center">
-        <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)]">
+        {/* <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)]">
           <Truck size={26} />
-        </span>
+        </span> */}
         <h1 className="font-display text-3xl font-bold text-[var(--ink)]">Track Your Order</h1>
         <p className="mt-2 text-[var(--ink-soft)]">Real-time updates on your medicine delivery</p>
       </div>
 
       {/* Logged-in: quick pick from recent orders */}
-      {isLoggedIn ? (
+      {/* {isLoggedIn ? (
         recentOrders.length > 0 && (
           <div className="mb-8 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-5">
             <p className="mb-3 text-sm font-semibold text-[var(--ink)]">Your Recent Orders</p>
@@ -110,13 +110,13 @@ export default function TrackPage() {
           <p className="text-[var(--blue-700)]">Have an account? Login to see your full order history.</p>
           <Button href="/login?redirect=/account/orders" size="sm" variant="outline" icon={<LogIn size={14} />}>Login</Button>
         </div>
-      )}
+      )} */}
 
       {/* Guest / manual tracking */}
       <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
         <p className="mb-1 font-semibold text-[var(--ink)]">Track without logging in</p>
         <p className="mb-4 text-xs text-[var(--ink-soft)]">
-          Enter your Order ID (e.g. ORD/2026/036154) or AWB number, and the mobile number used while ordering.
+          Enter your Order ID (e.g. ORD/2026/036154) or AWB number.
         </p>
 
         {error && (
@@ -127,17 +127,17 @@ export default function TrackPage() {
 
         <form onSubmit={handleTrack} className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <input
-            value={orderRef}
-            onChange={(e) => setOrderRef(e.target.value)}
+            value={orderRefInput}
+            onChange={(e) => setOrderRefInput(e.target.value)}
             placeholder="Order ID or AWB number"
             className="h-12 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none"
           />
-          <input
+          {/* <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="Mobile number"
             className="h-12 rounded-[var(--radius-sm)] border border-[var(--line)] px-4 text-sm outline-none"
-          />
+          /> */}
           <Button type="submit" size="lg" disabled={loading} icon={loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}>
             {loading ? "Searching…" : "Track Order"}
           </Button>

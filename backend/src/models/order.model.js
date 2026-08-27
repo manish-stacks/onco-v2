@@ -281,6 +281,56 @@ async function stats(filters = {}) {
  * The phone is matched against both the billing and shipping phone, because
  * a confused customer may forget which number they gave.
  */
+async function findByRef(ref) {
+  if (!ref) return null;
+
+  const raw = String(ref).trim();
+  // "ORD/2026/036154" / "#36154" -> the trailing number is the order_id
+  const trailing = raw.match(/(\d+)\s*$/);
+  const orderIdEq = trailing ? parseInt(trailing[1], 10) : 0;
+
+  const [[order]] = await db.query(
+    `SELECT * FROM orders
+     WHERE (databaseOrderID = ? OR invoice_number = ? OR awb_number = ? OR order_id = ?)
+     LIMIT 1`,
+    [raw, raw, raw, orderIdEq]
+  );
+  if (!order) return null;
+
+  const [items] = await db.query(
+    `SELECT product_name, unit_quantity, unit_price, line_total FROM order_items
+     WHERE order_id = ? ORDER BY item_id ASC`,
+    [order.order_id]
+  );
+  const [history] = await db.query(
+    `SELECT old_status, new_status, note, created_at FROM order_status_logs
+     WHERE order_id = ? ORDER BY created_at ASC`,
+    [order.order_id]
+  );
+
+  // Only the fields tracking needs — the full address/email/payment
+  // we do not expose details in an anonymous lookup.
+  return {
+    order_id: order.order_id,
+    databaseOrderID: order.databaseOrderID,
+    order_date: order.order_date,
+    status: order.status,
+    payment_status: order.payment_status,
+    payment_mode: order.payment_mode,
+    amount: order.amount,
+    customer_city: order.customer_shipping_city || order.customer_city,
+    customer_state: order.customer_shipping_state || order.customer_state,
+    awb_number: order.awb_number,
+    courier_name: order.courier_name,
+    tracking_status: order.tracking_status,
+    tracking_location: order.tracking_location,
+    tracking_datetime: order.tracking_datetime,
+    delivered_at: order.delivered_at,
+    items,
+    history,
+  };
+}
+
 async function findByRefAndPhone(ref, phone) {
   const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
   if (!ref || cleanPhone.length !== 10) return null;
@@ -337,5 +387,5 @@ module.exports = {
   create, addItems, logStatus, findById, findByRazorpayOrderId,
   list, listForExport, updateStatus, updateTracking, updatePayment,
   setInvoiceNumber, setOriginalInvoice, updateFields, getItems, customerHasPurchased, stats,
-  buildFilters, SORTABLE, findByRefAndPhone,
+  buildFilters, SORTABLE, findByRefAndPhone,findByRef
 };
