@@ -8,7 +8,7 @@ import { absoluteUrl, SITE_NAME } from "@/lib/seo";
 import { CategoriesGrid } from "@/components/sections/CategoriesGrid";
 import type { Category } from "@/types";
 
-export const revalidate = 600;
+export const revalidate = 60; // categories change from admin fairly often (position/status)
 
 const title = `All Categories | ${SITE_NAME}`;
 const description = `Browse every medicine category at ${SITE_NAME} — from oncology and cardiac care to everyday essentials. Find genuine medicines fast.`;

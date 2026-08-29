@@ -8,7 +8,7 @@ import { toMetaDescription, absoluteUrl, SITE_NAME } from "@/lib/seo";
 import { CategoryListing } from "@/components/sections/category-listing";
 import type { ApiProduct, Category } from "@/types";
 
-export const revalidate = 300;
+export const revalidate = 60; // category name/position/status can be edited from admin
 
 const getCategory = cache(async (slug: string): Promise<Category | null> => {
   try {

@@ -486,17 +486,21 @@ export const catalogApi = {
     opts?: RequestOptions
   ) => api.get<T>(`/products/${productId}/reviews`, { page, limit }, opts),
 
-  categories: <T = unknown>(opts?: RequestOptions) => api.data<T>('/categories', undefined, { revalidate: 600, ...opts }),
+  // Category order/name is edited from admin fairly often (position, status),
+  // so keep this cache short — 600s made admin changes look "stuck" for up to
+  // 10 minutes. The backend already caches this in Redis, so a short window
+  // here is cheap.
+  categories: <T = unknown>(opts?: RequestOptions) => api.data<T>('/categories', undefined, { revalidate: 60, ...opts }),
 
   /** Every active brand — for the /brands page (the home feed only returns 6) */
   brands: <T = unknown>(opts?: RequestOptions) => api.data<T>('/brands', undefined, { revalidate: 600, ...opts }),
 
   /** Nested tree — for the mega menu */
   categoryTree: <T = unknown>(opts?: RequestOptions) =>
-    api.data<T>('/categories/tree', undefined, { revalidate: 600, ...opts }),
+    api.data<T>('/categories/tree', undefined, { revalidate: 60, ...opts }),
 
   category: <T = unknown>(slug: string, opts?: RequestOptions) =>
-    api.data<T>(`/categories/${slug}`, undefined, { revalidate: 600, ...opts }),
+    api.data<T>(`/categories/${slug}`, undefined, { revalidate: 60, ...opts }),
 
   /** Search box autocomplete — both products and categories */
   search: <T = unknown>(q: string, opts?: RequestOptions) =>

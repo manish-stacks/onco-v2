@@ -74,7 +74,17 @@ export function CategoryListing({
   const [inStockOnly, setInStockOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const brandsInCategory = allBrands.filter((b) => medicines.some((m) => m.brandId === b.id));
+  // Some brand rows can repeat with the same id (e.g. a brand mapped to more
+  // than one sub-category). Keeping duplicates around means several checkboxes
+  // share one id, so ticking one silently ticks all of its duplicates too.
+  // Deduping by id before render keeps exactly one checkbox per brand.
+  const brandsInCategory = useMemo(() => {
+    const seen = new Map<string, BrandTag>();
+    allBrands.forEach((b) => {
+      if (!seen.has(b.id) && medicines.some((m) => m.brandId === b.id)) seen.set(b.id, b);
+    });
+    return Array.from(seen.values());
+  }, [allBrands, medicines]);
 
   const filtered = useMemo(() => {
     let list = medicines.filter((m) => m.price <= maxPrice);
