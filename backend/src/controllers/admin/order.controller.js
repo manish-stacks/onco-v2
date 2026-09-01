@@ -168,6 +168,7 @@ const exportCsv = asyncHandler(async (req, res) => {
   const rows = await orderModel.listForExport({
     status: req.query.status,
     payment_status: req.query.payment_status,
+    payment_mode: req.query.payment_mode,
     orderFrom: req.query.orderFrom,
     from_date: req.query.from_date,
     to_date: req.query.to_date,

@@ -69,6 +69,7 @@ export const DATE_PRESETS = [
   { value: 'month', label: 'Last 30 days' },
   { value: 'quarter', label: 'Last 90 days' },
   { value: 'year', label: 'Last year' },
+  { value: 'custom', label: 'Custom range' },
 ];
 
 /**

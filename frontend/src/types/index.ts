@@ -280,6 +280,7 @@ export interface Order {
   order_id: number | string;
   databaseOrderID?: number | string;
   invoice_number?: string;
+  original_invoice_url?: string | null;
   order_date: string;
   status: string;
   payment_status: string;

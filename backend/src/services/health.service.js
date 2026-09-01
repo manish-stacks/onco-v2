@@ -125,7 +125,7 @@ function checkSms() {
     ok: configured,
     configured,
     detail: configured
-      ? `Fast2SMS · route=${process.env.FAST2SMS_ROUTE || 'otp'}`
+      ? `Fast2SMS · route=${process.env.2FACTOR_ROUTE || 'otp'}`
       : 'No API key — the OTP is being printed to the console',
   };
 }

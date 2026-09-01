@@ -30,14 +30,23 @@ export default function Reports() {
   const [tab, setTab] = useState('sales');
   const [preset, setPreset] = useState('month');
   const [source, setSource] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [exporting, setExporting] = useState(false);
 
-  const qs = `preset=${preset}${source ? `&orderFrom=${source}` : ''}`;
+  const isCustom = preset === 'custom';
+  const dateParams = isCustom && fromDate && toDate
+    ? `from_date=${fromDate}&to_date=${toDate}`
+    : `preset=${preset}`;
+  const qs = `${dateParams}${source ? `&orderFrom=${source}` : ''}`;
 
   const exportCsv = async (type) => {
     setExporting(true);
     try {
-      await api.download('/admin/reports/export', { preset, orderFrom: source, type, format: 'csv' }, `${type}-report.csv`);
+      const params = isCustom && fromDate && toDate
+        ? { from_date: fromDate, to_date: toDate }
+        : { preset };
+      await api.download('/admin/reports/export', { ...params, orderFrom: source, type, format: 'csv' }, `${type}-report.csv`);
       toast.success('Report downloaded');
     } catch (e) { toast.error(e.message); } finally { setExporting(false); }
   };
@@ -55,6 +64,15 @@ export default function Reports() {
               className="py-1.5 text-[0.8125rem] min-w-[130px]" />
             <Select value={preset} onChange={(e) => setPreset(e.target.value)}
               options={DATE_PRESETS} className="py-1.5 text-[0.8125rem] min-w-[140px]" />
+            {isCustom && (
+              <>
+                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                  className="rounded border border-line px-2 py-1.5 text-[0.8125rem]" />
+                <span className="text-ink-400 text-2xs">to</span>
+                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                  className="rounded border border-line px-2 py-1.5 text-[0.8125rem]" />
+              </>
+            )}
             {can(P.REPORTS_EXPORT) && (
               <Button icon={Download} loading={exporting} onClick={() => exportCsv(tab)}>Export</Button>
             )}

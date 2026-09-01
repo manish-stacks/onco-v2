@@ -152,7 +152,7 @@ async function main() {
     ['Razorpay', ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET']],
     ['PayU', ['PAYU_MERCHANT_KEY', 'PAYU_MERCHANT_SALT']],
     ['DTDC', ['DTDC_API_KEY', 'DTDC_CUSTOMER_CODE']],
-    ['Fast2SMS', ['FAST2SMS_API_KEY']],
+    ['Fast2SMS', ['2FACTOR_API_KEY']],
     ['WhatsApp', ['WA_USER', 'WA_PASS']],
     ['Firebase push', ['FIREBASE_SERVICE_ACCOUNT', 'FIREBASE_SERVICE_ACCOUNT_JSON']],
   ];

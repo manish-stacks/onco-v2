@@ -15,10 +15,21 @@ const { ok, created, fail, asyncHandler } = require('../../utils/response');
  * GET /admin/pos/config — the POS estimate needs the same GST rules the server
  * uses so the GST it shows matches the final amount. default_gst is the fallback
  * rate; gst_override means that rate is applied to every item.
+ *
+ * Also returns shipping/COD charge config so the POS "Estimate" card can show
+ * the same shipping + COD fee live, the way the customer checkout page does —
+ * the server still recalculates everything on submit either way.
  */
 const getConfig = asyncHandler(async (req, res) => {
   const tax = await settingsModel.getTaxConfig();
-  return ok(res, { default_gst: tax.default_gst, gst_override: tax.gst_override });
+  const s = await settingsModel.get();
+  return ok(res, {
+    default_gst: tax.default_gst,
+    gst_override: tax.gst_override,
+    shipping_charge: parseFloat(s?.shipping_charge) || 0,
+    shipping_threshold: parseFloat(s?.shipping_threshold) || 0,
+    cod_fee: parseInt(s?.cod_fee, 10) || 0,
+  });
 });
 
 /**
@@ -152,7 +163,7 @@ const createOrder = asyncHandler(async (req, res) => {
   if (!String(b.address || '').trim()) errors.address = 'Address is required';
   if (!String(b.city || '').trim()) errors.city = 'City is required';
   if (!String(b.state || '').trim()) errors.state = 'State is required';
-  if (!/^\d{6}$/.test(String(b.pincode || ''))) errors.pincode = 'Please enter a valid 6-digit PIN code';
+  if (!/^\d{6}$/.test(String(b.pincode || '').trim())) errors.pincode = 'Please enter a valid 6-digit PIN code';
 
   if (Object.keys(errors).length) return fail(res, 'Please fix the highlighted fields', 422, errors);
 

@@ -1,6 +1,7 @@
 const wa = require('./whatsapp.service');
 const sms = require('./sms.service');
 const push = require('./firebase.service');
+const mail = require('./mail.service');
 const events = require('./events.service');
 const { inrPlain, formatItems } = require('../utils/notify-format');
 const { orderRef } = require('../utils/helpers');
@@ -27,6 +28,9 @@ const SMS = {
   ORDER_DELIVERED: 'OrderDelivered',
   ORDER_CANCELLED: 'OrderCanceled',
   PRESCRIPTION_APPROVED: 'PrescriptionApproved',
+  // NOTE: new DLT template — must be registered/approved on the 2Factor/DLT
+  // portal (see notes given to the client) before this will actually deliver.
+  PRESCRIPTION_REJECTED: 'PrescriptionRejected',
 };
 
 function fireAndForget(promise, label) {
@@ -254,15 +258,64 @@ async function orderCancelled(order, reason) {
 
 /** Prescription review notification */
 async function prescriptionReviewed(prescription, customer) {
-  // SMS only on approval (old site sent "PrescriptionApproved")
-  if (customer?.mobile && String(prescription.status).toLowerCase() === 'approved') {
+  const isApproved = String(prescription.status).toLowerCase() === 'approved';
+  const refCode = prescription.reference_code || orderRef(prescription) || '';
+
+  // SMS — approved uses the old site's template; rejected uses the new one
+  // (both DLT templates, see the note given alongside this fix)
+  if (customer?.mobile) {
+    if (isApproved) {
+      fireAndForget(
+        sms.sendTransactional(customer.mobile, SMS.PRESCRIPTION_APPROVED, [refCode]),
+        'prescriptionApproved sms'
+      );
+    } else {
+      fireAndForget(
+        sms.sendTransactional(customer.mobile, SMS.PRESCRIPTION_REJECTED,
+          [refCode, prescription.rejection_reason || 'contact support']),
+        'prescriptionRejected sms'
+      );
+    }
+  }
+
+  // WhatsApp — approve and reject each use their own template (WA templates
+  // can't do conditional text, so one template per outcome keeps it clean)
+  if (customer?.mobile) {
+    if (isApproved) {
+      fireAndForget(
+        wa.sendTemplate(customer.mobile, wa.TEMPLATES.PRESCRIPTION_APPROVED, {
+          customer_name: customer.customer_name || 'Customer',
+          reference_code: refCode,
+        }, { customerId: prescription.customer_id }),
+        'prescriptionApproved whatsapp'
+      );
+    } else {
+      fireAndForget(
+        wa.sendTemplate(customer.mobile, wa.TEMPLATES.PRESCRIPTION_REJECTED, {
+          customer_name: customer.customer_name || 'Customer',
+          reference_code: refCode,
+          reason: prescription.rejection_reason || 'Please contact support for details',
+        }, { customerId: prescription.customer_id }),
+        'prescriptionRejected whatsapp'
+      );
+    }
+  }
+
+  // Email — approve and reject both
+  if (customer?.email_id) {
+    const subject = isApproved
+      ? `Prescription ${refCode} Approved`
+      : `Prescription ${refCode} Rejected`;
+    const html = isApproved
+      ? `<p>Hi ${customer.customer_name || 'Customer'},</p>
+         <p>Your prescription <b>${refCode}</b> has been <b>approved</b>. You can now proceed to order the prescribed medicines.</p>`
+      : `<p>Hi ${customer.customer_name || 'Customer'},</p>
+         <p>Your prescription <b>${refCode}</b> has been <b>rejected</b>.</p>
+         ${prescription.rejection_reason ? `<p>Reason: ${String(prescription.rejection_reason)}</p>` : ''}
+         <p>Please upload a valid prescription and try again.</p>`;
     fireAndForget(
-      sms.sendTransactional(
-        customer.mobile,
-        SMS.PRESCRIPTION_APPROVED,
-        [orderRef(prescription) || prescription.reference_code || '']
-      ),
-      'prescriptionApproved sms'
+      mail.send(customer.email_id, subject, html, { customerId: prescription.customer_id }),
+      `prescriptionReviewed email (${prescription.status})`
     );
   }
 
@@ -271,7 +324,7 @@ async function prescriptionReviewed(prescription, customer) {
       title: `Prescription ${prescription.status.toLowerCase()}`,
       body: prescription.status === 'Rejected' && prescription.rejection_reason
         ? String(prescription.rejection_reason).slice(0, 100)
-        : `${prescription.reference_code} has been reviewed.`,
+        : `${refCode} has been reviewed.`,
     }, { type: 'prescription', prescription_id: prescription.prescription_id }),
     'prescriptionReviewed push'
   );

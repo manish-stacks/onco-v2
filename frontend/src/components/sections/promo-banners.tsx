@@ -99,7 +99,7 @@ export function PromoBanners() {
               <div className="absolute inset-0 bg-black/5 transition-colors group-hover:bg-black/10" />
 
               {/* Content */}
-              <div className="relative z-10">
+              <div className="relative z-10 w-50">
                 {deal.cta && (
                   <span
                     className="mb-3 inline-block w-fit rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wide"
@@ -128,7 +128,7 @@ export function PromoBanners() {
                     borderColor: deal.textColor || "#111827",
                   }}
                 >
-                  {deal.cta || "Discover Now"}
+                  {deal.cta || "Shop now"}
                 </span>
               </div>
 

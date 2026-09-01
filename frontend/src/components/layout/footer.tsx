@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useCategories } from "@/hooks/use-categories";
 import { BackToTop } from "@/components/ui/back-to-top";
-import { FaFacebookF, FaXTwitter, FaLinkedinIn, FaYoutube } from "react-icons/fa6";
+import { FaFacebookF, FaXTwitter, FaLinkedinIn, FaYoutube, FaWhatsapp } from "react-icons/fa6";
 
 const quickLinks = [
   { label: "About Us", href: "/about" },
@@ -38,6 +38,7 @@ const contactItems = [
 ];
 
 const socials = [
+  { Icon: FaWhatsapp, href: "https://wa.me/919289008182" },
   { Icon: FaFacebookF, href: "#" },
   { Icon: FaXTwitter, href: "#" },
   { Icon: FaLinkedinIn, href: "#" },
@@ -60,7 +61,7 @@ export function Footer() {
               <Image src="/logo.png" alt="Onco Health Mart" width={200} height={63} className="h-12 w-auto object-contain" />
             </Link>
             <p className="mb-5 max-w-xs text-sm leading-relaxed text-[var(--ink-soft)]">
-              We are many variations of the passages available but the majority have suffered alteration injected.
+              Onco Health Mart is India’s leading super speciality pharmacy, offering life-saving medicines at affordable prices with 10+ years of experience and PAN India delivery.
             </p>
             <ul className="space-y-3.5 text-sm text-[var(--ink)]">
               {contactItems.map(({ icon: Icon, text }) => (
@@ -124,7 +125,7 @@ export function Footer() {
             <p className="mb-1.5 font-display text-base font-bold text-[var(--ink)]">Get Mobile App</p>
             <span className="mb-4 block h-0.5 w-7 bg-[var(--blue-500)]" />
             <p className="mb-4 text-sm text-[var(--ink-soft)]">
-              <span className="font-medium text-[var(--blue-600)]">Onco App</span> is now available on App Store &amp; Google Play.
+              <span className="font-medium text-[var(--blue-600)]">Onco Healthmart</span> is now available on App Store &amp; Google Play.
             </p>
             <div className="mb-6 flex flex-nowrap gap-2">
               <a href="https://play.google.com/store/search?q=oncohealth+mart&c=apps&hl=en" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg bg-[var(--ink)] px-3 py-2 text-white transition-colors hover:bg-black">
@@ -164,8 +165,8 @@ export function Footer() {
           </div>
         </div>
 
-      
-        
+
+
       </div>
 
       {/* Bottom bar */}
@@ -183,7 +184,12 @@ export function Footer() {
           <div className="flex items-center gap-3">
             Follow Us:
             {socials.map(({ Icon, href }, i) => (
-              <a key={i} href={href} className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/25">
+              <a
+                key={i} href={href}
+                target={href.startsWith("http") ? "_blank" : undefined}
+                rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/25"
+              >
                 <Icon size={13} />
               </a>
             ))}

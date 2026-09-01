@@ -348,7 +348,7 @@ function FilterSidebar({
               <LayoutGrid size={14} className={!categoryId ? "text-[var(--blue-500)]" : "text-[var(--ink-soft)]"} />
               All Categories
             </span>
-            <span className="text-xs tabular-nums">({totalProducts})</span>
+            {/* <span className="text-xs tabular-nums">({totalProducts})</span> */}
           </button>
           {visibleCategories.map((c, i) => {
             const Icon = CATEGORY_ICONS[i % CATEGORY_ICONS.length];
@@ -366,7 +366,7 @@ function FilterSidebar({
                   <Icon size={14} className={cn("shrink-0", isActive ? "text-[var(--blue-500)]" : "text-[var(--ink-soft)]")} />
                   <span className="truncate">{c.name}</span>
                 </span>
-                <span className="shrink-0 text-xs tabular-nums">({c.productCount ?? 0})</span>
+                {/* <span className="shrink-0 text-xs tabular-nums">({c.productCount ?? 0})</span> */}
               </button>
             );
           })}
@@ -406,7 +406,7 @@ function FilterSidebar({
                 )}
               >
                 <span className="truncate">{b.name}</span>
-                {!!b.productCount && <span className="shrink-0 text-xs tabular-nums">({b.productCount})</span>}
+                {/* {!!b.productCount && <span className="shrink-0 text-xs tabular-nums">({b.productCount})</span>} */}
               </button>
             ))}
           </div>

@@ -100,9 +100,9 @@ export default function CartPage() {
           {isGuestCart && cartItems.length > 0 && (
             <div className="flex items-start gap-3 rounded-[var(--radius-md)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 p-4 text-sm text-[var(--blue-600)]">
               <Info size={18} className="mt-0.5 shrink-0" />
-             <p>
-  This is only an estimated total. The exact shipping charges and coupon discount will be displayed at checkout after mobile verification. Your cart will remain safely saved on your phone.
-</p>
+              <p>
+                This is only an estimated total. The exact shipping charges and coupon discount will be displayed at checkout after mobile verification. Your cart will remain safely saved on your phone.
+              </p>
             </div>
           )}
           {/* {summary?.requires_prescription && (
@@ -221,7 +221,7 @@ export default function CartPage() {
             Proceed to Checkout
           </Button>
           <Button href="/shop" variant="outline" size="md" className="mt-3 w-full">
-            Continue Shopping
+            Add More Medicine
           </Button>
         </div>
       </div>

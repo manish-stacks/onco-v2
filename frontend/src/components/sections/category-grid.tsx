@@ -219,9 +219,9 @@ export function CategoryGrid() {
                     {category.category_name}
                   </p>
 
-                  <p className="mt-1 text-xs font-medium text-[var(--blue-600)]">
+                  {/* <p className="mt-1 text-xs font-medium text-[var(--blue-600)]">
                     {category.product_count ?? 0} Items
-                  </p>
+                  </p> */}
                 </Link>
               </Reveal>
             ))}

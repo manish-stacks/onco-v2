@@ -61,6 +61,18 @@ const TEMPLATES = {
     name: 'otp',
     params: ['otp'],
   },
+  // Customer ko — prescription approve
+  // NOTE: 'prescription_approved' template must be pre-approved on the BuzWap/WhatsApp
+  // Business dashboard before this will actually deliver (same as every other template here).
+  PRESCRIPTION_APPROVED: {
+    name: 'prescription_approved',
+    params: ['customer_name', 'reference_code'],
+  },
+  // Customer ko — prescription reject
+  PRESCRIPTION_REJECTED: {
+    name: 'prescription_rejected',
+    params: ['customer_name', 'reference_code', 'reason'],
+  },
 };
 
 function isConfigured() {

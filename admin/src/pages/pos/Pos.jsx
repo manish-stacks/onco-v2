@@ -43,6 +43,9 @@ const EMPTY = {
 };
 
 const only10 = (v) => String(v || '').replace(/\D/g, '').slice(-10);
+// Strips spaces/non-digits so a stray leading/trailing space or an extra leading
+// zero (common on copy-paste) doesn't fail the "6 valid digits" check below.
+const onlyDigits = (v, len) => String(v || '').replace(/\D/g, '').slice(0, len);
 
 export default function Pos() {
   const { can } = useAuth();
@@ -60,6 +63,8 @@ export default function Pos() {
   const debounced = useDebounced(search, 350);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+
+  const { data: config } = useResource('/admin/pos/config');
 
 
   const set = (k, v) => {
@@ -126,18 +131,28 @@ export default function Pos() {
 
   // Estimate only — final pricing and discount are always computed on the server.
   // Product price is GST-inclusive, so nothing is added on top.
+  // Shipping + COD fee mirror the same rule the customer checkout uses
+  // (settingsModel.calcCharges), using the config fetched from /admin/pos/config.
   const estimate = useMemo(() => {
     const subtotal = items.reduce((s, i) => s + (Number(i.product_sp) || 0) * i.quantity, 0);
     const dv = parseFloat(form.discount_value) || 0;
     const discount = form.discount_type === 'percent'
       ? Math.min((subtotal * dv) / 100, subtotal)
       : Math.min(dv, subtotal);
+
+    const threshold = Number(config?.shipping_threshold) || 0;
+    const flatShipping = Number(config?.shipping_charge) || 0;
+    const shipping = subtotal > 0 && threshold > 0 && subtotal >= threshold ? 0 : flatShipping;
+    const codFee = form.payment_method_label === 'COD' ? (Number(config?.cod_fee) || 0) : 0;
+
     return {
       subtotal,
       discount,
-      total: Math.max(subtotal - discount, 0),
+      shipping,
+      codFee,
+      total: Math.max(subtotal - discount, 0) + shipping + codFee,
     };
-  }, [items, form.discount_type, form.discount_value]);
+  }, [items, form.discount_type, form.discount_value, form.payment_method_label, config]);
 
   const needsPrescription = items.some((i) => i.presciption_required === 'Yes');
 
@@ -375,7 +390,7 @@ export default function Pos() {
                   <Input value={form.city} onChange={(e) => set('city', e.target.value)} />
                 </Field>
                 <Field label="PIN Code" error={errors.pincode} required>
-                  <Input value={form.pincode} onChange={(e) => set('pincode', e.target.value)} inputMode="numeric" />
+                  <Input value={form.pincode} onChange={(e) => set('pincode', onlyDigits(e.target.value, 6))} inputMode="numeric" />
                 </Field>
               </div>
             </div>
@@ -564,7 +579,7 @@ export default function Pos() {
             </div>
           </Card>
 
-          <Card title="Estimate" subtitle="The final amount is calculated on the server" dense>
+          <Card title="Estimate" subtitle="Matches what the server will charge" dense>
             <div className="p-4 space-y-2 text-[0.8125rem]">
               <div className="flex justify-between text-ink-500">
                 <span>Subtotal</span><span className="tabular-nums">{inr(estimate.subtotal)}</span>
@@ -574,11 +589,21 @@ export default function Pos() {
                   <span>Discount</span><span className="tabular-nums">− {inr(estimate.discount)}</span>
                 </div>
               )}
+              {estimate.shipping > 0 && (
+                <div className="flex justify-between text-ink-500">
+                  <span>Shipping</span><span className="tabular-nums">{inr(estimate.shipping)}</span>
+                </div>
+              )}
+              {estimate.codFee > 0 && (
+                <div className="flex justify-between text-ink-500">
+                  <span>COD fee</span><span className="tabular-nums">{inr(estimate.codFee)}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-line pt-2 font-semibold text-ink">
                 <span>Total</span><span className="tabular-nums">{inr(estimate.total)}</span>
               </div>
               <p className="pt-1 text-2xs text-ink-500">
-                Shipping, COD fee and coupon are added on the server to produce the final amount.
+                Coupon (if valid) is applied on the server, on top of this.
               </p>
 
               <Button variant="primary" className="w-full mt-3" icon={CheckCircle2}

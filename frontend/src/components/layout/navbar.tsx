@@ -98,7 +98,7 @@ export function Navbar() {
         <div className="mx-auto flex h-9 max-w-7xl items-center justify-between gap-3 overflow-x-auto px-4 text-xs text-white sm:px-6 lg:px-8">
           <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
             <span className="flex items-center gap-1 rounded-full bg-mint-500 px-2 py-0.5 text-[11px] font-bold text-white">
-              <Percent size={11} /> FLAT 85% OFF
+              <Percent size={11} /> UPTO 85% OFF
             </span>
             <span className="hidden text-white/90 md:inline">Free Delivery on Orders Above ₹1499</span>
             <span className="hidden text-white/40 lg:inline">|</span>

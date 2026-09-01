@@ -13,7 +13,7 @@ const db = require('../config/db');
  *   body: { From, To, TemplateName, VAR1, VAR2, ... }
  *
  * .env:
- *   TWOFACTOR_API_KEY=          (falls back to the existing FAST2SMS_API_KEY value,
+ *   TWOFACTOR_API_KEY=          (falls back to the existing 2FACTOR_API_KEY value,
  *                                which already holds the 2Factor key)
  *   TWOFACTOR_SENDER=ONCOHM     (DLT header / From)
  *   TWOFACTOR_OTP_TEMPLATE=RegistrationConfirmation
@@ -22,12 +22,12 @@ const db = require('../config/db');
  */
 
 function apiKey() {
-  // The current .env stores the 2Factor key under FAST2SMS_API_KEY — accept both.
-  return process.env.TWOFACTOR_API_KEY || process.env.FAST2SMS_API_KEY || '';
+  // The current .env stores the 2Factor key under 2FACTOR_API_KEY — accept both.
+  return process.env.TWOFACTOR_API_KEY || process.env.2FACTOR_API_KEY || '';
 }
 
 function senderId() {
-  return process.env.TWOFACTOR_SENDER || process.env.FAST2SMS_SENDER_ID || 'ONCOHM';
+  return process.env.TWOFACTOR_SENDER || process.env.2FACTOR_SENDER_ID || 'ONCOHM';
 }
 
 function otpTemplate() {

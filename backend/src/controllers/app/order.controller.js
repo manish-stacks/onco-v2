@@ -170,7 +170,7 @@ const trackPublic = asyncHandler(async (req, res) => {
   if (!orderRef) return fail(res, 'Both the Order ID required', 422);
 
   const order = await orderModel.findByRef(orderRef.trim(), '');
-  if (!order) return fail(res, 'Order not found — check the Order ID and mobile number', 404);
+  if (!order) return fail(res, 'Order not found — check the Order ID', 404);
 
   return ok(res, order);
 });

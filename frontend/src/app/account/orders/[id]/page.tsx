@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Package, Truck, CheckCircle2, RotateCcw, Loader2 } from "lucide-react";
+import { ArrowLeft, Package, Truck, CheckCircle2, RotateCcw, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { orderApi, mediaUrl, ApiError } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
@@ -103,6 +103,20 @@ export default function OrderDetailPage() {
           {order.status}
         </span>
       </div>
+
+      {/* Invoice — shows the admin-uploaded original once shipped, auto-generated one otherwise */}
+      <Link
+        href={`/account/orders/${order.order_id}/invoice`}
+        className="mb-6 flex items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-4 text-sm font-medium text-[var(--ink)] hover:border-[var(--blue-500)]"
+      >
+        <span className="flex items-center gap-2">
+          <FileText size={16} className="text-[var(--blue-500)]" />
+          {order.original_invoice_url ? "View invoice" : "View / print invoice"}
+        </span>
+        <span className="text-xs text-[var(--ink-soft)]">
+          {order.original_invoice_url ? "Uploaded by seller" : "Auto-generated"}
+        </span>
+      </Link>
 
       {canRetryPayment && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[#FCC7BE] bg-[#FFF1EE] p-4 text-sm text-[var(--coral-500)]">
