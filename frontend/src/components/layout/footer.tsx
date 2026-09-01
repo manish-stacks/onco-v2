@@ -61,7 +61,7 @@ export function Footer() {
               <Image src="/logo.png" alt="Onco Health Mart" width={200} height={63} className="h-12 w-auto object-contain" />
             </Link>
             <p className="mb-5 max-w-xs text-sm leading-relaxed text-[var(--ink-soft)]">
-              Onco Health Mart is India’s leading super speciality pharmacy, offering life-saving medicines at affordable prices with 10+ years of experience and PAN India delivery.
+              Onco Health Mart is India’s leading super speciality pharmacy, offering affordable life-saving medicines with 10+ years of experience and PAN India delivery.
             </p>
             <ul className="space-y-3.5 text-sm text-[var(--ink)]">
               {contactItems.map(({ icon: Icon, text }) => (
@@ -178,7 +178,7 @@ export function Footer() {
             </span>
             <div>
               <p>© 2026 <span className="font-semibold text-white">Onco Health Mart</span>. All Rights Reserved.</p>
-              <p className="text-white/60">Trusted medicines. Better health. Brighter tomorrow.</p>
+              <p className="text-white/60">In compliance with Drugs and cosmetics Act, 1940 and Drugs and cosmetics Rules, 1945, We don&apos;t process request for Schedule X and other habit forming drugs.</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
