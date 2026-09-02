@@ -122,6 +122,11 @@ function CheckoutInner() {
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Live shipping + COD fee — these depend on payment mode, so the cart's own
+  // summary (subtotal + gst only) can't show them. /orders/quote mirrors
+  // exactly what the server will charge when the order is actually placed.
+  const [charges, setCharges] = useState({ shipping_charge: 0, cod_fee: 0 });
+
   // Which gateways are live — enabled/disabled from admin Settings.
   // Nothing here is hardcoded.
   useEffect(() => {
@@ -144,6 +149,26 @@ function CheckoutInner() {
 
   // COD is available only when the admin has turned it on AND every cart item is COD-eligible
   const codAvailable = codEnabled && !!summary?.cod_allowed;
+
+  // Refetch shipping + COD fee whenever the payment mode, cart, or coupon changes.
+  useEffect(() => {
+    if (!cartItems.length) { setCharges({ shipping_charge: 0, cod_fee: 0 }); return; }
+    let cancelled = false;
+    orderApi
+      .quote<{ shipping_charge?: number; cod_fee?: number }>({
+        payment_mode: paymentMode,
+        coupon_code: appliedCoupon || undefined,
+      })
+      .then((res) => {
+        if (cancelled) return;
+        setCharges({
+          shipping_charge: Number(res?.shipping_charge) || 0,
+          cod_fee: Number(res?.cod_fee) || 0,
+        });
+      })
+      .catch(() => { if (!cancelled) setCharges({ shipping_charge: 0, cod_fee: 0 }); });
+    return () => { cancelled = true; };
+  }, [paymentMode, appliedCoupon, cartItems.length, summary?.subtotal]);
 
   // Re-validate the stored coupon against the current cart. Totals may have
   // changed since it was applied, so we never trust the saved discount blindly.
@@ -943,7 +968,16 @@ function CheckoutInner() {
                 <span>Coupon ({appliedCoupon})</span><span>- {formatINR(discount)}</span>
               </div>
             )}
-            <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]"><span>Total</span><span>{formatINR(Math.max((summary?.total ?? 0) - discount, 0))}</span></div>
+            {charges.shipping_charge > 0 && (
+              <div className="flex justify-between text-[var(--ink-soft)]"><span>Shipping</span><span>{formatINR(charges.shipping_charge)}</span></div>
+            )}
+            {paymentMode === "cod" && charges.cod_fee > 0 && (
+              <div className="flex justify-between text-[var(--ink-soft)]"><span>COD fee</span><span>{formatINR(charges.cod_fee)}</span></div>
+            )}
+            <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]">
+              <span>Total</span>
+              <span>{formatINR(Math.max((summary?.total ?? 0) - discount, 0) + charges.shipping_charge + (paymentMode === "cod" ? charges.cod_fee : 0))}</span>
+            </div>
             {!isLoggedIn && <p className="pt-1 text-xs text-[var(--ink-soft)]">Estimated — final shipping charge after mobile verification.</p>}
           </div>
           {isLoggedIn ? (

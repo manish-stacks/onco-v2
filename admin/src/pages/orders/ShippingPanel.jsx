@@ -76,6 +76,12 @@ export default function ShippingPanel({ order, onChanged }) {
       )}
       dense
     >
+      {/* Invoice upload always available — independent of whether DTDC is booked yet,
+          so the invoice can be ready and printed before booking the shipment. */}
+      <div className="p-4 pb-0">
+        <InvoiceUpload order={order} canManage={canManage} onChanged={onChanged} />
+      </div>
+
       {!booked ? (
         <div className="p-4">
           {config?.configured ? (
@@ -123,8 +129,6 @@ export default function ShippingPanel({ order, onChanged }) {
                 )}
               </div>
             )}
-
-            <InvoiceUpload order={order} canManage={canManage} onChanged={onChanged} />
 
             <div className="flex flex-wrap gap-1.5">
               <Button size="sm" icon={Printer} onClick={openLabel}>Label</Button>

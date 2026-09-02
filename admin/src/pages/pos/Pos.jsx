@@ -4,7 +4,7 @@ import {
   User, Search, Plus, Minus, Trash2, ShoppingCart, PackageSearch, PhoneCall, CheckCircle2,
   BadgePercent,
 } from 'lucide-react';
-import { useMutation, useDebounced } from '@/hooks/useApi';
+import { useMutation, useDebounced, useResource } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { api, mediaUrl } from '@/lib/api';

@@ -118,14 +118,14 @@ export default function OrderDetailPage() {
         </span>
       </Link>
 
-      {canRetryPayment && (
+      {/* {canRetryPayment && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[#FCC7BE] bg-[#FFF1EE] p-4 text-sm text-[var(--coral-500)]">
           <span>Payment for this order failed or is incomplete.</span>
           <Button size="sm" onClick={handleRetryPayment} disabled={retrying} icon={retrying ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}>
             {retrying ? "Opening…" : "Retry Payment"}
           </Button>
         </div>
-      )}
+      )} */}
 
       {/* Tracking timeline */}
       {order.history && order.history.length > 0 && (

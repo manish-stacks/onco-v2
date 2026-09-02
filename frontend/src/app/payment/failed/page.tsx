@@ -33,7 +33,7 @@ function Inner() {
       <div className="flex flex-wrap justify-center gap-3">
         {orderId ? (
           // <Button href={`/account/orders/${orderId}`} icon={<RotateCcw size={16} />}>Retry Payment</Button>
-          <Button href={`/checkout`} icon={<RotateCcw size={16} />}>Retry Payment</Button>
+          <Button href={`/checkout`} icon={<RotateCcw size={16} />}>Continue Checkout</Button>
         ) : (
           <Button href="/account/orders" icon={<ShoppingBag size={16} />}>View My Orders</Button>
         )}
