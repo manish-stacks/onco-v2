@@ -1,5 +1,7 @@
 const cmsModel = require('../../models/cms.model');
 const settingsModel = require('../../models/settings.model');
+const subscriberModel = require('../../models/subscriber.model');
+const mail = require('../../services/mail.service');
 const cache = require('../../utils/cache');
 const { ok, created, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
@@ -38,8 +40,56 @@ const newsDetail = asyncHandler(async (req, res) => {
 
 /** POST /contact — enquiry form */
 const submitEnquiry = asyncHandler(async (req, res) => {
+  const { name, email, issue, message } = req.body;
   const id = await cmsModel.createEnquiry(req.body);
+
+  // Mail is best-effort — a slow/broken SMTP server must never block the
+  // customer's "message received" response, so we don't await it inline.
+  (async () => {
+    const settings = await settingsModel.get().catch(() => null);
+    const orgName = settings?.organization || 'OncoHealthmart';
+    const adminEmail = settings?.contact_email;
+
+    if (adminEmail) {
+      await mail.send(
+        adminEmail,
+        `New contact enquiry — ${issue || 'General'}`,
+        `<h2>New enquiry from the website</h2>
+         <p><b>Name:</b> ${name}</p>
+         <p><b>Email:</b> ${email}</p>
+         <p><b>Subject:</b> ${issue || '-'}</p>
+         <p><b>Message:</b><br/>${String(message || '').replace(/\n/g, '<br/>')}</p>`
+      );
+    }
+
+    await mail.send(
+      email,
+      `We've received your message — ${orgName}`,
+      `<p>Hi ${name},</p>
+       <p>Thanks for reaching out to ${orgName}. Our team has received your message and will get back to you within 24 hours.</p>
+       <p style="color:#888;font-size:12px">This is an automated confirmation, please do not reply to this email.</p>`
+    );
+  })().catch((err) => console.error('[contact] notification mail failed:', err.message));
+
   return created(res, { id }, 'We have received your message and will contact you soon');
+});
+
+/** POST /subscribe — footer/homepage newsletter form */
+const subscribeNewsletter = asyncHandler(async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return fail(res, 'Please enter a valid email address', 422);
+  }
+
+  await subscriberModel.subscribe(email, req.body.source || 'website');
+
+  mail.send(
+    email,
+    'You\'re subscribed!',
+    `<p>Thanks for subscribing — you'll now get medication reminders, exclusive offers and health tips in your inbox.</p>`
+  ).catch((err) => console.error('[subscribe] welcome mail failed:', err.message));
+
+  return created(res, null, 'Subscribed successfully');
 });
 
 /** GET /settings — public config (no secrets) */
@@ -82,6 +132,6 @@ const serviceableCities = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  page, pages, news, newsDetail, submitEnquiry, publicSettings,
+  page, pages, news, newsDetail, submitEnquiry, subscribeNewsletter, publicSettings,
   states, countries, serviceableCities,
 };

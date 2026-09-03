@@ -4,7 +4,7 @@ const { pickDefined, money } = require('../utils/helpers');
 
 const WRITABLE = ['coupon_code', 'discount_amount', 'discount_percentage', 'minimum_amount',
   'max_discount_amount', 'expiry_date', 'start_date', 'number_of_total_uses',
-  'per_customer_limit', 'coupon_applicable', 'discount_type', 'status'];
+  'per_customer_limit', 'coupon_applicable', 'discount_type', 'status', 'is_public'];
 
 async function findByCode(code, conn = db) {
   const [[row]] = await conn.query(`SELECT * FROM coupons WHERE coupon_code = ? LIMIT 1`, [code]);
@@ -219,6 +219,7 @@ async function activeCoupons() {
             minimum_amount, max_discount_amount, expiry_date
      FROM coupons
      WHERE status = 'Active'
+       AND is_public = 1
        AND (expiry_date IS NULL OR expiry_date >= CURDATE())
        AND (start_date IS NULL OR start_date <= CURDATE())
        AND (number_of_total_uses IS NULL OR number_of_total_uses > 0)

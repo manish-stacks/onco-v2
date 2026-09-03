@@ -844,6 +844,9 @@ export const contentApi = {
   submitEnquiry: <T = unknown>(payload: { name: string; email: string; issue?: string; message: string; number?: string }) =>
     api.post<T>('/contact', payload),
 
+  subscribe: <T = unknown>(email: string) =>
+    api.post<T>('/subscribe', { email }),
+
   states: <T = unknown>(opts?: RequestOptions) => api.data<T>('/locations/states', undefined, { revalidate: 86400, ...opts }),
   countries: <T = unknown>(opts?: RequestOptions) => api.data<T>('/locations/countries', undefined, { revalidate: 86400, ...opts }),
   serviceableCities: <T = unknown>(opts?: RequestOptions) =>

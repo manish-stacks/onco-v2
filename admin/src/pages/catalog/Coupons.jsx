@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ticket, Plus, Pencil, Trash2, Star, BarChart2, Check, X } from 'lucide-react';
+import { Ticket, Plus, Pencil, Trash2, Star, BarChart2, Check, X, Eye, EyeOff } from 'lucide-react';
 import { useList, useResource, useMutation, useDebounced } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
@@ -7,7 +7,7 @@ import { PERMISSIONS as P } from '@/lib/constants';
 import { inr, num, date, dateTime, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import {
-  Card, Button, StatusPill, Code, Field, Input, Select, Textarea, Tabs, EmptyState, cx,
+  Card, Button, StatusPill, Code, Field, Input, Select, Textarea, Tabs, EmptyState, Toggle, cx,
 } from '@/components/ui';
 import { DataTable, Pagination, FilterBar, SearchInput, FilterSelect } from '@/components/ui/DataTable';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
@@ -89,6 +89,14 @@ export function Coupons() {
     },
     { key: 'status', label: 'Status', render: (c) => <StatusPill status={c.status} size="xs" /> },
     {
+      key: 'is_public', label: 'On site',
+      render: (c) => (
+        c.is_public
+          ? <span className="inline-flex items-center gap-1 text-2xs font-medium text-ink-700"><Eye size={12} /> Visible</span>
+          : <span className="inline-flex items-center gap-1 text-2xs font-medium text-ink-400"><EyeOff size={12} /> Hidden</span>
+      ),
+    },
+    {
       key: 'actions', label: '', align: 'right',
       render: (c) => (
         <div className="flex items-center justify-end gap-0.5">
@@ -169,6 +177,7 @@ function CouponModal({ open, onClose, coupon, onDone }) {
       start_date: coupon?.start_date ? String(coupon.start_date).slice(0, 10) : '',
       expiry_date: coupon?.expiry_date ? String(coupon.expiry_date).slice(0, 10) : '',
       status: coupon?.status || 'Active',
+      is_public: coupon?.coupon_id ? !!coupon?.is_public : true,
     });
   }
 
@@ -252,6 +261,12 @@ function CouponModal({ open, onClose, coupon, onDone }) {
         <Field label="Status">
           <Select value={form.status} options={['Active', 'Inactive']}
             onChange={(e) => set('status', e.target.value)} />
+        </Field>
+
+        <Field label="Show on site" hint="Off = the coupon still works if a customer types the code, but it won't appear in the 'Apply coupon' list at checkout"
+          className="sm:col-span-2">
+          <Toggle checked={!!form.is_public} onChange={(v) => set('is_public', v)}
+            label={form.is_public ? 'Visible to everyone' : 'Hidden — code only'} />
         </Field>
       </div>
     </Modal>

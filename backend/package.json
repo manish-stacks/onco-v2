@@ -19,6 +19,7 @@
     "migrate:007": "node src/migrations/run-sql.js 007_pos_gateways_gst.sql",
     "migrate:008": "node src/migrations/run-sql.js 008_original_invoice.sql",
     "migrate:009": "node src/migrations/run-sql.js 009_category_position.sql",
+    "migrate:010": "node src/migrations/run-sql.js 010_newsletter_coupon_visibility.sql",
     "map-brands": "node src/migrations/map-brands.js"
   },
   "engines": {

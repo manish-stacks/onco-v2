@@ -91,6 +91,7 @@ function CheckoutInner() {
   const [addressDraft, setAddressDraft] = useState<Address>(EMPTY_ADDRESS);
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
   const [savingAddress, setSavingAddress] = useState(false);
+  const [pincodeLookup, setPincodeLookup] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [deletingId, setDeletingId] = useState<string | number | null>(null);
 
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -106,9 +107,49 @@ function CheckoutInner() {
   const [shippingSame, setShippingSame] = useState(true);
   const [shippingAddress, setShippingAddress] = useState<Address>(EMPTY_ADDRESS);
 
+  // Auto-fill City/State from the PIN code — India Post's free public API,
+  // no key needed. Fires once the user has typed a full 6-digit PIN, and
+  // re-fills City/State every time the PIN changes (so editing an existing
+  // address's PIN correctly replaces the old city/state, not just the first time).
+  useEffect(() => {
+    const pin = addressDraft.pincode;
+    if (!/^\d{6}$/.test(pin)) {
+      setPincodeLookup("idle");
+      return;
+    }
+    let cancelled = false;
+    setPincodeLookup("loading");
+    const timer = setTimeout(() => {
+      fetch(`https://api.postalpincode.in/pincode/${pin}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled) return;
+          const office = data?.[0]?.Status === "Success" ? data[0].PostOffice?.[0] : null;
+          if (office) {
+            setAddressDraft((prev) => (prev.pincode !== pin ? prev : {
+              ...prev,
+              city: office.District,
+              state: office.State,
+            }));
+            setPincodeLookup("done");
+          } else {
+            setPincodeLookup("error");
+          }
+        })
+        .catch(() => { if (!cancelled) setPincodeLookup("error"); });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [addressDraft.pincode]);
+
   // Coupon — the code applied on the cart page has to travel with the order,
   // otherwise the backend creates the order without any discount.
   const [couponInput, setCouponInput] = useState("");
+  const [showCouponList, setShowCouponList] = useState(false);
+  const [couponList, setCouponList] = useState<Array<{
+    coupon_code: string; discount_type: string; discount_amount?: number;
+    discount_percentage?: number; minimum_amount?: number; max_discount_amount?: number;
+  }>>([]);
+  const [couponListLoading, setCouponListLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [discount, setDiscount] = useState(0);
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
@@ -194,8 +235,8 @@ function CheckoutInner() {
       });
   }, [isLoggedIn, summary?.subtotal]);
 
-  async function applyCoupon() {
-    const code = couponInput.trim().toUpperCase();
+  async function applyCoupon(codeOverride?: string) {
+    const code = (codeOverride ?? couponInput).trim().toUpperCase();
     if (!code) return;
     setApplyingCoupon(true);
     setCouponMsg(null);
@@ -205,8 +246,10 @@ function CheckoutInner() {
       const value = Number(res?.discount) || 0;
       saveAppliedCoupon(code, value);
       setAppliedCoupon(code);
+      setCouponInput(code);
       setDiscount(value);
       setCouponMsg(`Coupon applied — ${formatINR(value)} off`);
+      setShowCouponList(false);
     } catch (err) {
       clearAppliedCoupon();
       setAppliedCoupon(null);
@@ -225,6 +268,20 @@ function CheckoutInner() {
     setCouponInput("");
     setCouponMsg(null);
     setCouponError(false);
+  }
+
+  async function openCouponList() {
+    setShowCouponList(true);
+    if (couponList.length) return;
+    setCouponListLoading(true);
+    try {
+      const res = await cartApi.availableCoupons<typeof couponList>();
+      setCouponList(res || []);
+    } catch {
+      setCouponList([]);
+    } finally {
+      setCouponListLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -610,12 +667,19 @@ function CheckoutInner() {
                       onChange={(v) => setAddressDraft({ ...addressDraft, stree_address: v })} />
                     <FieldInput label="Landmark (optional)" className="sm:col-span-2" value={addressDraft.landmark || ""}
                       onChange={(v) => setAddressDraft({ ...addressDraft, landmark: v })} />
-                    <FieldInput label="City" value={addressDraft.city} error={addressErrors.city}
-                      onChange={(v) => setAddressDraft({ ...addressDraft, city: v })} />
-                    <FieldInput label="State" value={addressDraft.state} error={addressErrors.state}
-                      onChange={(v) => setAddressDraft({ ...addressDraft, state: v })} />
-                    <FieldInput label="PIN code" value={addressDraft.pincode} error={addressErrors.pincode}
-                      onChange={(v) => setAddressDraft({ ...addressDraft, pincode: v })} />
+                    
+                    <div>
+                      <FieldInput label="PIN code" value={addressDraft.pincode} error={addressErrors.pincode}
+                        onChange={(v) => setAddressDraft({ ...addressDraft, pincode: v.replace(/\D/g, "").slice(0, 6) })} />
+                      {pincodeLookup === "loading" && (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-[var(--ink-soft)]">
+                          <Loader2 size={11} className="animate-spin" /> Looking up city &amp; state…
+                        </p>
+                      )}
+                      {pincodeLookup === "error" && (
+                        <p className="mt-1 text-xs text-[var(--coral-500)]">Couldn&apos;t find this PIN code — please enter city/state manually.</p>
+                      )}
+                    </div>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-[var(--ink-soft)]">Address type</label>
                       <select
@@ -628,6 +692,10 @@ function CheckoutInner() {
                         <option value="Other">Other</option>
                       </select>
                     </div>
+                    <FieldInput label="City" value={addressDraft.city} error={addressErrors.city}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, city: v })} />
+                    <FieldInput label="State" value={addressDraft.state} error={addressErrors.state}
+                      onChange={(v) => setAddressDraft({ ...addressDraft, state: v })} />
                     <div className="flex items-center gap-3 sm:col-span-2">
                       <Button type="submit" size="md" disabled={savingAddress}
                         icon={savingAddress ? <Loader2 size={15} className="animate-spin" /> : undefined}>
@@ -923,36 +991,90 @@ function CheckoutInner() {
           </div>
           {isLoggedIn && (
             <div className="mb-4 border-t border-[var(--line)] pt-4">
-              <div className="flex gap-2">
-                <div className="flex h-11 flex-1 items-center gap-2 rounded-full border border-[var(--line)] px-4">
-                  <Tag size={15} className="text-[var(--ink-soft)]" />
-                  <input
-                    value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                    placeholder="Coupon code"
-                    disabled={!!appliedCoupon}
-                    className="w-full bg-transparent text-sm outline-none disabled:opacity-70"
-                  />
-                </div>
-                {appliedCoupon ? (
-                  <button
-                    type="button"
-                    onClick={removeCoupon}
-                    className="flex items-center gap-1 rounded-full border border-[var(--line)] px-4 text-sm font-semibold text-[var(--ink-soft)]"
-                  >
+              {appliedCoupon ? (
+                <div className="flex h-11 items-center justify-between gap-2 rounded-full border border-[var(--mint-600)] bg-[var(--mint-600)]/5 px-4">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-[var(--mint-600)]">
+                    <Tag size={15} /> {appliedCoupon} applied
+                  </span>
+                  <button type="button" onClick={removeCoupon}
+                    className="flex items-center gap-1 text-sm font-semibold text-[var(--ink-soft)] hover:text-[var(--coral-500)]">
                     <X size={14} /> Remove
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={applyCoupon}
-                    disabled={applyingCoupon}
-                    className="rounded-full bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50"
-                  >
-                    {applyingCoupon ? "Checking…" : "Apply"}
-                  </button>
-                )}
-              </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openCouponList}
+                  className="flex h-11 w-full items-center justify-between gap-2 rounded-full border border-[var(--line)] px-4 text-left text-sm"
+                >
+                  <span className="flex items-center gap-2 text-[var(--ink-soft)]">
+                    <Tag size={15} /> Apply coupon
+                  </span>
+                  <span className="text-xs font-semibold text-[var(--blue-600)]">View all coupons</span>
+                </button>
+              )}
+
+              {/* Flipkart-style picker: pick from every coupon available on the site,
+                  or type a code that isn't in the public list (e.g. a private one). */}
+              {showCouponList && !appliedCoupon && (
+                <div className="mt-3 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-[var(--ink)]">Available coupons</p>
+                    <button type="button" onClick={() => setShowCouponList(false)} aria-label="Close"
+                      className="text-[var(--ink-soft)] hover:text-[var(--ink)]"><X size={16} /></button>
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      placeholder="Have a code? Enter it here"
+                      className="h-10 flex-1 rounded-full border border-[var(--line)] bg-[var(--paper)] px-4 text-sm outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => applyCoupon()}
+                      disabled={applyingCoupon || !couponInput.trim()}
+                      className="rounded-full bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {applyingCoupon ? "Checking…" : "Apply"}
+                    </button>
+                  </div>
+
+                  <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
+                    {couponListLoading ? (
+                      <div className="flex items-center justify-center gap-2 py-8 text-sm text-[var(--ink-soft)]">
+                        <Loader2 size={15} className="animate-spin" /> Loading coupons…
+                      </div>
+                    ) : couponList.length ? (
+                      couponList.map((c) => (
+                        <div key={c.coupon_code} className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] p-3">
+                          <div>
+                            <p className="font-mono text-sm font-bold text-[var(--ink)]">{c.coupon_code}</p>
+                            <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
+                              {c.discount_type === "Percentage"
+                                ? `${c.discount_percentage}% off${c.max_discount_amount ? `, up to ${formatINR(c.max_discount_amount)}` : ""}`
+                                : `${formatINR(c.discount_amount || 0)} off`}
+                              {c.minimum_amount ? ` on orders above ${formatINR(c.minimum_amount)}` : ""}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => applyCoupon(c.coupon_code)}
+                            disabled={applyingCoupon}
+                            className="shrink-0 rounded-full border border-[var(--blue-500)] px-4 py-1.5 text-xs font-semibold text-[var(--blue-600)] hover:bg-[var(--blue-50)] disabled:opacity-50"
+                          >
+                            Apply
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="py-6 text-center text-sm text-[var(--ink-soft)]">No coupons available right now.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {couponMsg && (
                 <p className={`mt-2 text-xs font-medium ${couponError ? "text-[var(--coral-500)]" : "text-[var(--mint-600)]"}`}>
                   {couponMsg}

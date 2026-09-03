@@ -202,6 +202,9 @@ router.post('/contact', validate({
   name: { required: true, maxLength: 50 },
   email: { required: true, type: 'email' },
 }), cms.submitEnquiry);
+router.post('/subscribe', validate({
+  email: { required: true, type: 'email' },
+}), cms.subscribeNewsletter);
 router.get('/locations/states', cms.states);
 router.get('/locations/countries', cms.countries);
 router.get('/locations/cities', cms.serviceableCities);

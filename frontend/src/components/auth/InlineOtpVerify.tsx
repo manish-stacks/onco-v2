@@ -78,29 +78,30 @@ export function InlineOtpVerify({ onVerified }: { onVerified: (customer: Custome
 
       {!customerId ? (
         <form onSubmit={handleSendOtp} className="flex flex-col gap-3 sm:flex-row">
-    <div className="flex h-12 flex-1 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] px-4">
-  <Phone size={16} className="text-[var(--ink-soft)]" />
+          <div className="flex h-12 flex-1 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] px-4">
+            <Phone size={16} className="text-[var(--ink-soft)]" />
 
-  <input
-    required
-    type="tel"
-    inputMode="numeric"
-    autoFocus
-    value={mobile}
-    onChange={(e) => {
-      const value = e.target.value.replace(/\D/g, "").slice(0, 10);
-      setMobile(value);
-    }}
-    maxLength={10}
-    placeholder="10-digit mobile number"
-    className="w-full bg-transparent text-sm outline-none"
-  />
-</div>
+            <input
+              required
+              type="tel"
+              inputMode="numeric"
+              autoFocus
+              value={mobile}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setMobile(value);
+              }}
+              maxLength={10}
+              placeholder="10-digit mobile number"
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </div>
           <Button
             type="submit"
             size="lg"
             disabled={loading}
             icon={loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+            className="flex items-center gap-2"
           >
             {loading ? "Sending…" : "Send OTP"}
           </Button>
@@ -108,8 +109,8 @@ export function InlineOtpVerify({ onVerified }: { onVerified: (customer: Custome
       ) : (
         <form onSubmit={handleVerify} className="space-y-3">
           <p className="text-xs text-[var(--ink-soft)]">
-{isNewUser ? "Creating a new account" : "Welcome back"} — An OTP has been sent to {mobile}.{" "}            <button type="button" onClick={() => setCustomerId(null)} className="font-semibold text-[var(--blue-600)]">
-             Change Number 
+            {isNewUser ? "Creating a new account" : "Welcome back"} — An OTP has been sent to {mobile}.{" "}            <button type="button" onClick={() => setCustomerId(null)} className="font-semibold text-[var(--blue-600)]">
+              Change Number
             </button>
           </p>
           {devOtp && (

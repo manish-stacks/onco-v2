@@ -191,7 +191,7 @@ function SalesReport({ qs }) {
           </div>
         </Card>
 
-        <Card title="By payment" dense>
+        <Card title="By payment" subtitle="COD vs Prepaid — orders received" dense>
           <div className="p-4 space-y-2">
             {(data.by_payment || []).map((r, i) => (
               <div key={i} className="flex items-center justify-between gap-2">
@@ -199,11 +199,33 @@ function SalesReport({ qs }) {
                   <span className="text-2xs uppercase font-semibold text-ink-700">{r.payment_mode || '—'}</span>
                   <StatusPill status={r.payment_status} size="xs" />
                 </div>
-                <span className="text-[0.8125rem] tabular-nums text-ink-700">{compactInr(r.revenue)}</span>
+                <div className="text-right">
+                  <p className="text-[0.8125rem] tabular-nums text-ink-700">{compactInr(r.revenue)}</p>
+                  <p className="text-2xs text-ink-500 tabular-nums">{num(r.orders)} orders</p>
+                </div>
               </div>
             ))}
+            {!(data.by_payment || []).length && (
+              <p className="text-2xs text-ink-500">No orders in this period</p>
+            )}
           </div>
         </Card>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {(() => {
+          const rows = data.by_payment || [];
+          const cod = rows.filter((r) => r.payment_mode === 'cod')
+            .reduce((a, r) => ({ orders: a.orders + Number(r.orders || 0), revenue: a.revenue + Number(r.revenue || 0) }), { orders: 0, revenue: 0 });
+          const prepaid = rows.filter((r) => r.payment_mode !== 'cod')
+            .reduce((a, r) => ({ orders: a.orders + Number(r.orders || 0), revenue: a.revenue + Number(r.revenue || 0) }), { orders: 0, revenue: 0 });
+          return (
+            <>
+              <Metric label="COD orders" value={num(cod.orders)} sub={compactInr(cod.revenue)} />
+              <Metric label="Prepaid orders" value={num(prepaid.orders)} sub={compactInr(prepaid.revenue)} />
+            </>
+          );
+        })()}
       </div>
     </div>
   );

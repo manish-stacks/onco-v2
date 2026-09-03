@@ -171,7 +171,7 @@ export function Footer() {
       </div>
 
       {/* Bottom bar */}
-      <div className="relative bg-[var(--blue-600)] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="relative bg-blue-600 px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-xs text-white/80 sm:flex-row">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white">
@@ -179,7 +179,7 @@ export function Footer() {
             </span>
             <div>
               <p>© 2026 <span className="font-semibold text-white">Onco Health Mart</span>. All Rights Reserved.</p>
-              <p className="text-white/60">Trusted medicines. Better health. Brighter tomorrow.</p>
+              <p className="text-white/60">In compliance with Drugs and cosmetics Act, 1940 and Drugs and cosmetics Rules, 1945, We don&apos;t process request for Schedule X and other habit forming drugs.</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
