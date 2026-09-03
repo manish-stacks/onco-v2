@@ -64,6 +64,54 @@ async function bookOrder(orderId, opts = {}) {
   return { ...booking, trackingUrl, order: await orderModel.findById(orderId) };
 }
 
+/**
+ * Manual shipment booking — for orders sent through a courier that isn't
+ * wired up (Porter, a local rider, hand delivery, etc). No API call to any
+ * courier here; the admin just tells us the tracking id + courier name and
+ * we save it exactly like a DTDC booking would, then notify the customer.
+ */
+async function manualShip(orderId, { courierName, awbNumber, notes, shippedBy } = {}) {
+  const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
+  if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
+
+  if (order.status === ORDER_STATUS.CANCELLED) {
+    throw Object.assign(new Error('A cancelled order cannot be shipped'), { status: 409 });
+  }
+  if (order.awb_number) {
+    throw Object.assign(
+      new Error(`This order is already booked (AWB ${order.awb_number}). Cancel it first.`),
+      { status: 409 }
+    );
+  }
+  if (!String(courierName || '').trim()) {
+    throw Object.assign(new Error('Courier name is required'), { status: 422 });
+  }
+  if (!String(awbNumber || '').trim()) {
+    throw Object.assign(new Error('Tracking / AWB number is required'), { status: 422 });
+  }
+
+  await orderModel.updateTracking(orderId, {
+    awb_number: awbNumber.trim(),
+    courier_name: courierName.trim(),
+    tracking_status: 'Booked',
+    tracking_datetime: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    tracking_details: notes || null,
+  });
+
+  await orderModel.updateStatus(orderId, ORDER_STATUS.SHIPPED, shippedBy || 'system',
+    `Manually shipped via ${courierName} — Tracking ${awbNumber}${notes ? ` — ${notes}` : ''}`);
+
+  await cache.invalidate.orders();
+
+  notify.orderShipped(order, { courier: courierName, awb: awbNumber, trackingUrl: null, notes });
+
+  events.emit('order.shipped', {
+    order_id: orderId, reference: order.databaseOrderID, awb: awbNumber, courier: courierName,
+  }, 'orders.view');
+
+  return { awb: awbNumber, courier: courierName, order: await orderModel.findById(orderId) };
+}
+
 async function cancelBooking(orderId, { cancelledBy } = {}) {
   const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
   if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
@@ -71,14 +119,16 @@ async function cancelBooking(orderId, { cancelledBy } = {}) {
     throw Object.assign(new Error('This order has no AWB'), { status: 409 });
   }
 
-  await dtdc.cancelShipment(order.awb_number);
+  if (order.courier_name === 'DTDC') {
+    await dtdc.cancelShipment(order.awb_number);
+  }
 
   await db.query(
     `UPDATE orders SET awb_number = NULL, courier_name = NULL, tracking_status = 'Cancelled'
      WHERE order_id = ?`, [orderId]
   );
   await orderModel.updateStatus(orderId, ORDER_STATUS.PROCESSING, cancelledBy || 'system',
-    `DTDC booking cancel — AWB ${order.awb_number}`);
+    `${order.courier_name || 'Courier'} booking cancelled — AWB ${order.awb_number}`);
 
   await cache.invalidate.orders();
   return { cancelled: true, awb: order.awb_number };
@@ -89,6 +139,12 @@ async function refreshTracking(orderId) {
   const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
   if (!order?.awb_number) {
     throw Object.assign(new Error('This order has no AWB'), { status: 409 });
+  }
+  if (order.courier_name !== 'DTDC') {
+    throw Object.assign(
+      new Error(`Live tracking isn't available for ${order.courier_name || 'this courier'} — this was a manually recorded shipment`),
+      { status: 409 }
+    );
   }
 
   const tracking = await dtdc.trackShipment(order.awb_number);
@@ -178,5 +234,5 @@ async function listScans(awb) {
 }
 
 module.exports = {
-  bookOrder, cancelBooking, refreshTracking, handleWebhook, listShipments, listScans,
+  bookOrder, manualShip, cancelBooking, refreshTracking, handleWebhook, listShipments, listScans,
 };

@@ -4,13 +4,30 @@ const { fail } = require('../utils/response');
 const cache = require('../utils/cache');
 
 /** JWT verify + admin active check */
-function adminAuth(req, res, next) {
+async function adminAuth(req, res, next) {
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) return fail(res, 'Authorization token missing', 401);
 
   try {
     const decoded = jwt.verify(header.slice(7), process.env.JWT_ADMIN_SECRET);
-    req.admin = decoded; // { admin_id, admin_username, user_type, role_name }
+
+    // The JWT's user_type/status were correct AT LOGIN TIME. If the admin is
+    // deactivated or moved to a different role afterwards, the old token
+    // must stop working (or start using the new role) well before it
+    // naturally expires — so re-check the live row, short-cached since this
+    // runs on every request.
+    const live = await cache.getOrSet(`rbac:admin:${decoded.admin_id}`, cache.TTL.SHORT, async () => {
+      const [[row]] = await db.query(
+        `SELECT status, user_type FROM admins WHERE admin_id = ?`, [decoded.admin_id]
+      );
+      return row || null;
+    });
+
+    if (!live || live.status !== 'Active') {
+      return fail(res, 'Your account has been deactivated. Contact a Super Admin.', 401);
+    }
+
+    req.admin = { ...decoded, user_type: live.user_type }; // { admin_id, admin_username, user_type, role_name }
     return next();
   } catch (err) {
     const msg = err.name === 'TokenExpiredError' ? 'Session expired, login again' : 'Invalid admin token';
@@ -57,4 +74,9 @@ async function clearRoleCache(roleId) {
   else await cache.delByPrefix('rbac:role:');
 }
 
-module.exports = { adminAuth, requirePermission, getRolePermissions, clearRoleCache };
+/** Clear one admin's cached status/role — call this when that admin is updated (status, role, etc) */
+async function clearAdminCache(adminId) {
+  if (adminId) await cache.del(`rbac:admin:${adminId}`);
+}
+
+module.exports = { adminAuth, requirePermission, getRolePermissions, clearRoleCache, clearAdminCache };

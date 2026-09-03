@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, Users, FileText, Tags,
   Ticket, Star, BarChart3, Settings, ShieldCheck, Newspaper, X, Building2, Bell, Activity,
-  Image, Tag, MapPin, Inbox, MonitorSmartphone,
+  Image, Tag, MapPin, Inbox, MonitorSmartphone, CreditCard,
 } from 'lucide-react';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
@@ -39,6 +39,7 @@ const NAV = [
     section: 'Insights',
     items: [
       { to: '/reports', label: 'Reports', icon: BarChart3, perm: P.REPORTS_VIEW },
+      { to: '/payments', label: 'Payments', icon: CreditCard, perm: P.PAYMENTS_VIEW },
     ],
   },
   {

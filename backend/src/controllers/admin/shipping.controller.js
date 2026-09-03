@@ -23,6 +23,31 @@ const bookShipment = asyncHandler(async (req, res) => {
   return ok(res, result, `Shipped — AWB ${result.awb}`);
 });
 
+/**
+ * POST /admin/orders/:orderId/ship-manual
+ * For couriers outside the DTDC integration (Porter, a local rider, hand
+ * delivery, etc). Admin enters the tracking id + courier name themselves;
+ * the customer still gets the usual "order shipped" WhatsApp/SMS/push.
+ */
+const bookManualShipment = asyncHandler(async (req, res) => {
+  const { courier_name, awb_number, notes } = req.body;
+
+  const result = await shipping.manualShip(req.params.orderId, {
+    courierName: courier_name,
+    awbNumber: awb_number,
+    notes,
+    shippedBy: req.admin.admin_username,
+  });
+
+  await adminModel.logActivity({
+    admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
+    action: 'ship', module: 'orders', record_id: req.params.orderId,
+    description: `Manual ship via ${result.courier} — ${result.awb}`, ip_address: req.ip,
+  });
+
+  return ok(res, result, `Shipped via ${result.courier} — ${result.awb}`);
+});
+
 /** DELETE /admin/orders/:orderId/ship — booking cancel */
 const cancelShipment = asyncHandler(async (req, res) => {
   const result = await shipping.cancelBooking(req.params.orderId, {
@@ -99,5 +124,5 @@ const config = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  bookShipment, cancelShipment, refreshTracking, shipments, label, scans, config,
+  bookShipment, bookManualShipment, cancelShipment, refreshTracking, shipments, label, scans, config,
 };

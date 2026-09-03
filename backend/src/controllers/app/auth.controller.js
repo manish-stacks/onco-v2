@@ -432,7 +432,7 @@ const requestOtp = asyncHandler(async (req, res) => {
       expires_in:
         expiryMinutes * 60,
 
-      ...(smsService.isConfigured()
+      ...(smsService.isConfigured() || process.env.NODE_ENV === 'production'
         ? {}
         : {
           dev_otp: otp,

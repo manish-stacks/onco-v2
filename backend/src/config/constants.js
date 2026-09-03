@@ -58,6 +58,8 @@ const PERMISSIONS = {
   SHIPPING_VIEW: 'shipping.view',
   SHIPPING_MANAGE: 'shipping.manage',
 
+  PAYMENTS_VIEW: 'payments.view',
+
   // ⚠ Shows the live OTP — grant it only to those who truly need it
   OTP_VIEW: 'otp.view',
   NOTIFICATIONS_VIEW: 'notifications.view',
@@ -98,6 +100,7 @@ const DEFAULT_ROLES = [
       PERMISSIONS.CUSTOMERS_VIEW,
       PERMISSIONS.PRODUCTS_VIEW,
       PERMISSIONS.SHIPPING_VIEW, PERMISSIONS.SHIPPING_MANAGE,
+      PERMISSIONS.PAYMENTS_VIEW,
       PERMISSIONS.NOTIFICATIONS_VIEW,
     ],
   },

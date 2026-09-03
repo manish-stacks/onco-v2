@@ -88,7 +88,7 @@ const login = asyncHandler(async (req, res) => {
       otp_required: true,
       admin_id: admin.admin_id,
       mobile_hint: maskMobile(admin.admin_phone),
-      ...(smsService.isConfigured() ? {} : { dev_otp: devOtp }),
+      ...(smsService.isConfigured() || process.env.NODE_ENV === 'production' ? {} : { dev_otp: devOtp }),
     }, 'OTP sent to your registered mobile number');
   }
 
@@ -142,7 +142,7 @@ const resendOtp = asyncHandler(async (req, res) => {
   return ok(res, {
     admin_id: admin.admin_id,
     mobile_hint: maskMobile(admin.admin_phone),
-    ...(smsService.isConfigured() ? {} : { dev_otp: devOtp }),
+    ...(smsService.isConfigured() || process.env.NODE_ENV === 'production' ? {} : { dev_otp: devOtp }),
   }, 'A new OTP has been sent');
 });
 

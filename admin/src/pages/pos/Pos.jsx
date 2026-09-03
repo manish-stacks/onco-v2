@@ -63,6 +63,7 @@ export default function Pos() {
   const debounced = useDebounced(search, 350);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [pincodeLookup, setPincodeLookup] = useState('idle'); // idle | loading | done | error
 
   const { data: config } = useResource('/admin/pos/config');
 
@@ -73,6 +74,35 @@ export default function Pos() {
   };
 
   const canManage = can(P.ORDERS_MANAGE);
+
+  // Auto-fill City/State from the PIN code — same free India Post API used
+  // on the storefront checkout page, no key needed. Re-fills every time the
+  // PIN changes (so correcting a typo also corrects city/state).
+  useEffect(() => {
+    const pin = form.pincode;
+    if (!/^\d{6}$/.test(pin)) {
+      setPincodeLookup('idle');
+      return;
+    }
+    let cancelled = false;
+    setPincodeLookup('loading');
+    const timer = setTimeout(() => {
+      fetch(`https://api.postalpincode.in/pincode/${pin}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled) return;
+          const office = data?.[0]?.Status === 'Success' ? data[0].PostOffice?.[0] : null;
+          if (office) {
+            setForm((f) => (f.pincode !== pin ? f : { ...f, city: office.District, state: office.State }));
+            setPincodeLookup('done');
+          } else {
+            setPincodeLookup('error');
+          }
+        })
+        .catch(() => { if (!cancelled) setPincodeLookup('error'); });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [form.pincode]);
 
   // ------------------------------------------------------------ product search
   // Existing /admin/products endpoint — search by name or SKU.
@@ -389,7 +419,14 @@ export default function Pos() {
                 <Field label="City" error={errors.city} required>
                   <Input value={form.city} onChange={(e) => set('city', e.target.value)} />
                 </Field>
-                <Field label="PIN Code" error={errors.pincode} required>
+                <Field
+                  label="PIN Code" error={errors.pincode} required
+                  hint={
+                    pincodeLookup === 'loading' ? 'Looking up city & state…'
+                      : pincodeLookup === 'error' ? "Couldn't find this PIN — enter city/state manually"
+                        : undefined
+                  }
+                >
                   <Input value={form.pincode} onChange={(e) => set('pincode', onlyDigits(e.target.value, 6))} inputMode="numeric" />
                 </Field>
               </div>

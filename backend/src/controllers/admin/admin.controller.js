@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const adminModel = require('../../models/admin.model');
-const { clearRoleCache } = require('../../middleware/adminAuth');
+const { clearRoleCache, clearAdminCache } = require('../../middleware/adminAuth');
 const { ALL_PERMISSIONS } = require('../../config/constants');
 const { ok, created, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
@@ -80,6 +80,7 @@ const update = asyncHandler(async (req, res) => {
   }
 
   await adminModel.update(req.params.adminId, req.body);
+  await clearAdminCache(req.params.adminId);
   await adminModel.logActivity({
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
     action: 'update', module: 'admins', record_id: req.params.adminId, ip_address: req.ip,
@@ -118,6 +119,7 @@ const setStatus = asyncHandler(async (req, res) => {
   }
 
   await adminModel.update(req.params.adminId, { status });
+  await clearAdminCache(req.params.adminId);
   return ok(res, null, `Admin ${status}`);
 });
 
@@ -130,6 +132,7 @@ const remove = asyncHandler(async (req, res) => {
   if (!target) return fail(res, 'Admin not found', 404);
 
   await adminModel.remove(req.params.adminId);
+  await clearAdminCache(req.params.adminId);
   await adminModel.logActivity({
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
     action: 'delete', module: 'admins', record_id: req.params.adminId,

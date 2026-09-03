@@ -25,6 +25,8 @@ const SMS = {
   ORDER_PLACED: 'OrderPlacementNotification',
   ORDER_PROCESSING: 'OrderProcessing',
   ORDER_SHIPPED: 'OrderShipped',
+  // Register this as a new DLT template — see the content given to the client.
+  ORDER_SHIPPED_MANUAL: 'OrderShippedManual',
   ORDER_DELIVERED: 'OrderDelivered',
   ORDER_CANCELLED: 'OrderCanceled',
   PRESCRIPTION_APPROVED: 'PrescriptionApproved',
@@ -202,19 +204,30 @@ async function orderStatusChanged(order, newStatus) {
 
 /** Shipped — with the AWB */
 async function orderShipped(order, { courier, awb, trackingUrl, notes }) {
+  const isManual = !trackingUrl;
+
   fireAndForget(
-    wa.sendTemplate(order.customer_phone, wa.TEMPLATES.ORDER_SHIPPED, {
-      customer_name: order.customer_shipping_name || order.customer_name,
-      order_id: orderRef(order),
-      courier: courier || 'DTDC',
-      awb,
-      tracking_url: trackingUrl,
-    }, { customerId: order.customer_id, orderId: order.order_id }),
+    isManual
+      ? wa.sendTemplate(order.customer_phone, wa.TEMPLATES.ORDER_SHIPPED_MANUAL, {
+        customer_name: order.customer_shipping_name || order.customer_name,
+        order_id: orderRef(order),
+        courier: courier || 'our delivery partner',
+        awb,
+      }, { customerId: order.customer_id, orderId: order.order_id })
+      : wa.sendTemplate(order.customer_phone, wa.TEMPLATES.ORDER_SHIPPED, {
+        customer_name: order.customer_shipping_name || order.customer_name,
+        order_id: orderRef(order),
+        courier: courier || 'DTDC',
+        awb,
+        tracking_url: trackingUrl,
+      }, { customerId: order.customer_id, orderId: order.order_id }),
     'orderShipped whatsapp'
   );
 
   fireAndForget(
-    sms.sendTransactional(order.customer_phone, SMS.ORDER_SHIPPED, [orderRef(order)]),
+    isManual
+      ? sms.sendTransactional(order.customer_phone, SMS.ORDER_SHIPPED_MANUAL, [orderRef(order), courier || 'our delivery partner', awb])
+      : sms.sendTransactional(order.customer_phone, SMS.ORDER_SHIPPED, [orderRef(order)]),
     'orderShipped sms'
   );
 

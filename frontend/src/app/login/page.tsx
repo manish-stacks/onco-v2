@@ -52,8 +52,6 @@ function LoginInner() {
     string | number | null
   >(null);
 
-  const [devOtp, setDevOtp] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +65,6 @@ function LoginInner() {
       const res = await requestOtp(mobile);
 
       setCustomerId(res.customer_id);
-      setDevOtp(res.dev_otp || null);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -255,7 +252,6 @@ function LoginInner() {
                         onClick={() => {
                           setCustomerId(null);
                           setOtp("");
-                          setDevOtp(null);
                         }}
                         className="mt-2 text-xs font-semibold text-blue-600 underline underline-offset-2"
                       >
@@ -266,16 +262,6 @@ function LoginInner() {
 
                   </div>
                 </div>
-
-                {/* Dev OTP */}
-                {devOtp && (
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
-                    Development OTP:
-                    <span className="ml-2 font-mono font-bold">
-                      {devOtp}
-                    </span>
-                  </div>
-                )}
 
                 {/* OTP Input */}
                 <div>

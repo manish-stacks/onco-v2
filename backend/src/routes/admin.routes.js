@@ -15,6 +15,7 @@ const report = require('../controllers/admin/report.controller');
 const adminUser = require('../controllers/admin/admin.controller');
 const eventsCtrl = require('../controllers/admin/events.controller');
 const shipping = require('../controllers/admin/shipping.controller');
+const payment = require('../controllers/admin/payment.controller');
 const otpCtrl = require('../controllers/admin/otp.controller');
 const system = require('../controllers/admin/system.controller');
 const pos = require('../controllers/admin/pos.controller');
@@ -112,9 +113,11 @@ router.get('/shipping/config', requirePermission(P.SHIPPING_VIEW), shipping.conf
 router.get('/orders/:orderId/shipments', requirePermission(P.SHIPPING_VIEW), shipping.shipments);
 router.get('/orders/:orderId/tracking', requirePermission(P.SHIPPING_VIEW), shipping.refreshTracking);
 router.post('/orders/:orderId/ship', requirePermission(P.SHIPPING_MANAGE), shipping.bookShipment);
+router.post('/orders/:orderId/ship-manual', requirePermission(P.SHIPPING_MANAGE), shipping.bookManualShipment);
 router.delete('/orders/:orderId/ship', requirePermission(P.SHIPPING_MANAGE), shipping.cancelShipment);
 router.get('/shipments/:awb/label', requirePermission(P.SHIPPING_VIEW), shipping.label);
 router.get('/shipments/:awb/scans', requirePermission(P.SHIPPING_VIEW), shipping.scans);
+router.get('/payments', requirePermission(P.PAYMENTS_VIEW), payment.list);
 
 // ===========================================================================
 // OTP LOGS + NOTIFICATION LOGS

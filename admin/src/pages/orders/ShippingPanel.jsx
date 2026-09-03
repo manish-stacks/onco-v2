@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Truck, Package, Printer, RefreshCw, XCircle, MapPin, CheckCircle2, AlertTriangle, FileUp, FileCheck2,
+  Truck, Package, Printer, RefreshCw, XCircle, MapPin, CheckCircle2, AlertTriangle, FileUp, FileCheck2, PenLine,
 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
@@ -31,6 +31,7 @@ const SHIPMENT_TONE = {
 export default function ShippingPanel({ order, onChanged }) {
   const { can } = useAuth();
   const [bookOpen, setBookOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [scans, setScans] = useState(null);
 
@@ -83,7 +84,7 @@ export default function ShippingPanel({ order, onChanged }) {
       </div>
 
       {!booked ? (
-        <div className="p-4">
+        <div className="p-4 space-y-3">
           {config?.configured ? (
             <EmptyState
               icon={Truck}
@@ -102,6 +103,25 @@ export default function ShippingPanel({ order, onChanged }) {
                 DTDC is not configured. Set <Code className="text-2xs">DTDC_API_KEY</Code> and{' '}
                 <Code className="text-2xs">DTDC_CUSTOMER_CODE</Code> in the backend .env.
               </p>
+            </div>
+          )}
+
+          {canManage && (
+            <div className="flex items-center gap-2 pt-1">
+              <div className="h-px flex-1 bg-line" />
+              <span className="text-2xs text-ink-500">or</span>
+              <div className="h-px flex-1 bg-line" />
+            </div>
+          )}
+
+          {canManage && (
+            <div className="flex items-center justify-between gap-2 bg-paper-sunk rounded p-3">
+              <p className="text-2xs text-ink-500">
+                Shipped it yourself via Porter or another courier? Record the tracking id manually.
+              </p>
+              <Button size="sm" icon={PenLine} onClick={() => setManualOpen(true)}>
+                Ship manually
+              </Button>
             </div>
           )}
         </div>
@@ -127,14 +147,25 @@ export default function ShippingPanel({ order, onChanged }) {
                     <MapPin size={11} /> {order.tracking_location}
                   </p>
                 )}
+                {order.tracking_details && (
+                  <p className="text-2xs text-ink-500 mt-1 pt-1 border-t border-line">{order.tracking_details}</p>
+                )}
               </div>
             )}
 
             <div className="flex flex-wrap gap-1.5">
-              <Button size="sm" icon={Printer} onClick={openLabel}>Label</Button>
-              <Button size="sm" icon={RefreshCw} onClick={track.run} loading={track.loading}>
-                Refresh tracking
-              </Button>
+              {order.courier_name === 'DTDC' ? (
+                <>
+                  <Button size="sm" icon={Printer} onClick={openLabel}>Label</Button>
+                  <Button size="sm" icon={RefreshCw} onClick={track.run} loading={track.loading}>
+                    Refresh tracking
+                  </Button>
+                </>
+              ) : (
+                <p className="text-2xs text-ink-500 italic py-1">
+                  Manually recorded shipment — no live tracking available.
+                </p>
+              )}
               {canManage && order.status !== 'Completed' && (
                 <Button size="sm" variant="dangerGhost" icon={XCircle} onClick={() => setCancelOpen(true)}>
                   Cancel booking
@@ -170,6 +201,10 @@ export default function ShippingPanel({ order, onChanged }) {
       <BookModal
         open={bookOpen} onClose={() => setBookOpen(false)}
         order={order} config={config} onDone={onChanged}
+      />
+      <ManualShipModal
+        open={manualOpen} onClose={() => setManualOpen(false)}
+        order={order} onDone={onChanged}
       />
       <ConfirmDialog
         open={cancelOpen} onClose={() => setCancelOpen(false)}
@@ -332,6 +367,74 @@ function BookModal({ open, onClose, order, config, onDone }) {
         <p className="text-2xs text-ink-500">
           As soon as it is booked the order becomes Shipped and the customer gets the AWB + tracking link on WhatsApp.
         </p>
+      </div>
+    </Modal>
+  );
+}
+
+function ManualShipModal({ open, onClose, order, onDone }) {
+  const [form, setForm] = useState({ courier_name: '', awb_number: '', notes: '' });
+  const [errors, setErrors] = useState({});
+
+  const ship = useMutation(
+    () => api.post(`/admin/orders/${order.order_id}/ship-manual`, form),
+    {
+      success: (res) => `Shipped via ${res.data.courier} — ${res.data.awb}`,
+      onSuccess: () => { setForm({ courier_name: '', awb_number: '', notes: '' }); onClose(); onDone?.(); },
+    }
+  );
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const submit = () => {
+    const e = {};
+    if (!form.courier_name.trim()) e.courier_name = 'Courier name is required';
+    if (!form.awb_number.trim()) e.awb_number = 'Tracking / AWB number is required';
+    setErrors(e);
+    if (Object.keys(e).length) return;
+    ship.run();
+  };
+
+  return (
+    <Modal
+      open={open} onClose={onClose}
+      title="Ship manually" subtitle={orderRef(order)}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" icon={Package} onClick={submit} loading={ship.loading}>
+            Mark as shipped
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <p className="text-2xs text-ink-500">
+          Use this when you shipped the order yourself — Porter, a local rider, hand delivery, or any
+          courier that isn't wired up here. The customer gets the same &quot;order shipped&quot;
+          WhatsApp/SMS/push notification as a DTDC booking, with this courier name and tracking id.
+        </p>
+
+        <Field label="Courier name" required error={errors.courier_name}>
+          <Input
+            placeholder="e.g. Porter, Dunzo, Local rider"
+            value={form.courier_name} onChange={(e) => set('courier_name', e.target.value)}
+          />
+        </Field>
+
+        <Field label="Tracking / AWB number" required error={errors.awb_number}>
+          <Input
+            placeholder="e.g. the Porter trip id or waybill number"
+            value={form.awb_number} onChange={(e) => set('awb_number', e.target.value)}
+          />
+        </Field>
+
+        <Field label="Notes for the customer" hint="Optional — shown in the app notification, e.g. delivery window">
+          <Input
+            placeholder="e.g. Will be delivered today by 6 PM"
+            value={form.notes} onChange={(e) => set('notes', e.target.value)}
+          />
+        </Field>
       </div>
     </Modal>
   );

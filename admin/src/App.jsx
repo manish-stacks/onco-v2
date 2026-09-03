@@ -19,6 +19,7 @@ import { CustomerList, CustomerDetail } from '@/pages/customers/Customers';
 import { PrescriptionList, PrescriptionDetail } from '@/pages/prescriptions/Prescriptions';
 import { Coupons, Reviews } from '@/pages/catalog/Coupons';
 import Reports from '@/pages/reports/Reports';
+import Payments from '@/pages/payments/Payments';
 import Settings from '@/pages/settings/Settings';
 import Banners from '@/pages/content/Banners';
 import Deals from '@/pages/content/Deals';
@@ -93,6 +94,7 @@ export default function App() {
 
               {/* Insights */}
               <Route path="reports" element={<Guard perm={P.REPORTS_VIEW}><Reports /></Guard>} />
+              <Route path="payments" element={<Guard perm={P.PAYMENTS_VIEW}><Payments /></Guard>} />
 
               {/* Storefront */}
               <Route path="content/banners" element={<Guard perm={P.SETTINGS_VIEW}><Banners /></Guard>} />

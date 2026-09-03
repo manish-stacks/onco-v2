@@ -2,8 +2,7 @@
 
 import { Suspense, useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { UploadCloud, FileText, CheckCircle2, X, ShieldCheck, Clock, Stethoscope, ArrowRight, AlertCircle } from "lucide-react";
+import { UploadCloud, FileText, X, ShieldCheck, Clock, Stethoscope, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { prescriptionApi, ApiError } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
@@ -58,17 +57,15 @@ function PrescriptionUploadInner() {
         hospital_name: hospitalName.trim(),
       });
       setResult(data);
-      setStatus("success");
+      const qs = new URLSearchParams({ count: String(files.length) });
+      if (data.reference_code) qs.set("ref", data.reference_code);
+      if (data.prescription_id) qs.set("pid", String(data.prescription_id));
+      if (redirectTo) qs.set("redirect", redirectTo);
+      router.push(`/prescription-upload/success?${qs.toString()}`);
     } catch (err) {
       setErrorMsg(err instanceof ApiError ? err.message : "Could not upload prescription");
       setStatus("error");
     }
-  }
-
-  function continueToRedirect() {
-    if (!redirectTo || !result?.prescription_id) return;
-    const separator = redirectTo.includes("?") ? "&" : "?";
-    router.push(`${redirectTo}${separator}prescription_id=${result.prescription_id}`);
   }
 
   if (!isLoggedIn) {
@@ -88,7 +85,9 @@ function PrescriptionUploadInner() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
+    <div
+      className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8"
+    >
       <div className="mb-10 text-center">
         
         <h1 className="font-display text-3xl font-bold text-[var(--ink)]">Upload Your Prescription</h1>
@@ -97,60 +96,18 @@ function PrescriptionUploadInner() {
         </p>
       </div>
 
-      <AnimatePresence mode="wait">
-        {status === "success" ? (
-          <motion.div
-            key="success"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center rounded-[var(--radius-lg)] border border-[var(--line)] bg-white px-6 py-8 text-center"
-          >
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.1 }}
-              className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--mint-50)] text-[var(--mint-500)]"
-            >
-              <CheckCircle2 size={32} />
-            </motion.span>
-            <h2 className="mb-2 font-display text-xl font-bold text-[var(--ink)]">Prescription Uploaded!</h2>
-            <p className="mb-2 max-w-sm text-sm text-[var(--ink-soft)]">
-              We&apos;ve received {files.length} file{files.length > 1 ? "s" : ""}. Our pharmacist team will verify it and notify you.
-            </p>
-            {result?.reference_code && (
-              <p className="mb-6 text-xs font-mono-nums text-[var(--ink-soft)]">Reference: {result.reference_code}</p>
-            )}
-
-            {redirectTo ? (
-              <div className="flex flex-col items-center gap-3">
-                <Button size="lg" onClick={continueToRedirect} icon={<ArrowRight size={16} />}>
-                  Continue to Checkout
-                </Button>
-                <p className="max-w-xs text-xs text-[var(--ink-soft)]">
-                  A pharmacist will verify this prescription — the order can be placed even before verification is complete
-                  , and the status will stay &quot;Prescription Pending&quot; until it is approved.
-                </p>
-              </div>
-            ) : (
-              <div className="flex gap-3">
-                <Button href="/account?tab=prescriptions" variant="outline">View My Prescriptions</Button>
-                <Button href="/shop">Continue Shopping</Button>
-              </div>
-            )}
-          </motion.div>
-        ) : (
-          <motion.div key="form" exit={{ opacity: 0 }}>
-            {redirectTo && (
-              <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 px-4 py-3 text-sm text-[var(--blue-600)]">
-                After uploading we will take you straight back to checkout.
-              </div>
-            )}
-            {errorMsg && (
-              <div className="mb-4 rounded-[var(--radius-sm)] border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3 text-sm text-[var(--coral-500)]">
-                {errorMsg}
-              </div>
-            )}
-            <div
+      <div>
+        {redirectTo && (
+          <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--blue-50)] bg-[var(--blue-50)]/40 px-4 py-3 text-sm text-[var(--blue-600)]">
+            After uploading we will take you straight back to checkout.
+          </div>
+        )}
+        {errorMsg && (
+          <div className="mb-4 rounded-[var(--radius-sm)] border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3 text-sm text-[var(--coral-500)]">
+            {errorMsg}
+          </div>
+        )}
+        <div
               onDragOver={(e) => {
                 e.preventDefault();
                 setDragging(true);
@@ -266,10 +223,8 @@ function PrescriptionUploadInner() {
                 ))}
               </ul>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          </div>
+      </div>
   );
 }
 

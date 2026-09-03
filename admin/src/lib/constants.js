@@ -36,6 +36,7 @@ export const PERMISSIONS = {
   ROLES_MANAGE: 'roles.manage',
   SHIPPING_VIEW: 'shipping.view',
   SHIPPING_MANAGE: 'shipping.manage',
+  PAYMENTS_VIEW: 'payments.view',
   OTP_VIEW: 'otp.view',
   NOTIFICATIONS_VIEW: 'notifications.view',
   SYSTEM_VIEW: 'system.view',

@@ -119,6 +119,7 @@ function buildFilters(filters = {}) {
     .eq('status', filters.status)
     .eq('payment_status', filters.payment_status)
     .eq('payment_mode', filters.payment_mode)
+    .eq('payment_gateway', filters.payment_gateway)
     .eq('orderFrom', filters.orderFrom)
     .eq('customer_city', filters.city)
     .eq('customer_state', filters.state)
@@ -154,6 +155,37 @@ async function list(filters = {}, { limit = 20, offset = 0 } = {}, sort = {}) {
   );
   const [[{ total }]] = await db.query(`SELECT COUNT(*) AS total FROM orders o ${whereSql}`, params);
   return { rows, total };
+}
+
+/**
+ * Admin > Payments — one row per order, just the columns needed to
+ * reconcile "what did we actually receive, and through which gateway".
+ */
+async function paymentsList(filters = {}, { limit = 20, offset = 0 } = {}) {
+  const { sql: whereSql, params } = buildFilters(filters).build();
+  const [rows] = await db.query(
+    `SELECT o.order_id, o.databaseOrderID, o.order_date, o.customer_name, o.customer_phone,
+            o.amount, o.payment_mode, o.payment_gateway, o.payment_status,
+            o.transaction_number, o.razorpayOrderID, o.orderFrom, o.status
+     FROM orders o ${whereSql} ORDER BY o.order_date DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+  const [[{ total }]] = await db.query(`SELECT COUNT(*) AS total FROM orders o ${whereSql}`, params);
+  return { rows, total };
+}
+
+/** Totals grouped by gateway, for the summary cards on the same page. */
+async function paymentsSummary(filters = {}) {
+  const { sql: whereSql, params } = buildFilters(filters).build();
+  const [rows] = await db.query(
+    `SELECT COALESCE(o.payment_gateway, 'unknown') AS payment_gateway, o.payment_mode,
+            COUNT(*) AS orders, COALESCE(SUM(o.amount), 0) AS revenue
+     FROM orders o ${whereSql}
+     GROUP BY o.payment_gateway, o.payment_mode
+     ORDER BY revenue DESC`,
+    params
+  );
+  return rows;
 }
 
 /** For export — flat rows with items, no pagination */
@@ -387,5 +419,6 @@ module.exports = {
   create, addItems, logStatus, findById, findByRazorpayOrderId,
   list, listForExport, updateStatus, updateTracking, updatePayment,
   setInvoiceNumber, setOriginalInvoice, updateFields, getItems, customerHasPurchased, stats,
-  buildFilters, SORTABLE, findByRefAndPhone,findByRef
+  buildFilters, SORTABLE, findByRefAndPhone,findByRef,
+  paymentsList, paymentsSummary,
 };
