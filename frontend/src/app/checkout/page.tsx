@@ -667,7 +667,7 @@ function CheckoutInner() {
                       onChange={(v) => setAddressDraft({ ...addressDraft, stree_address: v })} />
                     <FieldInput label="Landmark (optional)" className="sm:col-span-2" value={addressDraft.landmark || ""}
                       onChange={(v) => setAddressDraft({ ...addressDraft, landmark: v })} />
-                    
+
                     <div>
                       <FieldInput label="PIN code" value={addressDraft.pincode} error={addressErrors.pincode}
                         onChange={(v) => setAddressDraft({ ...addressDraft, pincode: v.replace(/\D/g, "").slice(0, 6) })} />
@@ -763,8 +763,8 @@ function CheckoutInner() {
                         <label
                           key={p.prescription_id}
                           className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-3 text-sm ${String(selectedPrescriptionId) === String(p.prescription_id)
-                              ? "border-[var(--blue-500)] bg-[var(--blue-50)]"
-                              : "border-[var(--line)]"
+                            ? "border-[var(--blue-500)] bg-[var(--blue-50)]"
+                            : "border-[var(--line)]"
                             }`}
                         >
                           <input
@@ -790,10 +790,10 @@ function CheckoutInner() {
                             )}
                           </span>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${p.status === "Approved" || p.status === "Completed"
-                              ? "bg-[var(--mint-50)] text-[var(--mint-600)]"
-                              : p.status === "Rejected" || p.status === "Cancelled"
-                                ? "bg-[#FFEDEA] text-[var(--coral-500)]"
-                                : "bg-[#FFF4E0] text-[#8A5A0C]"
+                            ? "bg-[var(--mint-50)] text-[var(--mint-600)]"
+                            : p.status === "Rejected" || p.status === "Cancelled"
+                              ? "bg-[#FFEDEA] text-[var(--coral-500)]"
+                              : "bg-[#FFF4E0] text-[#8A5A0C]"
                             }`}>
                             {p.status}
                           </span>
@@ -1117,6 +1117,9 @@ function CheckoutInner() {
               Please verify your number above to place the order.
             </p>
           )}
+          <Button href="/shop" variant="outline" size="md" className="mt-3 w-full">
+            Add More Medicine
+          </Button>
         </div>
       </div>
     </div>
