@@ -118,6 +118,7 @@ router.delete('/orders/:orderId/ship', requirePermission(P.SHIPPING_MANAGE), shi
 router.get('/shipments/:awb/label', requirePermission(P.SHIPPING_VIEW), shipping.label);
 router.get('/shipments/:awb/scans', requirePermission(P.SHIPPING_VIEW), shipping.scans);
 router.get('/payments', requirePermission(P.PAYMENTS_VIEW), payment.list);
+router.get('/payments/export', requirePermission(P.PAYMENTS_VIEW), payment.exportCsv);
 
 // ===========================================================================
 // OTP LOGS + NOTIFICATION LOGS

@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { CreditCard, Landmark } from 'lucide-react';
+import { CreditCard, Landmark, Download } from 'lucide-react';
 import { useList, useDebounced } from '@/hooks/useApi';
+import { useToast } from '@/context/ToastContext';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { inr, compactInr, num, ago, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
-import { Card, Code, StatusPill, SourceTag, cx } from '@/components/ui';
+import { Card, Code, StatusPill, SourceTag, Button, cx } from '@/components/ui';
+import { api } from '@/lib/api';
 import {
   DataTable, Pagination, FilterBar, SearchInput, FilterSelect, DateRangeFilter,
 } from '@/components/ui/DataTable';
@@ -48,6 +50,8 @@ function Metric({ label, value, sub, icon: Icon }) {
 export default function Payments() {
   const [search, setSearch] = useState('');
   const debounced = useDebounced(search);
+  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
 
   const { rows, pagination, extra, filters, setFilter, resetFilters, loading } = useList(
     '/admin/payments', {}
@@ -57,6 +61,18 @@ export default function Payments() {
 
   const hasFilters = !!(filters.payment_mode || filters.payment_gateway || filters.payment_status
     || filters.from_date || filters.to_date || filters.search);
+
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      await api.download('/admin/payments/export', filters, `payments-${Date.now()}.csv`);
+      toast.success('Export downloaded');
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const summary = extra?.summary || [];
   const totalRevenue = summary.reduce((a, r) => a + Number(r.revenue || 0), 0);
@@ -127,6 +143,11 @@ export default function Payments() {
       <PageHeader
         title="Payments"
         subtitle="Every order's payment in one place — match it against your Razorpay / PayU / bank statements."
+        actions={
+          <Button icon={Download} onClick={exportCsv} loading={exporting}>
+            Download Excel
+          </Button>
+        }
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">

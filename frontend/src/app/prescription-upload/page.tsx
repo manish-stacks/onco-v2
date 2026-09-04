@@ -89,7 +89,7 @@ function PrescriptionUploadInner() {
       className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8"
     >
       <div className="mb-10 text-center">
-        
+
         <h1 className="font-display text-3xl font-bold text-[var(--ink)]">Upload Your Prescription</h1>
         <p className="mx-auto mt-2 max-w-md text-[var(--ink-soft)]">
           Our licensed pharmacists will verify your prescription before we ship any restricted medicines.
@@ -108,123 +108,122 @@ function PrescriptionUploadInner() {
           </div>
         )}
         <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragging(true);
-              }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragging(false);
-                handleFiles(e.dataTransfer.files);
-              }}
-              className={`relative flex flex-col items-center rounded-[var(--radius-lg)] border-2 border-dashed px-6 py-6 text-center transition-colors ${
-                dragging ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)] bg-white"
-              }`}
-            >
-              <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)]">
-                <UploadCloud size={28} />
-              </span>
-              <p className="mb-1 font-semibold text-[var(--ink)]">Drag & drop your prescription here</p>
-              <p className="mb-5 text-sm text-[var(--ink-soft)]">or click below to browse files</p>
-              <label className="cursor-pointer rounded-full bg-[var(--blue-500)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--blue-600)]">
-                Choose Files
-                <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-              </label>
-              <p className="mt-5 text-xs text-[var(--ink-soft)]">Supported: JPG, PNG, PDF — up to 10MB each</p>
-              {fieldErrors.files && (
-                <p className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.files}</p>
-              )}
-            </div>
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            handleFiles(e.dataTransfer.files);
+          }}
+          className={`relative flex flex-col items-center rounded-[var(--radius-lg)] border-2 border-dashed px-6 py-6 text-center transition-colors ${dragging ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)] bg-white"
+            }`}
+        >
+          <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)]">
+            <UploadCloud size={28} />
+          </span>
+          <p className="mb-1 font-semibold text-[var(--ink)]">Drag & drop your prescription here</p>
+          <p className="mb-5 text-sm text-[var(--ink-soft)]">or click below to browse files</p>
+          <label className="cursor-pointer rounded-full bg-[var(--blue-500)] px-6 py-3 text-sm font-semibold text-white hover:bg-[var(--blue-600)]">
+            Choose Files
+            <input type="file" multiple accept="image/*,.pdf" className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+          </label>
+          <p className="mt-5 text-xs text-[var(--ink-soft)]">Supported: JPG, PNG, PDF — up to 10MB each</p>
+          {fieldErrors.files && (
+            <p className="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.files}</p>
+          )}
+        </div>
 
-            {files.length > 0 && (
-              <div className="mt-6 space-y-3">
-                {files.map((f, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] bg-white p-3">
-                    <FileText size={18} className="text-[var(--blue-500)]" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-[var(--ink)]">{f.name}</p>
-                      <p className="text-xs text-[var(--ink-soft)]">{(f.size / 1024).toFixed(0)} KB</p>
-                    </div>
-                    <button onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}>
-                      <X size={16} className="text-[var(--ink-soft)]" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!result && isLoggedIn && (
-              <div className="mt-6 space-y-3">
-                <p className="text-xs font-medium text-[var(--ink-soft)]">
-                  Patient, doctor and hospital details are mandatory for a prescription order.
-                </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Patient name</label>
-                    <input
-                      value={patientName}
-                      onChange={(e) => { setPatientName(e.target.value); setFieldErrors((s) => ({ ...s, patient_name: "" })); }}
-                      placeholder="Patient name"
-                      className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.patient_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
-                    />
-                    {fieldErrors.patient_name && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.patient_name}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Doctor name</label>
-                    <input
-                      value={doctorName}
-                      onChange={(e) => { setDoctorName(e.target.value); setFieldErrors((s) => ({ ...s, doctor_name: "" })); }}
-                      placeholder="Doctor name"
-                      className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.doctor_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
-                    />
-                    {fieldErrors.doctor_name && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.doctor_name}</p>
-                    )}
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Hospital / clinic name</label>
-                    <input
-                      value={hospitalName}
-                      onChange={(e) => { setHospitalName(e.target.value); setFieldErrors((s) => ({ ...s, hospital_name: "" })); }}
-                      placeholder="Hospital / clinic name"
-                      className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.hospital_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
-                    />
-                    {fieldErrors.hospital_name && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.hospital_name}</p>
-                    )}
-                  </div>
+        {files.length > 0 && (
+          <div className="mt-6 space-y-3">
+            {files.map((f, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] bg-white p-3">
+                <FileText size={18} className="text-[var(--blue-500)]" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-[var(--ink)]">{f.name}</p>
+                  <p className="text-xs text-[var(--ink-soft)]">{(f.size / 1024).toFixed(0)} KB</p>
                 </div>
-
-                <Button
-                  size="lg"
-                  className="w-full"
-                  disabled={status === "uploading"}
-                  onClick={submit}
-                  icon={status === "uploading" ? <Clock size={16} className="animate-spin" /> : undefined}
-                >
-                  {status === "uploading" ? "Uploading..." : "Submit Prescription"}
-                </Button>
+                <button onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}>
+                  <X size={16} className="text-[var(--ink-soft)]" />
+                </button>
               </div>
-            )}
-
-            <div className="mt-10 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
-              <p className="mb-4 flex items-center gap-2 font-semibold text-[var(--ink)]">
-                <ShieldCheck size={17} className="text-[var(--mint-500)]" /> Prescription Guidelines
-              </p>
-              <ul className="space-y-2 text-sm text-[var(--ink-soft)]">
-                {GUIDELINES.map((g) => (
-                  <li key={g} className="flex gap-2">
-                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--ink-soft)]" />
-                    {g}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            ))}
           </div>
+        )}
+
+        {!result && isLoggedIn && (
+          <div className="mt-6 space-y-3">
+            <p className="text-xs font-medium text-[var(--ink-soft)]">
+              Patient, doctor and hospital details are mandatory for a prescription order.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Patient name</label>
+                <input
+                  value={patientName}
+                  onChange={(e) => { setPatientName(e.target.value); setFieldErrors((s) => ({ ...s, patient_name: "" })); }}
+                  placeholder="Patient name"
+                  className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.patient_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
+                />
+                {fieldErrors.patient_name && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.patient_name}</p>
+                )}
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Doctor name</label>
+                <input
+                  value={doctorName}
+                  onChange={(e) => { setDoctorName(e.target.value); setFieldErrors((s) => ({ ...s, doctor_name: "" })); }}
+                  placeholder="Doctor name"
+                  className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.doctor_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
+                />
+                {fieldErrors.doctor_name && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.doctor_name}</p>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-[var(--ink)]">Hospital / clinic name</label>
+                <input
+                  value={hospitalName}
+                  onChange={(e) => { setHospitalName(e.target.value); setFieldErrors((s) => ({ ...s, hospital_name: "" })); }}
+                  placeholder="Hospital / clinic name"
+                  className={`h-11 w-full rounded-[var(--radius-sm)] border px-4 text-sm outline-none ${fieldErrors.hospital_name ? "border-[var(--coral-500)]" : "border-[var(--line)]"}`}
+                />
+                {fieldErrors.hospital_name && (
+                  <p className="mt-1 flex items-center gap-1 text-xs text-[var(--coral-500)]"><AlertCircle size={12} /> {fieldErrors.hospital_name}</p>
+                )}
+              </div>
+            </div>
+
+            <Button
+              size="lg"
+              className="w-full"
+              disabled={status === "uploading"}
+              onClick={submit}
+              icon={status === "uploading" ? <Clock size={16} className="animate-spin" /> : undefined}
+            >
+              {status === "uploading" ? "Uploading..." : "Submit Prescription"}
+            </Button>
+          </div>
+        )}
+
+        <div className="mt-10 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
+          <p className="mb-4 flex items-center gap-2 font-semibold text-[var(--ink)]">
+            <ShieldCheck size={17} className="text-[var(--mint-500)]" /> Prescription Guidelines
+          </p>
+          <ul className="space-y-2 text-sm text-[var(--ink-soft)]">
+            {GUIDELINES.map((g) => (
+              <li key={g} className="flex gap-2">
+                <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[var(--ink-soft)]" />
+                {g}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
+    </div>
   );
 }
 
