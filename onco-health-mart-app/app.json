@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "Onco Health Mart",
+    "slug": "Onco-Health-Mart",
+    "version": "1.0.4",
+    "orientation": "portrait",
+    "icon": "./assets/logo/ic_launcher.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.oncohealthmart.store",
+      "icon": "./assets/logo/ic_launcher.png",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "Onco Health Mart uses your location to detect your address and provide accurate delivery services while the app is in use.",
+        "NSLocationAlwaysUsageDescription": "Onco Health Mart uses your location to detect your address and provide consistent delivery updates, even when the app is running in the background.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Onco Health Mart uses your location to detect your address and ensure accurate delivery, whether the app is in use or running in the background.",
+        "NSCameraUsageDescription": "Onco Health Mart uses your camera to allow you to take and upload photos of prescriptions or other documents directly from the app.",
+        "NSPhotoLibraryUsageDescription": "Onco Health Mart uses your photo gallery so you can upload images or prescriptions saved on your device for order processing.",
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "mailto",
+          "whatsapp"
+        ]
+      }
+    },
+    "splash": {
+      "image": "./assets/logo/ic_launcher_foreground.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#65C0E7"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo/ic_launcher_foreground.png",
+        "backgroundColor": "#65C0E7"
+      },
+      "icon": "./assets/logo/ic_launcher.png",
+      "package": "com.happy_coding.app",
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/logo/ic_launcher_round.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Onco Health Mart uses your photo gallery so you can upload images or prescriptions saved on your device for order processing.",
+          "cameraPermission": "Onco Health Mart uses your camera to allow you to take and upload photos of prescriptions or other documents directly from the app."
+        }
+      ],
+      "expo-notifications",
+      "expo-asset"
+    ],
+    "extra": {
+      "apiBase": "https://www.betaapi.oncohealthmart.com",
+      "eas": {
+        "projectId": "bdb294ff-0afe-4463-85be-2fa5187578d8"
+      }
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/bdb294ff-0afe-4463-85be-2fa5187578d8"
+    },
+    "owner": "hbsdevelopersteam"
+  }
+}
