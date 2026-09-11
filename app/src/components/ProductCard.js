@@ -142,9 +142,9 @@ const styles = StyleSheet.create({
   },
   rxText: { fontSize: 8.5, color: colors.primaryDark, fontWeight: '700' },
   imgWrap: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.card,
     borderRadius: 8,
-    height: 84,
+    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,

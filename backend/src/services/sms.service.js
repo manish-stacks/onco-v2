@@ -1,25 +1,7 @@
 const axios = require('axios');
 const db = require('../config/db');
 
-/**
- * SMS via 2Factor.in (same provider + templates as the old OncoHealthMart site).
- *
- * The old site sent every SMS through 2Factor's TSMS route with DLT-approved
- * templates, e.g. OTP -> "RegistrationConfirmation", order placed ->
- * "OrderPlacementNotification". We keep exactly those template names so no new
- * DLT approval is needed.
- *
- *   POST https://2factor.in/API/V1/<API_KEY>/ADDON_SERVICES/SEND/TSMS
- *   body: { From, To, TemplateName, VAR1, VAR2, ... }
- *
- * .env:
- *   TWOFACTOR_API_KEY=          (falls back to the existing FAST2SMS_API_KEY value,
- *                                which already holds the 2Factor key)
- *   TWOFACTOR_SENDER=ONCOHM     (DLT header / From)
- *   TWOFACTOR_OTP_TEMPLATE=RegistrationConfirmation
- *
- * Without a key the OTP is printed to the console so local dev keeps working.
- */
+
 
 function apiKey() {
   // The current .env stores the 2Factor key under FAST2SMS_API_KEY — accept both.
@@ -81,6 +63,15 @@ async function sendOtp(mobile, otp, meta = {}) {
   let delivered = false;
 
   if (!isConfigured()) {
+    if (process.env.NODE_ENV === 'production') {
+      // Never silently "fake-send" an OTP in production — fail loudly so
+      // the real misconfiguration (missing TWOFACTOR_API_KEY) gets noticed
+      // instead of customers getting stuck with no SMS.
+      console.error('[sms] TWOFACTOR_API_KEY missing in production — OTP NOT sent');
+      result = { error: 'sms_not_configured' };
+      await logOtp({ mobile: number, otp, provider: 'unconfigured', delivered: false, response: result, ...meta });
+      throw new Error('SMS gateway is not configured. Please contact support.');
+    }
     console.log(`[sms] DEV MODE — OTP for ${number}: ${otp}`);
     result = { dev: true, otp };
   } else {

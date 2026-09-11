@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   cartBadgeText: { color: '#fff', fontSize: 9, fontWeight: '700' },
   gallery: {
     marginHorizontal: 18,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.card,
     borderRadius: radius.lg,
     height: 200,
     alignItems: 'center',

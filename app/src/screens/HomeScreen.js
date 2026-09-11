@@ -170,7 +170,7 @@ export default function HomeScreen({ navigation }) {
                 <View style={{ width: SCREEN_W, paddingHorizontal: 18 }}>
                   <Pressable style={[styles.banner, shadow]}>
                     {item.banner_image ? (
-                      <Image source={{ uri: mediaUrl(item.banner_image) }} style={styles.bannerImg} resizeMode="cover" />
+                      <Image source={{ uri: mediaUrl(item.banner_image) }} style={styles.bannerImg} resizeMode="contain" />
                     ) : (
                       <View style={styles.bannerFallback}>
                         <Text style={styles.bannerTitle}>{item.title_top || 'Special offer'}</Text>
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   },
   searchText: { fontSize: 13, color: colors.muted },
 
-  banner: { width: '100%', height: 150, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.primary },
+  banner: { width: '100%', height: 138, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: colors.primary },
   bannerImg: { width: '100%', height: '100%' },
   bannerFallback: { flex: 1, padding: 16, justifyContent: 'center' },
   bannerTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },

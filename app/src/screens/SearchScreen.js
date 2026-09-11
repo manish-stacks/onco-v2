@@ -6,6 +6,7 @@ import ProductCard from '../components/ProductCard';
 import { Chip, EmptyState, Loader, SectionTitle } from '../components/ui';
 import { colors, radius, shadow } from '../theme';
 import { catalogApi } from '../api';
+import { addSearchTerm, clearSearchHistory, getSearchHistory, removeSearchTerm } from '../utils/searchHistory';
 
 export default function SearchScreen({ navigation }) {
   const [query, setQuery] = useState('');
@@ -13,7 +14,12 @@ export default function SearchScreen({ navigation }) {
   const [results, setResults] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
   const debounce = useRef(null);
+
+  useEffect(() => {
+    getSearchHistory().then(setHistory);
+  }, []);
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
@@ -26,13 +32,15 @@ export default function SearchScreen({ navigation }) {
     setLoading(true);
     debounce.current = setTimeout(async () => {
       try {
+        const q = query.trim();
         const [s, r] = await Promise.all([
-          catalogApi.search(query.trim()),
-          catalogApi.products({ search: query.trim(), page: 1, limit: 20 }),
+          catalogApi.search(q),
+          catalogApi.products({ search: q, page: 1, limit: 20 }),
         ]);
         setSuggest(s || { products: [], categories: [] });
         setResults(r.data || []);
         setTotal(r.pagination?.total || (r.data || []).length);
+        addSearchTerm(q).then(setHistory);
       } catch {
         setResults([]);
       } finally {
@@ -41,6 +49,10 @@ export default function SearchScreen({ navigation }) {
     }, 350);
     return () => debounce.current && clearTimeout(debounce.current);
   }, [query]);
+
+  const onRemoveHistoryItem = (term) => {
+    removeSearchTerm(term).then(setHistory);
+  };
 
   return (
     <Screen>
@@ -63,11 +75,34 @@ export default function SearchScreen({ navigation }) {
       </View>
 
       {query.trim().length < 2 ? (
-        <EmptyState
-          icon="search-outline"
-          title="Find what you need"
-          subtitle="Type at least 2 characters to search our catalogue by medicine, brand or category."
-        />
+        history.length ? (
+          <View style={{ paddingHorizontal: 18 }}>
+            <View style={styles.historyHeader}>
+              <SectionTitle title="Recent searches" />
+              <Pressable onPress={() => clearSearchHistory().then(() => setHistory([]))} hitSlop={8}>
+                <Text style={styles.clearAll}>Clear all</Text>
+              </Pressable>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {history.map((term) => (
+                <View key={term} style={styles.historyChip}>
+                  <Pressable onPress={() => setQuery(term)} hitSlop={4}>
+                    <Text style={styles.historyChipText}>{term}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => onRemoveHistoryItem(term)} hitSlop={8} style={{ marginLeft: 6 }}>
+                    <Ionicons name="close" size={14} color={colors.muted} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <EmptyState
+            icon="search-outline"
+            title="Find what you need"
+            subtitle="Type at least 2 characters to search our catalogue by medicine, brand or category."
+          />
+        )
       ) : loading && !results.length ? (
         <Loader />
       ) : (
@@ -132,4 +167,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   input: { flex: 1, paddingVertical: 12, fontSize: 13.5, color: colors.text },
+  historyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  clearAll: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  historyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  historyChipText: { fontSize: 12.5, color: colors.text },
 });

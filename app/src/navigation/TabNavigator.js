@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
 import { useCart } from '../store/CartContext';
 
@@ -35,13 +36,16 @@ const ICONS = {
 };
 
 export default function TabNavigator() {
+  const insets = useSafeAreaInsets();
+  const barStyle = [styles.bar, { height: 56 + insets.bottom, paddingBottom: 8 + insets.bottom }];
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: styles.bar,
+        tabBarStyle: barStyle,
         tabBarLabelStyle: styles.label,
         tabBarIcon: ({ color, size, focused }) => {
           if (route.name === 'CartTab') return <CartIcon color={color} size={size} focused={focused} />;
@@ -64,8 +68,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    height: 62,
-    paddingBottom: 8,
     paddingTop: 6,
   },
   label: { fontSize: 10, fontWeight: '600' },
