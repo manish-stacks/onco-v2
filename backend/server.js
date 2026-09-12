@@ -220,6 +220,16 @@ const server = app.listen(PORT, () => {
     `[server] OncoHealthMart API is running on port ${PORT} (${process.env.NODE_ENV || 'development'})`
   );
 
+  // Fail loud, at boot, not silently on the customer's first OTP request —
+  // this exact env-var mismatch (e.g. "2FACTOR_API_KEY" instead of
+  // "TWOFACTOR_API_KEY") once went unnoticed for days on a deployment.
+  if (!require('./src/services/sms.service').isConfigured()) {
+    console.warn(
+      '[sms] WARNING: TWOFACTOR_API_KEY (or FAST2SMS_API_KEY) is not set in this .env — ' +
+      'OTP SMS will fail with "SMS gateway is not configured" until it is added and the process is restarted.'
+    );
+  }
+
   // Weekly auto-purge of otp_logs + notification_logs
   require('./src/services/cleanup.service').startLogCleanup();
 
