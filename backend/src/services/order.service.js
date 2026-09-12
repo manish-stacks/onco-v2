@@ -144,9 +144,9 @@ async function placeOrder(p) {
     if (paymentMode === PAYMENT_MODE.COD && !p.isPos && !pricing.codAllowed) {
       throw Object.assign(new Error('Some items in the cart are not available for COD'), { status: 409 });
     }
-    // if (pricing.requiresPrescription && !p.prescription_id) {
-    //   throw Object.assign(new Error('A prescription upload is required for these medicines'), { status: 422 });
-    // }
+    if (pricing.requiresPrescription && !p.isPos && !p.prescription_id) {
+      throw Object.assign(new Error('A prescription upload is required for these medicines'), { status: 422 });
+    }
 
     // 2. coupon validate + consume
     let couponId = null;
@@ -495,6 +495,46 @@ async function cancelOrder(orderId, { changedBy, reason, refundPayment = true })
   return { order: await orderModel.findById(orderId), refund: refundInfo };
 }
 
+/**
+ * Hard-delete — admin only, and only while the order is still "Pending"
+ * (never touched, never paid). Stock is restored first, same as a cancel,
+ * then the order row itself is removed instead of being kept as Cancelled.
+ */
+async function deletePendingOrder(orderId, { changedBy } = {}) {
+  const order = await orderModel.findById(orderId);
+  if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
+
+  if (order.status !== ORDER_STATUS.PENDING) {
+    throw Object.assign(
+      new Error(`Only a 'Pending' order can be deleted — this one is '${order.status}'. Cancel it instead.`),
+      { status: 409 }
+    );
+  }
+
+  await db.withTransaction(async (conn) => {
+    for (const item of order.items) {
+      await inventoryModel.incrementStock(conn, {
+        productId: item.product_id,
+        quantity: item.unit_quantity,
+        changeType: INVENTORY_CHANGE_TYPE.RETURN,
+        referenceType: 'order',
+        referenceId: orderId,
+        changedBy,
+        note: `Order ${order.databaseOrderID} deleted (was pending)`,
+      });
+    }
+    if (order.coupon_id) {
+      await couponModel.refundUse(order.coupon_id, orderId, conn);
+    }
+    await orderModel.remove(conn, orderId);
+  });
+
+  await cache.invalidate.orders();
+  await cache.invalidate.products();
+
+  return { deleted: true };
+}
+
 /** Move an order's status forward (admin) — with flow validation */
 async function changeStatus(orderId, newStatus, { changedBy, note }) {
   const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
@@ -528,5 +568,5 @@ async function changeStatus(orderId, newStatus, { changedBy, note }) {
 
 module.exports = {
   quote, placeOrder, markOrderPaid, markOrderPaymentFailed,
-  cancelOrder, changeStatus, priceItems,
+  cancelOrder, deletePendingOrder, changeStatus, priceItems,
 };

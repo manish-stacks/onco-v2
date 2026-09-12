@@ -57,7 +57,11 @@ export default function RootNavigator() {
         <Stack.Screen name="Product" component={ProductScreen} />
         <Stack.Screen name="ProductList" component={ProductListScreen} />
 
-        <Stack.Screen name="ApplyCoupon" component={ApplyCouponScreen} />
+        <Stack.Screen
+          name="ApplyCoupon"
+          component={ApplyCouponScreen}
+          options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
+        />
         <Stack.Screen name="AddressList" component={AddressListScreen} />
         <Stack.Screen name="AddAddress" component={AddAddressScreen} />
         <Stack.Screen name="Checkout" component={CheckoutScreen} />

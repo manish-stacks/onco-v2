@@ -175,4 +175,44 @@ async function count(customerId) {
   return row.count;
 }
 
-module.exports = { getItems, getCartWithTotals, addItem, updateQuantity, removeItem, clear, mergeCart, count };
+/** ADMIN — every customer who currently has items sitting in their cart,
+ * with item count + cart value, so support/marketing can see who to nudge. */
+async function adminListCarts({ search } = {}, { limit = 25, offset = 0 } = {}) {
+  const params = [];
+  let searchSql = '';
+  if (search) {
+    searchSql = ' AND (c.customer_name LIKE ? OR c.mobile LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  const [rows] = await db.query(
+    `SELECT c.customer_id, c.customer_name, c.mobile, c.email_id,
+            COUNT(ci.cart_id) AS item_count,
+            COALESCE(SUM(ci.product_quantity), 0) AS total_quantity,
+            COALESCE(SUM(ci.product_quantity * p.product_sp), 0) AS cart_value,
+            MAX(ci.updated) AS last_updated
+     FROM cart_items ci
+     INNER JOIN customers c ON c.customer_id = ci.customer_id
+     INNER JOIN products p ON p.product_id = ci.product_id
+     WHERE 1=1 ${searchSql}
+     GROUP BY c.customer_id, c.customer_name, c.mobile, c.email_id
+     ORDER BY last_updated DESC
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  const [[{ total }]] = await db.query(
+    `SELECT COUNT(DISTINCT ci.customer_id) AS total
+     FROM cart_items ci
+     INNER JOIN customers c ON c.customer_id = ci.customer_id
+     WHERE 1=1 ${searchSql}`,
+    params
+  );
+
+  return { rows, total };
+}
+
+module.exports = {
+  getItems, getCartWithTotals, addItem, updateQuantity, removeItem, clear, mergeCart, count,
+  adminListCarts,
+};

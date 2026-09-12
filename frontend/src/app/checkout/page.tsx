@@ -8,6 +8,7 @@ import {
   Pencil, Trash2, X, AlertCircle, Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CouponSidebar } from "@/components/CouponSidebar";
 import { InlineOtpVerify } from "@/components/auth/InlineOtpVerify";
 import {
   addressApi, orderApi, prescriptionApi, authApi, cartApi, mediaUrl, isPdfUrl, ApiError,
@@ -191,6 +192,13 @@ function CheckoutInner() {
   // COD is available only when the admin has turned it on AND every cart item is COD-eligible
   const codAvailable = codEnabled && !!summary?.cod_allowed;
 
+  // Simple bill breakup for the summary card: Total MRP -> product-level
+  // discount (MRP vs selling price) -> coupon -> shipping/COD fee -> Order Total.
+  const totalMrp = cartItems.reduce((s, i) => s + (Number(i.product_mrp) || Number(i.product_sp) || 0) * i.product_quantity, 0);
+  const mrpDiscount = Math.max(totalMrp - (summary?.subtotal ?? 0), 0);
+  const orderTotal = Math.max((summary?.total ?? 0) - discount, 0) + charges.shipping_charge + (paymentMode === "cod" ? charges.cod_fee : 0);
+  const totalSaved = mrpDiscount + discount;
+
   // Refetch shipping + COD fee whenever the payment mode, cart, or coupon changes.
   useEffect(() => {
     if (!cartItems.length) { setCharges({ shipping_charge: 0, cod_fee: 0 }); return; }
@@ -284,7 +292,13 @@ function CheckoutInner() {
     }
   }
 
+  // Only auto-pick a default once. After that, a manual click (see the two
+  // radio onChange handlers below) must win — otherwise re-fetches (coupon
+  // reapply, cart refresh) that momentarily flip `codAvailable` were silently
+  // snapping the selection back to COD/online and the click looked ignored.
+  const paymentTouchedRef = useRef(false);
   useEffect(() => {
+    if (paymentTouchedRef.current) return;
     setPaymentMode(codAvailable ? "cod" : "online");
   }, [codAvailable]);
 
@@ -515,10 +529,16 @@ function CheckoutInner() {
               await refreshCart();
               router.push(`/payment/success?order_id=${order.order_id}`);
             } catch {
-              router.push(`/payment/failed?order_id=${order.order_id}&reason=verification_failed`);
+              // Stay on checkout instead of bouncing to a dead-end page —
+              // the order is still there (Unpaid) and the person can retry.
+              setError("Payment verification failed. Please try again or choose Cash on Delivery.");
+              setPlacing(false);
             }
           },
-          onDismiss: () => router.push(`/payment/failed?order_id=${order.order_id}&reason=payment_cancelled`),
+          onDismiss: () => {
+            setError("Payment was cancelled. You can try again or choose a different payment method.");
+            setPlacing(false);
+          },
         });
         return;
       }
@@ -806,7 +826,7 @@ function CheckoutInner() {
                           </button>
                         </label>
                       ))}
-                      {selectedPrescriptionId
+                      {/* {selectedPrescriptionId
                         && prescriptions.find((p) => String(p.prescription_id) === String(selectedPrescriptionId))?.status !== "Approved" && (
                           <p className="text-xs text-[var(--ink-soft)]">
                             A pharmacist is still verifying this prescription — the order will be placed with the status
@@ -820,7 +840,7 @@ function CheckoutInner() {
                           onChange={(v) => { setDoctorName(v); setPrescErrors((e) => ({ ...e, doctor_name: "" })); }} />
                         <FieldInput label="Hospital / clinic name" className="sm:col-span-2" value={hospitalName} error={prescErrors.hospital_name}
                           onChange={(v) => { setHospitalName(v); setPrescErrors((e) => ({ ...e, hospital_name: "" })); }} />
-                      </div>
+                      </div> */}
                     </div>
                   ) : (
                     // No prescriptions on file — send them to the upload page
@@ -874,7 +894,7 @@ function CheckoutInner() {
               )}
 
               {/* Order note */}
-              <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
+              {/* <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
                 <p className="mb-3 flex items-center gap-2 font-semibold text-[var(--ink)]">
                   <Stethoscope size={17} className="text-[var(--blue-500)]" /> Order Note (optional)
                 </p>
@@ -885,7 +905,7 @@ function CheckoutInner() {
                   placeholder="Any instructions for delivery or your order..."
                   className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--line)] px-4 py-2.5 text-sm outline-none"
                 />
-              </div>
+              </div> */}
 
               {/* Payment */}
               <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
@@ -907,7 +927,7 @@ function CheckoutInner() {
                           type="radio"
                           name="payment-method"
                           checked={active}
-                          onChange={() => { setPaymentMode("online"); setGateway(g.id); }}
+                          onChange={() => { paymentTouchedRef.current = true; setPaymentMode("online"); setGateway(g.id); }}
                         />
                         <Wallet size={16} className="text-[var(--ink-soft)]" />
                         <span className="font-medium">Pay with {g.label || g.id}</span>
@@ -924,7 +944,7 @@ function CheckoutInner() {
                         type="radio"
                         name="payment-method"
                         checked={paymentMode === "cod"}
-                        onChange={() => setPaymentMode("cod")}
+                        onChange={() => { paymentTouchedRef.current = true; setPaymentMode("cod"); }}
                       />
                       <Truck size={16} className="text-[var(--ink-soft)]" />
                       <span className="font-medium">Cash on Delivery</span>
@@ -1013,78 +1033,29 @@ function CheckoutInner() {
                   <span className="text-xs font-semibold text-[var(--blue-600)]">View all coupons</span>
                 </button>
               )}
-
-              {/* Flipkart-style picker: pick from every coupon available on the site,
-                  or type a code that isn't in the public list (e.g. a private one). */}
-              {showCouponList && !appliedCoupon && (
-                <div className="mt-3 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-[var(--ink)]">Available coupons</p>
-                    <button type="button" onClick={() => setShowCouponList(false)} aria-label="Close"
-                      className="text-[var(--ink-soft)] hover:text-[var(--ink)]"><X size={16} /></button>
-                  </div>
-
-                  <div className="mt-3 flex gap-2">
-                    <input
-                      value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      placeholder="Have a code? Enter it here"
-                      className="h-10 flex-1 rounded-full border border-[var(--line)] bg-[var(--paper)] px-4 text-sm outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => applyCoupon()}
-                      disabled={applyingCoupon || !couponInput.trim()}
-                      className="rounded-full bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50"
-                    >
-                      {applyingCoupon ? "Checking…" : "Apply"}
-                    </button>
-                  </div>
-
-                  <div className="mt-3 max-h-64 space-y-2 overflow-y-auto">
-                    {couponListLoading ? (
-                      <div className="flex items-center justify-center gap-2 py-8 text-sm text-[var(--ink-soft)]">
-                        <Loader2 size={15} className="animate-spin" /> Loading coupons…
-                      </div>
-                    ) : couponList.length ? (
-                      couponList.map((c) => (
-                        <div key={c.coupon_code} className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-dashed border-[var(--line)] p-3">
-                          <div>
-                            <p className="font-mono text-sm font-bold text-[var(--ink)]">{c.coupon_code}</p>
-                            <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
-                              {c.discount_type === "Percentage"
-                                ? `${c.discount_percentage}% off${c.max_discount_amount ? `, up to ${formatINR(c.max_discount_amount)}` : ""}`
-                                : `${formatINR(c.discount_amount || 0)} off`}
-                              {c.minimum_amount ? ` on orders above ${formatINR(c.minimum_amount)}` : ""}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => applyCoupon(c.coupon_code)}
-                            disabled={applyingCoupon}
-                            className="shrink-0 rounded-full border border-[var(--blue-500)] px-4 py-1.5 text-xs font-semibold text-[var(--blue-600)] hover:bg-[var(--blue-50)] disabled:opacity-50"
-                          >
-                            Apply
-                          </button>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="py-6 text-center text-sm text-[var(--ink-soft)]">No coupons available right now.</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {couponMsg && (
-                <p className={`mt-2 text-xs font-medium ${couponError ? "text-[var(--coral-500)]" : "text-[var(--mint-600)]"}`}>
-                  {couponMsg}
-                </p>
-              )}
             </div>
           )}
 
+          <CouponSidebar
+            open={showCouponList}
+            onClose={() => setShowCouponList(false)}
+            couponInput={couponInput}
+            setCouponInput={setCouponInput}
+            onApply={applyCoupon}
+            applying={applyingCoupon}
+            appliedCode={appliedCoupon}
+            onRemove={removeCoupon}
+            message={couponMsg}
+            messageError={couponError}
+            coupons={couponList}
+            couponsLoading={couponListLoading}
+          />
+
           <div className="space-y-2 border-t border-[var(--line)] pt-4 text-sm font-mono-nums">
-            <div className="flex justify-between text-[var(--ink-soft)]"><span>Subtotal</span><span>{formatINR(summary?.subtotal ?? 0)}</span></div>
+            <div className="flex justify-between text-[var(--ink-soft)]"><span>Total MRP</span><span>{formatINR(totalMrp)}</span></div>
+            {mrpDiscount > 0 && (
+              <div className="flex justify-between text-[var(--mint-600)]"><span>Discount on MRP</span><span>- {formatINR(mrpDiscount)}</span></div>
+            )}
             {discount > 0 && (
               <div className="flex justify-between text-[var(--mint-600)]">
                 <span>Coupon ({appliedCoupon})</span><span>- {formatINR(discount)}</span>
@@ -1097,9 +1068,14 @@ function CheckoutInner() {
               <div className="flex justify-between text-[var(--ink-soft)]"><span>COD fee</span><span>{formatINR(charges.cod_fee)}</span></div>
             )}
             <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]">
-              <span>Total</span>
-              <span>{formatINR(Math.max((summary?.total ?? 0) - discount, 0) + charges.shipping_charge + (paymentMode === "cod" ? charges.cod_fee : 0))}</span>
+              <span>Order Total</span>
+              <span>{formatINR(orderTotal)}</span>
             </div>
+            {totalSaved > 0 && (
+              <p className="rounded-full bg-[var(--mint-600)]/10 px-3 py-1.5 text-center text-xs font-semibold text-[var(--mint-600)]">
+                You saved {formatINR(totalSaved)} on this order
+              </p>
+            )}
             {!isLoggedIn && <p className="pt-1 text-xs text-[var(--ink-soft)]">Estimated — final shipping charge after mobile verification.</p>}
           </div>
           {isLoggedIn ? (

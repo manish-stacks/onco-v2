@@ -29,6 +29,7 @@ export default function RxUploadScreen({ navigation }) {
     hospital_name: '',
   });
   const [uploading, setUploading] = useState(false);
+  const [errors, setErrors] = useState({});
   const { customer, isLoggedIn } = useAuth();
   const toast = useToast();
 
@@ -68,6 +69,15 @@ export default function RxUploadScreen({ navigation }) {
       return navigation.navigate('Login');
     }
     if (!images.length) return toast.show('Add at least one prescription image', 'error');
+
+    const nextErrors = {};
+    if (!form.patient_name.trim()) nextErrors.patient_name = 'Patient name is required';
+    if (!form.doctor_name.trim()) nextErrors.doctor_name = "Doctor's name is required";
+    if (!form.hospital_name.trim()) nextErrors.hospital_name = 'Hospital / clinic name is required';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      return toast.show('Please fill in patient, doctor and hospital name', 'error');
+    }
 
     setUploading(true);
     try {
@@ -125,24 +135,27 @@ export default function RxUploadScreen({ navigation }) {
 
           <Text style={styles.sectionTitle}>Prescription details</Text>
           <Field
-            label="Patient name"
+            label="Patient name *"
             value={form.patient_name}
-            onChangeText={set('patient_name')}
+            onChangeText={(v) => { set('patient_name')(v); setErrors((e) => ({ ...e, patient_name: null })); }}
             placeholder="Patient full name"
           />
+          {errors.patient_name ? <Text style={styles.errorText}>{errors.patient_name}</Text> : null}
           <Field
-            label="Doctor's name"
+            label="Doctor's name *"
             value={form.doctor_name}
-            onChangeText={set('doctor_name')}
+            onChangeText={(v) => { set('doctor_name')(v); setErrors((e) => ({ ...e, doctor_name: null })); }}
             placeholder="Dr. Name"
           />
+          {errors.doctor_name ? <Text style={styles.errorText}>{errors.doctor_name}</Text> : null}
           <Field
-            label="Hospital / Clinic name"
+            label="Hospital / Clinic name *"
             value={form.hospital_name}
-            onChangeText={set('hospital_name')}
+            onChangeText={(v) => { set('hospital_name')(v); setErrors((e) => ({ ...e, hospital_name: null })); }}
             placeholder="Hospital name"
             style={{ marginBottom: 4 }}
           />
+          {errors.hospital_name ? <Text style={styles.errorText}>{errors.hospital_name}</Text> : null}
 
           <Card style={{ backgroundColor: colors.primaryLight }}>
             <Text style={styles.tipTitle}>Tips for a clear upload</Text>
@@ -187,6 +200,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 10 },
+  errorText: { fontSize: 10.5, color: colors.accent, marginTop: -8, marginBottom: 10 },
   tipTitle: { fontSize: 12, fontWeight: '700', color: colors.primaryDark },
   tipText: { fontSize: 11.5, color: colors.primaryDark, marginTop: 5, lineHeight: 17 },
 });

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Truck, XCircle, CreditCard, Receipt, User, MapPin, Pill, Clock, PackageCheck, Printer,
-  Check, Eye, FileText, Plus, ExternalLink, Pencil,
+  Check, Eye, FileText, Plus, ExternalLink, Pencil, Trash2,
 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
@@ -20,12 +20,14 @@ import { ReviewModal, MedicinesModal } from '@/pages/prescriptions/Prescriptions
 
 export default function OrderDetail() {
   const { orderId } = useParams();
+  const navigate = useNavigate();
   const { can } = useAuth();
   const { data: order, loading, reload } = useResource(`/admin/orders/${orderId}`);
 
   const [statusOpen, setStatusOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
   const cancel = useMutation(
@@ -33,11 +35,19 @@ export default function OrderDetail() {
     { success: 'Order cancelled', onSuccess: () => { setCancelOpen(false); reload(); } }
   );
 
+  // Only ever allowed while the order is still "Pending" — a hard delete,
+  // stock is restored first. Anything past Pending must be Cancelled instead.
+  const del = useMutation(
+    () => api.del(`/admin/orders/${orderId}`),
+    { success: 'Order deleted', onSuccess: () => navigate('/orders') }
+  );
+
   if (loading && !order) return <PageLoader />;
   if (!order) return <EmptyState icon={Receipt} title="Order not found" />;
 
   const canManage = can(P.ORDERS_MANAGE);
   const canCancel = can(P.ORDERS_CANCEL) && order.allowed_next_statuses?.length > 0;
+  const canDelete = can(P.ORDERS_CANCEL) && order.status === 'Pending';
 
   return (
     <>
@@ -69,6 +79,9 @@ export default function OrderDetail() {
             )}
             {canCancel && (
               <Button variant="dangerGhost" icon={XCircle} onClick={() => setCancelOpen(true)}>Cancel</Button>
+            )}
+            {canDelete && (
+              <Button variant="dangerGhost" icon={Trash2} onClick={() => setDeleteOpen(true)}>Delete</Button>
             )}
           </>
         }
@@ -129,6 +142,14 @@ export default function OrderDetail() {
       <CancelModal
         open={cancelOpen} onClose={() => setCancelOpen(false)}
         order={order} onConfirm={cancel.run} loading={cancel.loading}
+      />
+      <ConfirmDialog
+        open={deleteOpen} onClose={() => setDeleteOpen(false)}
+        onConfirm={del.run} loading={del.loading}
+        variant="danger"
+        title="Delete this order"
+        confirmLabel="Delete"
+        message={`${orderRef(order)} will be permanently removed and its stock restored. This cannot be undone.`}
       />
       <ContactModal
         open={contactOpen} onClose={() => setContactOpen(false)}

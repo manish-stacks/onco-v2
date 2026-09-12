@@ -92,6 +92,12 @@ export default function CartScreen({ navigation }) {
     shippingThreshold && num(summary.subtotal) >= shippingThreshold ? 0 : shippingCharge;
   const discount = num(coupon?.discount, 0);
   const payable = Math.max(num(summary.total) - discount + shipping, 0);
+  const totalMrp = cart.items.reduce(
+    (s, i) => s + (num(i.product_mrp) || num(i.product_sp)) * num(i.product_quantity, 1),
+    0
+  );
+  const mrpDiscount = Math.max(totalMrp - num(summary.subtotal), 0);
+  const totalSaved = mrpDiscount + discount;
 
   const change = async (item, qty) => {
     setBusyId(item.cart_id);
@@ -186,14 +192,19 @@ export default function CartScreen({ navigation }) {
 
         {/* Bill */}
         <Card>
-          <Row left="Item total" right={money(summary.subtotal)} />
-          <Row left="GST" right={money(summary.gst)} />
+          <Row left="Total MRP" right={money(totalMrp)} />
+          {mrpDiscount > 0 ? (
+            <Row left="Discount on MRP" right={`- ${money(mrpDiscount)}`} rightColor={colors.primaryDark} />
+          ) : null}
           {discount > 0 ? (
             <Row left="Coupon discount" right={`- ${money(discount)}`} rightColor={colors.primaryDark} />
           ) : null}
           <Row left="Delivery" right={shipping > 0 ? money(shipping) : 'Free'} />
           <Divider />
-          <Row left="Total" right={money(payable)} bold />
+          <Row left="Cart Total" right={money(payable)} bold />
+          {totalSaved > 0 ? (
+            <Text style={styles.couponSave}>You saved {money(totalSaved)} on this order</Text>
+          ) : null}
         </Card>
       </ScrollView>
 

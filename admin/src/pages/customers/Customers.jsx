@@ -130,6 +130,7 @@ export function CustomerDetail() {
   // Full, paginated lists for this customer (server-side filtered by customer_id).
   const ordersList = useList('/admin/orders', { customer_id: customerId });
   const rxList = useList('/admin/prescriptions', { customer_id: customerId });
+  const { data: cart } = useResource(`/admin/customers/${customerId}/cart`);
 
   const setStatus = useMutation(
     (status) => api.patch(`/admin/customers/${customerId}/status`, { status }),
@@ -287,6 +288,30 @@ export function CustomerDetail() {
           </>
         ) : (
           <EmptyState icon={FileText} title={rxList.loading ? 'Loading…' : 'No prescriptions'} />
+        )}
+      </Card>
+
+      <Card
+        title={`Cart (${num(cart?.items?.length || 0)} item${cart?.items?.length === 1 ? '' : 's'})`}
+        subtitle={cart?.summary?.total ? `Worth ${inr(cart.summary.total)}` : undefined}
+        className="mt-4"
+        dense
+      >
+        {cart?.items?.length ? (
+          <ul className="divide-y divide-line">
+            {cart.items.map((it) => (
+              <li key={it.cart_id} className="flex items-center gap-3 px-4 py-2.5">
+                <ShoppingCart size={15} className="text-ink-300 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[0.8125rem] text-ink truncate">{it.product_name}</p>
+                  <p className="text-2xs text-ink-500 mt-0.5">Qty {num(it.product_quantity)} · {inr(it.product_sp)} each</p>
+                </div>
+                <p className="text-[0.8125rem] font-semibold tabular-nums text-ink shrink-0">{inr(it.line_total)}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState icon={ShoppingCart} title="Cart is empty" />
         )}
       </Card>
 

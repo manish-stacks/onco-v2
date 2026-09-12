@@ -1,6 +1,7 @@
 const customerModel = require('../../models/customer.model');
 const orderModel = require('../../models/order.model');
 const adminModel = require('../../models/admin.model');
+const cartModel = require('../../models/cart.model');
 const { ok, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination, toCsv } = require('../../utils/helpers');
 
@@ -88,4 +89,16 @@ const exportCsv = asyncHandler(async (req, res) => {
   return res.send(csv);
 });
 
-module.exports = { list, stats, detail, customerOrders, update, setStatus, exportCsv };
+/** GET /admin/customers/carts — every user with items currently sitting in their cart */
+const carts = asyncHandler(async (req, res) => {
+  const { page, limit, offset } = getPagination(req.query, 25, 100);
+  const { rows, total } = await cartModel.adminListCarts({ search: req.query.search }, { limit, offset });
+  return paginated(res, rows, total, page, limit);
+});
+
+/** GET /admin/customers/:customerId/cart — that one user's cart, item by item */
+const customerCart = asyncHandler(async (req, res) => {
+  return ok(res, await cartModel.getCartWithTotals(req.params.customerId));
+});
+
+module.exports = { list, stats, detail, customerOrders, update, setStatus, exportCsv, carts, customerCart };

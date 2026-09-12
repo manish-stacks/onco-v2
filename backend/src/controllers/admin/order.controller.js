@@ -116,6 +116,21 @@ const cancelOrder = asyncHandler(async (req, res) => {
     : 'Order cancelled');
 });
 
+/** DELETE /admin/orders/:orderId — hard delete, only while still Pending */
+const deleteOrder = asyncHandler(async (req, res) => {
+  await orderService.deletePendingOrder(req.params.orderId, {
+    changedBy: req.admin.admin_username,
+  });
+
+  await adminModel.logActivity({
+    admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
+    action: 'delete', module: 'orders', record_id: req.params.orderId,
+    description: 'Deleted a pending order', ip_address: req.ip,
+  });
+
+  return ok(res, { deleted: true }, 'Order deleted');
+});
+
 /** PATCH /admin/orders/:orderId/tracking */
 const updateTracking = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId, { withItems: false, withHistory: false });
@@ -316,6 +331,6 @@ const updatePrescriptionStatus = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  list, stats, detail, updateStatus, cancelOrder, updateTracking,
+  list, stats, detail, updateStatus, cancelOrder, deleteOrder, updateTracking,
   updatePayment, updateOrder, exportCsv, invoice, uploadOriginalInvoice, updatePrescriptionStatus,
 };

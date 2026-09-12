@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, Users, FileText, Tags,
   Ticket, Star, BarChart3, Settings, ShieldCheck, Newspaper, X, Building2, Bell, Activity,
-  Image, Tag, MapPin, Inbox, MonitorSmartphone, CreditCard,
+  Image, Tag, MapPin, Inbox, MonitorSmartphone, CreditCard, ShoppingBag,
 } from 'lucide-react';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
@@ -23,6 +23,7 @@ const NAV = [
       { to: '/pos', label: 'POS / New order', icon: MonitorSmartphone, perm: P.ORDERS_MANAGE },
       { to: '/prescriptions', label: 'Prescriptions', icon: FileText, perm: P.PRESCRIPTIONS_VIEW },
       { to: '/customers', label: 'Customers', icon: Users, perm: P.CUSTOMERS_VIEW },
+      { to: '/carts', label: 'Carts', icon: ShoppingBag, perm: P.CUSTOMERS_VIEW },
     ],
   },
   {

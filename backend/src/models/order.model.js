@@ -415,10 +415,29 @@ async function findByRefAndPhone(ref, phone) {
   };
 }
 
+/** Hard delete — order_items + status log + the order row itself.
+ * Caller must have already checked the order is still Pending and, if
+ * stock was decremented at creation, restored it (see order.service.js). */
+async function remove(conn, orderId) {
+  await conn.query(`DELETE FROM order_status_logs WHERE order_id = ?`, [orderId]);
+  await conn.query(`DELETE FROM order_items WHERE order_id = ?`, [orderId]);
+  await conn.query(`DELETE FROM orders WHERE order_id = ?`, [orderId]);
+}
+
+/** Orders still "Pending" after `minutes` — candidates for auto-cancel. */
+async function findStalePending(minutes) {
+  const [rows] = await db.query(
+    `SELECT order_id FROM orders WHERE status = 'Pending' AND order_date < (NOW() - INTERVAL ? MINUTE)`,
+    [minutes]
+  );
+  return rows;
+}
+
 module.exports = {
   create, addItems, logStatus, findById, findByRazorpayOrderId,
   list, listForExport, updateStatus, updateTracking, updatePayment,
   setInvoiceNumber, setOriginalInvoice, updateFields, getItems, customerHasPurchased, stats,
   buildFilters, SORTABLE, findByRefAndPhone,findByRef,
   paymentsList, paymentsSummary,
+  remove, findStalePending,
 };

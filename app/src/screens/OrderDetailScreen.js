@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Screen from '../components/Screen';
@@ -35,7 +35,7 @@ const CANCEL_ORDER_ENABLED = false;
 const RETRY_PAYMENT_WINDOW_MINUTES = 30;
 
 export default function OrderDetailScreen({ route, navigation }) {
-  const { orderId } = route.params || {};
+  const { orderId, reorder: autoReorder } = route.params || {};
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -112,6 +112,16 @@ export default function OrderDetailScreen({ route, navigation }) {
       setBusy(false);
     }
   };
+
+  // Came here from the Orders list "Reorder" chip — fire it once, then clear
+  // the param so refocusing this screen later doesn't reorder again.
+  useEffect(() => {
+    if (autoReorder) {
+      navigation.setParams({ reorder: undefined });
+      reorder();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoReorder]);
 
   const retryPayment = async () => {
     setBusy(true);

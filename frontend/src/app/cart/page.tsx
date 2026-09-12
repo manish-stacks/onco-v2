@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Minus, Plus, Trash2, ShoppingBag, FileWarning, Tag, ArrowRight, AlertTriangle, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CouponSidebar, type CouponOption } from "@/components/CouponSidebar";
 import { mediaUrl, cartApi, ApiError } from "@/lib/api";
 import { formatINR } from "@/lib/utils";
 import { useStore } from "@/hooks/use-store";
@@ -22,6 +23,14 @@ export default function CartPage() {
   const [applying, setApplying] = useState(false);
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [discount, setDiscount] = useState(0);
+  const [showCouponSidebar, setShowCouponSidebar] = useState(false);
+  const [couponList, setCouponList] = useState<CouponOption[]>([]);
+  const [couponListLoading, setCouponListLoading] = useState(false);
+
+  // Simple bill breakup: Total MRP -> product-level discount -> coupon -> Cart Total.
+  const totalMrp = cartItems.reduce((s, i) => s + (Number(i.product_mrp) || Number(i.product_sp) || 0) * i.product_quantity, 0);
+  const mrpDiscount = Math.max(totalMrp - (summary?.subtotal ?? 0), 0);
+  const totalSaved = mrpDiscount + discount;
 
   // Restore a coupon that was applied earlier in this session
   useEffect(() => {
@@ -33,8 +42,8 @@ export default function CartPage() {
     }
   }, []);
 
-  async function applyCoupon() {
-    const code = coupon.trim().toUpperCase();
+  async function applyCoupon(codeOverride?: string) {
+    const code = (codeOverride ?? coupon).trim().toUpperCase();
     if (!code) return;
     if (!isLoggedIn) {
       setCouponError(true);
@@ -51,8 +60,10 @@ export default function CartPage() {
       const value = Number(res?.discount) || 0;
       saveAppliedCoupon(code, value);
       setAppliedCode(code);
+      setCoupon(code);
       setDiscount(value);
       setCouponMsg(`Coupon "${code}" applied — ${formatINR(value)} off`);
+      setShowCouponSidebar(false);
       await refreshCart();
     } catch (err) {
       clearAppliedCoupon();
@@ -72,6 +83,20 @@ export default function CartPage() {
     setCoupon("");
     setCouponMsg(null);
     setCouponError(false);
+  }
+
+  async function openCouponSidebar() {
+    setShowCouponSidebar(true);
+    if (couponList.length) return;
+    setCouponListLoading(true);
+    try {
+      const res = await cartApi.availableCoupons<CouponOption[]>();
+      setCouponList(res || []);
+    } catch {
+      setCouponList([]);
+    } finally {
+      setCouponListLoading(false);
+    }
   }
 
   if (cartLoading && cartItems.length === 0) {
@@ -166,30 +191,24 @@ export default function CartPage() {
         <div className="h-fit rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
           <h2 className="mb-4 font-semibold text-[var(--ink)]">Order Summary</h2>
 
-          <div className="mb-4 flex gap-2">
-            <div className="flex h-11 flex-1 items-center gap-2 rounded-full border border-[var(--line)] px-4">
-              <Tag size={15} className="text-[var(--ink-soft)]" />
-              <input
-                value={coupon}
-                onChange={(e) => setCoupon(e.target.value)}
-                placeholder="Coupon code"
-                className="w-full bg-transparent text-sm outline-none"
-              />
-            </div>
+          <div className="mb-4">
             {appliedCode ? (
-              <button
-                onClick={removeCoupon}
-                className="flex items-center gap-1 rounded-full border border-[var(--line)] px-4 text-sm font-semibold text-[var(--ink-soft)]"
-              >
-                <X size={14} /> Remove
-              </button>
+              <div className="flex h-11 items-center justify-between gap-2 rounded-full border border-[var(--mint-600)] bg-[var(--mint-600)]/5 px-4">
+                <span className="flex items-center gap-2 text-sm font-semibold text-[var(--mint-600)]">
+                  <Tag size={15} /> {appliedCode} applied
+                </span>
+                <button onClick={removeCoupon} className="flex items-center gap-1 text-sm font-semibold text-[var(--ink-soft)] hover:text-[var(--coral-500)]">
+                  <X size={14} /> Remove
+                </button>
+              </div>
             ) : (
               <button
-                onClick={applyCoupon}
-                disabled={applying}
-                className="rounded-full bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                type="button"
+                onClick={openCouponSidebar}
+                className="flex h-11 w-full items-center justify-between gap-2 rounded-full border border-[var(--line)] px-4 text-left text-sm"
               >
-                {applying ? "Checking…" : "Apply"}
+                <span className="flex items-center gap-2 text-[var(--ink-soft)]"><Tag size={15} /> Apply coupon</span>
+                <span className="text-xs font-semibold text-[var(--blue-600)]">View all coupons</span>
               </button>
             )}
           </div>
@@ -201,9 +220,15 @@ export default function CartPage() {
 
           <div className="space-y-2 border-t border-[var(--line)] pt-4 text-sm font-mono-nums">
             <div className="flex justify-between text-[var(--ink-soft)]">
-              <span>Subtotal</span>
-              <span>{formatINR(summary?.subtotal ?? 0)}</span>
+              <span>Total MRP</span>
+              <span>{formatINR(totalMrp)}</span>
             </div>
+            {mrpDiscount > 0 && (
+              <div className="flex justify-between text-[var(--mint-600)]">
+                <span>Discount on MRP</span>
+                <span>- {formatINR(mrpDiscount)}</span>
+              </div>
+            )}
             {discount > 0 && (
               <div className="flex justify-between text-[var(--mint-600)]">
                 <span>Coupon ({appliedCode})</span>
@@ -211,9 +236,14 @@ export default function CartPage() {
               </div>
             )}
             <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]">
-              <span>Total</span>
+              <span>Cart Total</span>
               <span>{formatINR(Math.max((summary?.total ?? 0) - discount, 0))}</span>
             </div>
+            {totalSaved > 0 && (
+              <p className="rounded-full bg-[var(--mint-600)]/10 px-3 py-1.5 text-center text-xs font-semibold text-[var(--mint-600)]">
+                You saved {formatINR(totalSaved)}
+              </p>
+            )}
             <p className="pt-1 text-xs text-[var(--ink-soft)]">Final shipping &amp; COD fee shown at checkout.</p>
           </div>
 
@@ -225,6 +255,21 @@ export default function CartPage() {
           </Button>
         </div>
       </div>
+
+      <CouponSidebar
+        open={showCouponSidebar}
+        onClose={() => setShowCouponSidebar(false)}
+        couponInput={coupon}
+        setCouponInput={setCoupon}
+        onApply={applyCoupon}
+        applying={applying}
+        appliedCode={appliedCode}
+        onRemove={removeCoupon}
+        message={couponMsg}
+        messageError={couponError}
+        coupons={couponList}
+        couponsLoading={couponListLoading}
+      />
     </div>
   );
 }

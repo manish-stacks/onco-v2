@@ -16,6 +16,7 @@ import Pos from '@/pages/pos/Pos';
 import ProductList from '@/pages/products/ProductList';
 import ProductForm from '@/pages/products/ProductForm';
 import { CustomerList, CustomerDetail } from '@/pages/customers/Customers';
+import Carts from '@/pages/customers/Carts';
 import { PrescriptionList, PrescriptionDetail } from '@/pages/prescriptions/Prescriptions';
 import { Coupons, Reviews } from '@/pages/catalog/Coupons';
 import Reports from '@/pages/reports/Reports';
@@ -82,6 +83,7 @@ export default function App() {
               {/* Customers */}
               <Route path="customers" element={<Guard perm={P.CUSTOMERS_VIEW}><CustomerList /></Guard>} />
               <Route path="customers/:customerId" element={<Guard perm={P.CUSTOMERS_VIEW}><CustomerDetail /></Guard>} />
+              <Route path="carts" element={<Guard perm={P.CUSTOMERS_VIEW}><Carts /></Guard>} />
 
               {/* Catalog */}
               <Route path="products" element={<Guard perm={P.PRODUCTS_VIEW}><ProductList /></Guard>} />

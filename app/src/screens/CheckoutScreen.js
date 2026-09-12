@@ -93,6 +93,12 @@ export default function CheckoutScreen({ route, navigation }) {
   const place = async () => {
     if (!address) return toast.show('Please select a delivery address', 'error');
     if (!choice) return toast.show('Please choose a payment method', 'error');
+    if (requiresRx) {
+      if (!prescription) return toast.show('Please attach a prescription for this order', 'error');
+      if (!rxFields.patient_name.trim() || !rxFields.doctor_name.trim() || !rxFields.hospital_name.trim()) {
+        return toast.show('Please fill in patient, doctor and hospital name', 'error');
+      }
+    }
 
     setPlacing(true);
     try {
@@ -143,6 +149,11 @@ export default function CheckoutScreen({ route, navigation }) {
   }
 
   const total = num(quote?.total, num(cart?.summary?.total));
+  const totalMrp = (cart?.items || []).reduce(
+    (s, i) => s + (num(i.product_mrp) || num(i.product_sp)) * num(i.product_quantity, 1),
+    0
+  );
+  const mrpDiscount = Math.max(totalMrp - num(quote?.subtotal, num(cart?.summary?.subtotal)), 0);
   const itemNames = (cart?.items || []).map((i) => i.product_name);
 
   return (
@@ -203,9 +214,9 @@ export default function CheckoutScreen({ route, navigation }) {
                 order.
               </Text>
             )}
-
+            {/*
             <Divider />
-            <Field
+             <Field
               label="Patient name (optional)"
               value={rxFields.patient_name}
               onChangeText={(v) => setRxFields((f) => ({ ...f, patient_name: v }))}
@@ -223,7 +234,7 @@ export default function CheckoutScreen({ route, navigation }) {
               onChangeText={(v) => setRxFields((f) => ({ ...f, hospital_name: v }))}
               placeholder="Hospital name"
               style={{ marginBottom: -12 }}
-            />
+            /> */}
           </Card>
         ) : null}
 
@@ -249,16 +260,18 @@ export default function CheckoutScreen({ route, navigation }) {
               {!choice
                 ? 'Choose how you want to pay'
                 : choice.payment_mode === 'cod'
-                ? 'Cash on Delivery'
-                : `Pay online · ${choice.payment_gateway}`}
+                  ? 'Cash on Delivery'
+                  : `Pay online · ${choice.payment_gateway}`}
             </Text>
           </Card>
         </Pressable>
 
         {/* Bill */}
         <Card>
-          <Row left="Item total" right={money(quote?.subtotal)} />
-          <Row left="GST" right={money(quote?.gst)} />
+          <Row left="Total MRP" right={money(totalMrp)} />
+          {mrpDiscount > 0 ? (
+            <Row left="Discount on MRP" right={`- ${money(mrpDiscount)}`} rightColor={colors.primaryDark} />
+          ) : null}
           {num(quote?.coupon?.discount) > 0 ? (
             <Row
               left={`Coupon (${quote?.coupon?.code})`}
@@ -278,7 +291,7 @@ export default function CheckoutScreen({ route, navigation }) {
           title={`Place Order · ${money(total)}`}
           onPress={place}
           loading={placing}
-          disabled={!choice || !address}
+          disabled={!choice || !address || (requiresRx && !prescription)}
         />
       </StickyBottom>
     </Screen>

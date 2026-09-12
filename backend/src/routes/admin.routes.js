@@ -96,6 +96,8 @@ router.patch('/orders/:orderId/status', requirePermission(P.ORDERS_MANAGE), vali
 router.patch('/orders/:orderId/tracking', requirePermission(P.ORDERS_MANAGE), order.updateTracking);
 router.patch('/orders/:orderId/payment', requirePermission(P.ORDERS_MANAGE), order.updatePayment);
 router.post('/orders/:orderId/cancel', requirePermission(P.ORDERS_CANCEL), order.cancelOrder);
+// Hard delete — only ever succeeds while the order is still Pending (see service-layer check)
+router.delete('/orders/:orderId', requirePermission(P.ORDERS_CANCEL), order.deleteOrder);
 router.patch('/orders/:orderId/prescription', requirePermission(P.PRESCRIPTIONS_MANAGE),
   order.updatePrescriptionStatus);
 
@@ -194,8 +196,12 @@ router.delete('/coupons/:couponId', requirePermission(P.COUPONS_MANAGE), catalog
 router.get('/customers', requirePermission(P.CUSTOMERS_VIEW), customer.list);
 router.get('/customers/stats', requirePermission(P.CUSTOMERS_VIEW), customer.stats);
 router.get('/customers/export', requirePermission(P.CUSTOMERS_VIEW), customer.exportCsv);
+// NOTE: /customers/carts must stay above /customers/:customerId or Express
+// would swallow "carts" as a customerId.
+router.get('/customers/carts', requirePermission(P.CUSTOMERS_VIEW), customer.carts);
 router.get('/customers/:customerId', requirePermission(P.CUSTOMERS_VIEW), customer.detail);
 router.get('/customers/:customerId/orders', requirePermission(P.CUSTOMERS_VIEW), customer.customerOrders);
+router.get('/customers/:customerId/cart', requirePermission(P.CUSTOMERS_VIEW), customer.customerCart);
 router.patch('/customers/:customerId', requirePermission(P.CUSTOMERS_MANAGE), customer.update);
 router.patch('/customers/:customerId/status', requirePermission(P.CUSTOMERS_MANAGE), customer.setStatus);
 

@@ -222,6 +222,9 @@ const server = app.listen(PORT, () => {
 
   // Weekly auto-purge of otp_logs + notification_logs
   require('./src/services/cleanup.service').startLogCleanup();
+
+  // Auto-cancel orders stuck in "Pending" too long (payment never completed)
+  require('./src/services/order-autocancel.service').startAutoCancel();
 });
 
 /**
