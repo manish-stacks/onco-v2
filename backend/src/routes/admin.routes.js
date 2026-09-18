@@ -263,6 +263,16 @@ router.post('/offers', requirePermission(P.SETTINGS_MANAGE), settings.createOffe
 router.put('/offers/:offerId', requirePermission(P.SETTINGS_MANAGE), settings.updateOffer);
 router.delete('/offers/:offerId', requirePermission(P.SETTINGS_MANAGE), settings.removeOffer);
 
+router.get('/testimonials', requirePermission(P.SETTINGS_VIEW), settings.listTestimonials);
+router.post('/testimonials', requirePermission(P.SETTINGS_MANAGE), settings.createTestimonial);
+router.put('/testimonials/:reviewId', requirePermission(P.SETTINGS_MANAGE), settings.updateTestimonial);
+router.delete('/testimonials/:reviewId', requirePermission(P.SETTINGS_MANAGE), settings.removeTestimonial);
+
+router.get('/faqs', requirePermission(P.SETTINGS_VIEW), settings.listFaqs);
+router.post('/faqs', requirePermission(P.SETTINGS_MANAGE), settings.createFaq);
+router.put('/faqs/:faqId', requirePermission(P.SETTINGS_MANAGE), settings.updateFaq);
+router.delete('/faqs/:faqId', requirePermission(P.SETTINGS_MANAGE), settings.removeFaq);
+
 router.get('/cities', requirePermission(P.SETTINGS_VIEW), settings.listCities);
 router.post('/cities', requirePermission(P.SETTINGS_MANAGE), settings.createCity);
 router.put('/cities/:cityId', requirePermission(P.SETTINGS_MANAGE), settings.updateCity);

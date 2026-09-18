@@ -4,7 +4,9 @@ const db = require('../config/db');
 const storage = require('./storage.service');
 const cache = require('../utils/cache');
 const { parseJson } = require('../utils/helpers');
-const { MEDIA_MAP, toSourceUrl, isMigrated, legacyBase } = require('../config/media');
+const {
+  MEDIA_MAP, toSourceUrl, isMigrated, legacyBase, legacyPathForTable,
+} = require('../config/media');
 
 /**
  * Purani site (oncohealthmart.com) pe padi images ko S3 pe le jaana.
@@ -64,7 +66,7 @@ async function scan({ tables } = {}) {
 
           if (isMigrated(value)) { skipped += 1; continue; }
 
-          const sourceUrl = toSourceUrl(value);
+          const sourceUrl = toSourceUrl(value, map.legacyPath);
           if (!sourceUrl) { skipped += 1; continue; }
 
           const inserted = await queueItem({
@@ -347,7 +349,7 @@ async function preview({ tables, limit = 24, offset = 0 } = {}) {
  * remains only for auditing.
  */
 function resolveUrl(item) {
-  return toSourceUrl(item.old_value) || item.source_url;
+  return toSourceUrl(item.old_value, legacyPathForTable(item.source_table)) || item.source_url;
 }
 
 /**
@@ -364,14 +366,14 @@ async function repairSourceUrls({ tables } = {}) {
   }
 
   const [rows] = await db.query(
-    `SELECT id, old_value, source_url FROM media_migration_items
+    `SELECT id, source_table, old_value, source_url FROM media_migration_items
      WHERE status IN ('pending','failed')${tableFilter}`,
     params
   );
 
   let fixed = 0;
   for (const row of rows) {
-    const correct = toSourceUrl(row.old_value);
+    const correct = toSourceUrl(row.old_value, legacyPathForTable(row.source_table));
     if (correct && correct !== row.source_url) {
       await db.query(`UPDATE media_migration_items SET source_url = ? WHERE id = ?`,
         [correct, row.id]);

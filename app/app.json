@@ -59,7 +59,7 @@
       "expo-asset"
     ],
     "extra": {
-      "apiBase": "https://www.betaapi.oncohealthmart.com",
+      "apiBase": "https://www.api.oncohealthmart.com",
       "eas": {
         "projectId": "bdb294ff-0afe-4463-85be-2fa5187578d8"
       }

@@ -1,5 +1,6 @@
 const axios = require('axios');
 const db = require('../config/db');
+const { isChannelEnabled } = require('../utils/notify-toggles');
 
 
 
@@ -106,6 +107,10 @@ async function sendOtp(mobile, otp, meta = {}) {
  * @param {Array}  variables     [VAR1, VAR2, ...]
  */
 async function sendTransactional(mobile, templateName, variables = []) {
+  if (!(await isChannelEnabled('sms'))) {
+    console.log(`[sms] skipped — SMS notifications disabled in admin settings (${templateName})`);
+    return { skipped: 'sms disabled in settings' };
+  }
   if (!isConfigured() || !templateName) {
     console.log(`[sms] DEV MODE — ${toTenDigit(mobile)} | template ${templateName} |`, variables);
     return { dev: true };

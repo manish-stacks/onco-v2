@@ -9,7 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 export const API_BASE = (
   Constants?.expoConfig?.extra?.apiBase ||
   Constants?.manifest?.extra?.apiBase ||
-  'http://betaapi.oncohealthmart.com'
+  'http://api.oncohealthmart.com'
 ).replace(/\/$/, '');
 
 const PREFIX = '/api/app';

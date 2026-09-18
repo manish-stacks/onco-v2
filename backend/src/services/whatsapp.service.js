@@ -1,6 +1,7 @@
 const axios = require('axios');
 const db = require('../config/db');
 const { normalizeMobile } = require('../utils/helpers');
+const { isChannelEnabled } = require('../utils/notify-toggles');
 
 /**
  * WhatsApp via BuzWap (hoverbusinessservices gateway).
@@ -113,6 +114,11 @@ async function log({ template, recipient, customerId, orderId, params, success, 
  */
 async function sendTemplate(mobile, template, values = {}, meta = {}) {
   if (!mobile) return { skipped: 'no mobile number' };
+
+  if (!(await isChannelEnabled('whatsapp'))) {
+    await log({ template: template.name, recipient: normalizeMobile(mobile), ...meta, params: [], success: false, error: 'whatsapp notifications disabled in admin settings' });
+    return { skipped: 'whatsapp disabled in settings' };
+  }
 
   // arrange the values according to the template's param order
   const params = template.params.map((key) => sanitize(values[key]));

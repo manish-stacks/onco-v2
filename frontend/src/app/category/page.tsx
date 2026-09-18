@@ -33,9 +33,7 @@ export default async function CategoriesPage() {
       </p>
 
       <div className="mb-6 text-center sm:mb-8">
-        <span className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-500)] sm:mb-4 sm:h-14 sm:w-14">
-          <LayoutGrid size={24} />
-        </span>
+        
         <h1 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-3xl lg:text-4xl">All Categories</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-[var(--ink-soft)] sm:text-base">
           {tags.length > 0 ? `${tags.length} categories to explore` : "Browse our full range of medicines"}

@@ -208,5 +208,7 @@ router.post('/subscribe', validate({
 router.get('/locations/states', cms.states);
 router.get('/locations/countries', cms.countries);
 router.get('/locations/cities', cms.serviceableCities);
+router.get('/faqs', cms.faqs);
+router.get('/testimonials', cms.testimonials);
 
 module.exports = router;

@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors, radius, shadow } from '../theme';
 import { statusTone } from '../utils/format';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ---------------------------------------------------------------------------
 export function Card({ style, children, ...rest }) {
@@ -209,7 +210,21 @@ export function Row({ left, right, bold, style, rightColor }) {
 }
 
 export function StickyBottom({ children, style }) {
-  return <View style={[styles.sticky, style]}>{children}</View>;
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View
+      style={[
+        styles.sticky,
+        {
+          paddingBottom: Math.max(insets.bottom, 10),
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 // ---------------------------------------------------------------------------

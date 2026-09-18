@@ -515,7 +515,7 @@ function MediaMigration() {
           <div className="flex gap-1.5">
             <Button size="xs" variant="ghost"
               onClick={() => setSelected(data.tables.map((t) => t.table))} disabled={running}>
-              Sab select
+              All select
             </Button>
             <Button size="xs" variant="ghost" onClick={() => setSelected([])} disabled={running}>
               Remove all

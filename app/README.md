@@ -18,7 +18,7 @@ npx expo start
 Set it once in `app.json` → `expo.extra.apiBase`:
 
 ```json
-"extra": { "apiBase": "https://www.betaapi.oncohealthmart.com" }
+"extra": { "apiBase": "https://www.api.oncohealthmart.com" }
 ```
 
 For production change it to `https://api.oncohealthmart.com`.

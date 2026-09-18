@@ -6,21 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "migrate": "node src/migrations/run-migration.js",
-    "migrate:002": "node src/migrations/run-sql.js 002_integrations.sql",
-    "seed": "node src/migrations/seed.js",
-    "trim": "node src/migrations/trim-local-data.js",
-    "db:locks": "node src/migrations/db-locks.js",
-    "migrate:003": "node src/migrations/run-sql.js 003_media_storage.sql",
     "doctor": "node src/migrations/doctor.js",
-    "migrate:004": "node src/migrations/run-sql.js 004_fix_media_dedup.sql",
-    "migrate:005": "node src/migrations/run-sql.js 005_product_brands.sql",
-    "migrate:006": "node src/migrations/run-sql.js 006_gst_settings.sql",
-    "migrate:007": "node src/migrations/run-sql.js 007_pos_gateways_gst.sql",
-    "migrate:008": "node src/migrations/run-sql.js 008_original_invoice.sql",
-    "migrate:009": "node src/migrations/run-sql.js 009_category_position.sql",
-    "migrate:010": "node src/migrations/run-sql.js 010_newsletter_coupon_visibility.sql",
-    "map-brands": "node src/migrations/map-brands.js"
+    "migrate:legacy": "node src/migrations/import-legacy.js"
   },
   "engines": {
     "node": ">=18"

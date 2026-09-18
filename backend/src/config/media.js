@@ -55,6 +55,7 @@ const MEDIA_MAP = [
     columns: ['images'],
     json: true,
     folder: 'prescriptions',
+    legacyPath: 'doc_upload', // old CI site ke uploads/doc_upload me hain, img_upload me nahi
   },
   {
     // Historical snapshot — the image as it was at order time. Migrating it is optional,
@@ -76,9 +77,14 @@ function legacyBase() {
  * (such as "abc123.jpg"), and the real URL is built as:
  *   https://oncohealthmart.com  +  /uploads/img_upload/  +  abc123.jpg
  */
-function legacyPath() {
-  const p = process.env.LEGACY_MEDIA_PATH || '/uploads/img_upload';
-  return `/${p.replace(/^\/+|\/+$/g, '')}`; // aage-peeche ke slashes normalize
+function legacyPath(override) {
+  // override: MEDIA_MAP entry ka legacyPath (e.g. "doc_upload"), agar diya ho —
+  // isse bina override wale columns (products, categories...) purane behaviour
+  // (LEGACY_MEDIA_PATH env / default img_upload) pe hi rehte hain.
+  const p = override
+    ? `uploads/${override.replace(/^\/+|\/+$/g, '').replace(/^uploads\//, '')}`
+    : (process.env.LEGACY_MEDIA_PATH || '/uploads/img_upload');
+  return `/${p.replace(/^\/+|\/+$/g, '')}`;
 }
 
 /**
@@ -91,7 +97,7 @@ function legacyPath() {
  *   "uploads/img_upload/abc.jpg"           -> base + /uploads/img_upload/abc.jpg
  *   "https://oncohealthmart.com/..."       -> waise hi
  */
-function toSourceUrl(value) {
+function toSourceUrl(value, legacyPathOverride) {
   if (!value) return null;
 
   let v = String(value).trim();
@@ -101,7 +107,7 @@ function toSourceUrl(value) {
   if (/^https?:\/\//i.test(v)) return v;
 
   v = v.replace(/^\/+/, ''); // leading slashes hata do
-  const folder = legacyPath().replace(/^\//, ''); // "uploads/img_upload"
+  const folder = legacyPath(legacyPathOverride).replace(/^\//, ''); // e.g. "uploads/doc_upload"
 
   // Is the folder already in the path? Then do not add it again — otherwise
   // it would become /uploads/img_upload/uploads/img_upload/abc.jpg
@@ -109,7 +115,7 @@ function toSourceUrl(value) {
 
   return hasFolder
     ? `${legacyBase()}/${v}`
-    : `${legacyBase()}${legacyPath()}/${v}`;
+    : `${legacyBase()}${legacyPath(legacyPathOverride)}/${v}`;
 }
 
 /** Has this value already been migrated? */
@@ -125,4 +131,12 @@ function isMigrated(value) {
   return false;
 }
 
-module.exports = { MEDIA_MAP, legacyBase, legacyPath, toSourceUrl, isMigrated };
+/** MEDIA_MAP se us table ka legacyPath dhoondo (agar diya ho) — resolveUrl jaisi
+ *  jagah ke liye jahan sirf table ka naam pata hota hai, poora map entry nahi */
+function legacyPathForTable(table) {
+  return MEDIA_MAP.find((m) => m.table === table)?.legacyPath;
+}
+
+module.exports = {
+  MEDIA_MAP, legacyBase, legacyPath, toSourceUrl, isMigrated, legacyPathForTable,
+};

@@ -25,6 +25,8 @@ import Settings from '@/pages/settings/Settings';
 import Banners from '@/pages/content/Banners';
 import Deals from '@/pages/content/Deals';
 import Offers from '@/pages/content/Offers';
+import Testimonials from '@/pages/content/Testimonials';
+import Faqs from '@/pages/content/Faqs';
 import Cities from '@/pages/content/Cities';
 import Pages from '@/pages/content/Pages';
 import News from '@/pages/content/News';
@@ -103,6 +105,8 @@ export default function App() {
               <Route path="content/deals" element={<Guard perm={P.SETTINGS_VIEW}><Deals /></Guard>} />
               <Route path="content/offers" element={<Guard perm={P.SETTINGS_VIEW}><Offers /></Guard>} />
               <Route path="content/cities" element={<Guard perm={P.SETTINGS_VIEW}><Cities /></Guard>} />
+              <Route path="content/testimonials" element={<Guard perm={P.SETTINGS_VIEW}><Testimonials /></Guard>} />
+              <Route path="content/faqs" element={<Guard perm={P.SETTINGS_VIEW}><Faqs /></Guard>} />
 
               {/* Content */}
               <Route path="content/pages" element={<Guard perm={P.CMS_VIEW}><Pages /></Guard>} />

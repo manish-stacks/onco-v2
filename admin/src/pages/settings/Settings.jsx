@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Building2, Truck, CreditCard, Share2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building2, Truck, CreditCard, Share2, Search, Bell, Code2 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { api, mediaUrl } from '@/lib/api';
@@ -52,6 +52,9 @@ export default function Settings() {
       // Always send the toggle fields — otherwise an unchecked (0) value never saves
       ['is_cod', 'is_razorpay', 'is_payu'].forEach((k) => {
         fd.set(k, Number(form[k]) ? 1 : 0);
+      });
+      ['notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled'].forEach((k) => {
+        fd.set(k, (form[k] === undefined || form[k] === null ? true : !!Number(form[k])) ? 1 : 0);
       });
       if (logo) fd.append('logo', logo);
       return api.form(`/admin/settings/${data.id}`, fd, 'PUT');
@@ -167,6 +170,48 @@ export default function Settings() {
           </p>
         </SettingsSection>
 
+        <SettingsSection icon={Bell} title="Notifications"
+          hint="Off karoge to us channel pe koi order/prescription message nahi jayega">
+          <Checkbox
+            label="WhatsApp notifications"
+            checked={form.notify_whatsapp_enabled === undefined || form.notify_whatsapp_enabled === null
+              ? true : !!Number(form.notify_whatsapp_enabled)}
+            onChange={(e) => set('notify_whatsapp_enabled', e.target.checked ? 1 : 0)}
+          />
+          <Checkbox
+            label="SMS notifications"
+            checked={form.notify_sms_enabled === undefined || form.notify_sms_enabled === null
+              ? true : !!Number(form.notify_sms_enabled)}
+            onChange={(e) => set('notify_sms_enabled', e.target.checked ? 1 : 0)}
+          />
+          <Checkbox
+            label="Email notifications"
+            checked={form.notify_email_enabled === undefined || form.notify_email_enabled === null
+              ? true : !!Number(form.notify_email_enabled)}
+            onChange={(e) => set('notify_email_enabled', e.target.checked ? 1 : 0)}
+          />
+          <p className="text-2xs text-ink-500 bg-paper-sunk rounded-md p-2.5">
+            Sirf order/prescription update jaisi customer notifications control karta hai —
+            login OTP is se affect nahi hota, wo hamesha kaam karega.
+          </p>
+        </SettingsSection>
+
+        <SettingsSection icon={Code2} title="Header / footer scripts"
+          hint="Google Tag Manager, analytics, Meta Pixel jaise scripts — website ke <head> aur </body> se pehle inject honge">
+          <Field label="Header script" hint="<head> ke andar jayega">
+            <Textarea rows={4} className="font-mono" value={form.header_code || ''}
+              onChange={(e) => set('header_code', e.target.value)} placeholder="<script>...</script>" />
+          </Field>
+          <Field label="Footer script" hint="</body> se pehle jayega">
+            <Textarea rows={4} className="font-mono" value={form.footer_code || ''}
+              onChange={(e) => set('footer_code', e.target.value)} placeholder="<script>...</script>" />
+          </Field>
+          <p className="text-2xs text-ink-500 bg-paper-sunk rounded-md p-2.5">
+            Yahan jo bhi paste karoge wo seedha website me chalega (trusted admin-only field hai) —
+            sirf trusted source (Google, Meta, etc.) ka code hi paste karna.
+          </p>
+        </SettingsSection>
+
         <SettingsSection icon={Share2} title="Social links">
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label="Facebook">
@@ -182,6 +227,39 @@ export default function Settings() {
               <Input value={form.printinterest_link || ''} onChange={(e) => set('printinterest_link', e.target.value)} />
             </Field>
           </div>
+        </SettingsSection>
+
+        <SettingsSection icon={Search} title="SEO"
+          hint="Default meta tags + sitemap.xml/robots.txt (auto-generated, live at the links below)">
+          <Field label="Meta title" hint="Shown on Google search results and the browser tab">
+            <Input value={form.meta_title || ''} onChange={(e) => set('meta_title', e.target.value)} />
+          </Field>
+          <Field label="Meta description">
+            <Textarea rows={2} value={form.meta_description || ''} onChange={(e) => set('meta_description', e.target.value)} />
+          </Field>
+          <Field label="Meta keywords" hint="Comma separated">
+            <Input value={form.meta_keywords || ''} onChange={(e) => set('meta_keywords', e.target.value)} />
+          </Field>
+          <Field label="Social share image (OG image) URL">
+            <Input value={form.og_image || ''} onChange={(e) => set('og_image', e.target.value)} />
+          </Field>
+          <Field label="Google site verification"
+            hint="Paste just the content= value from Google Search Console, if asked">
+            <Input value={form.google_site_verification || ''} onChange={(e) => set('google_site_verification', e.target.value)} />
+          </Field>
+          <Field label="robots.txt"
+            hint="Khaali chhod do to default (sab crawl karne do) use hoga">
+            <Textarea rows={4} className="font-mono" value={form.robots_txt || ''} onChange={(e) => set('robots_txt', e.target.value)} />
+          </Field>
+          <p className="text-2xs text-ink-500 bg-paper-sunk rounded-md p-2.5 space-y-1">
+            <span className="block">
+              Sitemap: <code className="font-mono">{(import.meta.env.VITE_API_BASE || '').replace(/\/api\/?$/, '')}/sitemap.xml</code>
+              {' '}— naya product/category add hote hi khud-ba-khud isme aa jayega, kuch karna nahi padega.
+            </span>
+            <span className="block">
+              robots.txt: <code className="font-mono">{(import.meta.env.VITE_API_BASE || '').replace(/\/api\/?$/, '')}/robots.txt</code>
+            </span>
+          </p>
         </SettingsSection>
       </div>
 

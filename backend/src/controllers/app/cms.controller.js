@@ -113,6 +113,16 @@ const publicSettings = asyncHandler(async (req, res) => {
       shipping_threshold: s.shipping_threshold,
       is_cod: s.is_cod,
       cod_fee: s.cod_fee,
+      // Header/footer script (GTM, analytics, meta pixel etc.) — admin-controlled,
+      // trusted content only, frontend injects as-is into <head>/before </body>
+      header_code: s.header_code,
+      footer_code: s.footer_code,
+      // Default/global SEO — used as fallback when a page has no meta_title/description of its own
+      meta_title: s.meta_title,
+      meta_description: s.meta_description,
+      meta_keywords: s.meta_keywords,
+      og_image: s.og_image,
+      google_site_verification: s.google_site_verification,
     };
   });
   return ok(res, data);
@@ -131,7 +141,17 @@ const serviceableCities = asyncHandler(async (req, res) => {
   return ok(res, await cache.getOrSet('locations:cities', cache.TTL.LONG, () => settingsModel.listCities(true)));
 });
 
+/** GET /faqs — dynamic FAQ list for the website */
+const faqs = asyncHandler(async (req, res) => {
+  return ok(res, await cache.getOrSet('faqs:public', cache.TTL.LONG, () => settingsModel.listFaqs(true)));
+});
+
+/** GET /testimonials — dynamic testimonials for the website */
+const testimonials = asyncHandler(async (req, res) => {
+  return ok(res, await cache.getOrSet('testimonials:public', cache.TTL.LONG, () => settingsModel.listTestimonials(true)));
+});
+
 module.exports = {
   page, pages, news, newsDetail, submitEnquiry, subscribeNewsletter, publicSettings,
-  states, countries, serviceableCities,
+  states, countries, serviceableCities, faqs, testimonials,
 };

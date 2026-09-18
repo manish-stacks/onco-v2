@@ -191,6 +191,12 @@ app.use(
 );
 
 /**
+ * sitemap.xml + robots.txt — search engines expect these at the domain root,
+ * so they must NOT sit under /api.
+ */
+app.use(require('./src/routes/seo.routes'));
+
+/**
  * Main API routes.
  */
 app.use('/api', routes);

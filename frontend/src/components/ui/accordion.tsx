@@ -35,7 +35,7 @@ export function Accordion({
 }
 
 function AccordionColumn({ items }: { items: AccordionItem[] }) {
-  const [open, setOpen] = useState<number | null>(0);
+  const [open, setOpen] = useState<number | null>(null);
 
   return (
     <div className="space-y-5">

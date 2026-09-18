@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const db = require('../config/db');
+const { isChannelEnabled } = require('../utils/notify-toggles');
 
 /**
  * Plain SMTP mailer (nodemailer). Configure via .env:
@@ -51,6 +52,11 @@ async function log({ to, subject, customerId, orderId, success, error }) {
  */
 async function send(to, subject, html, meta = {}) {
   if (!to) return { success: false, error: 'no recipient email' };
+
+  if (!(await isChannelEnabled('email'))) {
+    await log({ to, subject, ...meta, success: false, error: 'email notifications disabled in admin settings' });
+    return { success: false, error: 'email disabled in settings' };
+  }
 
   if (!isConfigured()) {
     console.warn('[mail] SMTP not configured — skipping email:', subject);

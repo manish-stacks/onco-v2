@@ -211,6 +211,58 @@ const removeOffer = asyncHandler(async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// TESTIMONIALS
+// ---------------------------------------------------------------------------
+const listTestimonials = asyncHandler(async (req, res) => ok(res, await settingsModel.listTestimonials()));
+
+const createTestimonial = asyncHandler(async (req, res) => {
+  const id = await settingsModel.createTestimonial(req.body);
+  await cache.delByPrefix('home:');
+  await cache.delByPrefix('testimonials:');
+  return created(res, { id }, 'Testimonial added');
+});
+
+const updateTestimonial = asyncHandler(async (req, res) => {
+  await settingsModel.updateTestimonial(req.params.reviewId, req.body);
+  await cache.delByPrefix('home:');
+  await cache.delByPrefix('testimonials:');
+  return ok(res, null, 'Testimonial updated');
+});
+
+const removeTestimonial = asyncHandler(async (req, res) => {
+  await settingsModel.removeTestimonial(req.params.reviewId);
+  await cache.delByPrefix('home:');
+  await cache.delByPrefix('testimonials:');
+  return ok(res, null, 'Testimonial deleted');
+});
+
+// ---------------------------------------------------------------------------
+// FAQs
+// ---------------------------------------------------------------------------
+const listFaqs = asyncHandler(async (req, res) => ok(res, await settingsModel.listFaqs()));
+
+const createFaq = asyncHandler(async (req, res) => {
+  const id = await settingsModel.createFaq(req.body);
+  await cache.delByPrefix('home:');
+  await cache.delByPrefix('faqs:');
+  return created(res, { id }, 'FAQ added');
+});
+
+const updateFaq = asyncHandler(async (req, res) => {
+  await settingsModel.updateFaq(req.params.faqId, req.body);
+  await cache.delByPrefix('home:');
+  await cache.delByPrefix('faqs:');
+  return ok(res, null, 'FAQ updated');
+});
+
+const removeFaq = asyncHandler(async (req, res) => {
+  await settingsModel.removeFaq(req.params.faqId);
+  await cache.delByPrefix('home:');
+  await cache.delByPrefix('faqs:');
+  return ok(res, null, 'FAQ deleted');
+});
+
+// ---------------------------------------------------------------------------
 // SERVICEABLE CITIES
 // ---------------------------------------------------------------------------
 const listCities = asyncHandler(async (req, res) => ok(res, await settingsModel.listCities()));
@@ -331,4 +383,6 @@ module.exports = {
   listPages, pageDetail, createPage, updatePage, removePage,
   listNews, createNews, updateNews, removeNews,
   listEnquiries, resolveEnquiry, removeEnquiry,
+  listTestimonials, createTestimonial, updateTestimonial, removeTestimonial,
+  listFaqs, createFaq, updateFaq, removeFaq,
 };

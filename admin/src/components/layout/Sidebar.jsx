@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, Users, FileText, Tags,
   Ticket, Star, BarChart3, Settings, ShieldCheck, Newspaper, X, Building2, Bell, Activity,
-  Image, Tag, MapPin, Inbox, MonitorSmartphone, CreditCard, ShoppingBag,
+  Image, Tag, MapPin, Inbox, MonitorSmartphone, CreditCard, ShoppingBag, HelpCircle, Quote,
 } from 'lucide-react';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
@@ -50,6 +50,8 @@ const NAV = [
       { to: '/content/deals', label: 'Deals', icon: Tag, perm: P.SETTINGS_VIEW },
       { to: '/content/offers', label: 'Offer cards', icon: Ticket, perm: P.SETTINGS_VIEW },
       { to: '/content/cities', label: 'Delivery cities', icon: MapPin, perm: P.SETTINGS_VIEW },
+      { to: '/content/testimonials', label: 'Testimonials', icon: Quote, perm: P.SETTINGS_VIEW },
+      { to: '/content/faqs', label: 'FAQs', icon: HelpCircle, perm: P.SETTINGS_VIEW },
     ],
   },
   {

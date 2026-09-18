@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { CategoryTag } from "@/types";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 15;
 
 const TRUST_ITEMS = [
   { icon: ShieldCheck, title: "100% Genuine", sub: "Authentic medicines you can trust" },
@@ -103,11 +103,10 @@ export function CategoriesGrid({ categories }: { categories: CategoryTag[] }) {
         <div className="mb-5 flex gap-2 overflow-x-auto pb-1 lg:hidden">
           <button
             onClick={() => setActive(null)}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              !active
+            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${!active
                 ? "border-[var(--blue-500)] bg-[var(--blue-500)] text-white"
                 : "border-[var(--line)] bg-white text-[var(--ink-soft)]"
-            }`}
+              }`}
           >
             All
           </button>
@@ -115,11 +114,10 @@ export function CategoriesGrid({ categories }: { categories: CategoryTag[] }) {
             <button
               key={c.id}
               onClick={() => handleSidebarClick(c.slug)}
-              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                active === c.slug
+              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${active === c.slug
                   ? "border-[var(--blue-500)] bg-[var(--blue-500)] text-white"
                   : "border-[var(--line)] bg-white text-[var(--ink-soft)]"
-              }`}
+                }`}
             >
               {c.name}
             </button>
@@ -135,9 +133,8 @@ export function CategoriesGrid({ categories }: { categories: CategoryTag[] }) {
               <p className="mb-3 text-sm font-semibold text-[var(--ink)]">Browse Categories</p>
               <button
                 onClick={() => setActive(null)}
-                className={`mb-1 flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-2 text-sm transition-colors ${
-                  !active ? "bg-[var(--blue-50)] font-semibold text-[var(--blue-600)]" : "text-[var(--ink-soft)] hover:bg-[var(--blue-50)]/60"
-                }`}
+                className={`mb-1 flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-2 text-sm transition-colors ${!active ? "bg-[var(--blue-50)] font-semibold text-[var(--blue-600)]" : "text-[var(--ink-soft)] hover:bg-[var(--blue-50)]/60"
+                  }`}
               >
                 <span className="flex items-center gap-2"><LayoutGrid size={14} /> All Categories</span>
                 <span className="text-xs">{categories.length}</span>
@@ -147,11 +144,10 @@ export function CategoriesGrid({ categories }: { categories: CategoryTag[] }) {
                   <button
                     key={c.id}
                     onClick={() => handleSidebarClick(c.slug)}
-                    className={`flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-2 text-left text-sm transition-colors ${
-                      active === c.slug
+                    className={`flex w-full items-center justify-between rounded-[var(--radius-md)] px-3 py-2 text-left text-sm transition-colors ${active === c.slug
                         ? "bg-[var(--blue-50)] font-semibold text-[var(--blue-600)]"
                         : "text-[var(--ink-soft)] hover:bg-[var(--blue-50)]/60"
-                    }`}
+                      }`}
                   >
                     <span className="line-clamp-1">{c.name}</span>
                     {c.productCount ? <span className="ml-2 shrink-0 text-xs">{c.productCount}</span> : null}
@@ -185,43 +181,132 @@ export function CategoriesGrid({ categories }: { categories: CategoryTag[] }) {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+              
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 xl:grid-cols-5">
                 {paged.map((c, i) => {
                   const tile = TILE_COLORS[i % TILE_COLORS.length];
+
                   return (
                     <Link
                       key={c.id}
-                      ref={(el) => { cardRefs.current[c.slug] = el; }}
+                      ref={(el) => {
+                        cardRefs.current[c.slug] = el;
+                      }}
                       href={`/category/${c.slug}`}
-                      className="group overflow-hidden rounded-[var(--radius-lg)] border border-[var(--line)] bg-white transition-all hover:-translate-y-0.5 hover:border-[var(--blue-500)] hover:shadow-md"
+                      className="
+                        group relative overflow-hidden rounded-[22px]
+                        border border-slate-200/80 bg-white
+                        shadow-[0_8px_30px_rgba(15,23,42,0.05)]
+                        transition-all duration-300
+                        hover:-translate-y-1.5
+                        hover:border-[var(--blue-500)]/30
+                        hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]
+                      "
                     >
-                      <div className={`relative aspect-square overflow-hidden ${tile.bg}`}>
+                      {/* IMAGE AREA */}
+                      <div
+                        className={`
+            relative aspect-[1/0.95] overflow-hidden
+            ${tile.bg}
+          `}
+                      >
+                        {/* subtle decorative circle */}
+                        <div className="pointer-events-none absolute -right-8 -top-8 z-[1] h-24 w-24 rounded-full bg-white/40 blur-xl" />
+
                         {c.image ? (
                           <Image
                             src={c.image}
                             alt={c.name}
                             fill
-                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                            className="
+                object-cover
+                transition-transform duration-500 ease-out
+                group-hover:scale-[1.07]
+              "
                           />
                         ) : (
-                          <div className={`flex h-full w-full items-center justify-center ${tile.fg}`}>
-                            <Package size={32} />
+                          <div
+                            className={`flex h-full w-full items-center justify-center ${tile.fg}`}
+                          >
+                            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70 shadow-sm backdrop-blur-sm">
+                              <Package size={30} />
+                            </div>
                           </div>
                         )}
+
+                        {/* Gradient Overlay */}
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+                        {/* product badge */}
+                        {c.productCount ? (
+                          <span
+                            className="
+                              absolute left-3 top-3 z-10
+                              rounded-full border border-white/60
+                              bg-white/90 px-2.5 py-1
+                              text-[10px] font-semibold text-slate-700
+                              shadow-sm backdrop-blur-md
+                            "
+                          >
+                            {c.productCount} medicines
+                          </span>
+                        ) : null}
                       </div>
-                      <div className="p-3 sm:p-4">
-                        <p className="mb-0.5 line-clamp-1 text-sm font-semibold text-[var(--ink)] group-hover:text-[var(--blue-600)] sm:text-base">
-                          {c.name}
-                        </p>
-                        <p className="text-xs text-[var(--ink-soft)]">
-                          {c.productCount ? `${c.productCount} products` : "Browse products"}
-                        </p>
+
+                      {/* CONTENT */}
+                      <div className="relative p-3.5 sm:p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p
+                              className="
+                              line-clamp-1
+                              font-display text-sm font-bold text-[var(--ink)]
+                              transition-colors duration-300
+                              group-hover:text-[var(--blue-600)]
+                              sm:text-[15px]
+                            "
+                            >
+                              {c.name}
+                            </p>
+
+                           
+                          </div>
+
+                          {/* arrow */}
+                          <span
+                            className="
+                            flex h-8 w-8 shrink-0 items-center justify-center
+                            rounded-full bg-[var(--blue-50)]
+                            text-[var(--blue-600)]
+                            transition-all duration-300
+                            group-hover:bg-[var(--blue-600)]
+                            group-hover:text-white
+                          "
+                          >
+                            <ChevronRight
+                              size={15}
+                              className="transition-transform duration-300 group-hover:translate-x-0.5"
+                            />
+                          </span>
+                        </div>
+
+                        {/* bottom hover line */}
+                        <span
+                          className="
+                              absolute bottom-0 left-0 h-[3px] w-0
+                              bg-[var(--blue-500)]
+                              transition-all duration-500
+                              group-hover:w-full
+                            "
+                        />
                       </div>
                     </Link>
                   );
                 })}
               </div>
+              
+
 
               {totalPages > 1 && (
                 <div className="mt-8 flex items-center justify-center gap-1.5">
@@ -237,11 +322,10 @@ export function CategoriesGrid({ categories }: { categories: CategoryTag[] }) {
                     <button
                       key={n}
                       onClick={() => setPage(n)}
-                      className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-colors ${
-                        n === page
+                      className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-colors ${n === page
                           ? "bg-[var(--blue-500)] text-white"
                           : "border border-[var(--line)] text-[var(--ink-soft)] hover:bg-[var(--blue-50)]"
-                      }`}
+                        }`}
                     >
                       {n}
                     </button>

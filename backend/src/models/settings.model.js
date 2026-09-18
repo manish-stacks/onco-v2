@@ -10,7 +10,9 @@ const SETTINGS_FIELDS = ['organization', 'contact_address', 'contact_phone', 'co
   'shipping_charge', 'shipping_threshold', 'is_cod', 'cod_fee', 'is_login_rules',
   'default_gst', 'gst_override',
   'is_razorpay', 'is_payu',
-  'login_start_time', 'login_end_time', 'status'];
+  'login_start_time', 'login_end_time', 'status',
+  'meta_title', 'meta_description', 'meta_keywords', 'og_image', 'google_site_verification', 'robots_txt',
+  'notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled'];
 
 /**
  * Columns that were added later. On an old database they simply do not exist,
@@ -23,6 +25,15 @@ const LATE_COLUMNS = {
   gst_override: `TINYINT(1) NOT NULL DEFAULT 0`,
   is_razorpay: `TINYINT(1) NOT NULL DEFAULT 1`,
   is_payu: `TINYINT(1) NOT NULL DEFAULT 1`,
+  meta_title: `VARCHAR(255) DEFAULT NULL`,
+  meta_description: `TEXT DEFAULT NULL`,
+  meta_keywords: `TEXT DEFAULT NULL`,
+  og_image: `TEXT DEFAULT NULL`,
+  google_site_verification: `VARCHAR(255) DEFAULT NULL`,
+  robots_txt: `TEXT DEFAULT NULL`,
+  notify_whatsapp_enabled: `TINYINT(1) NOT NULL DEFAULT 1`,
+  notify_sms_enabled: `TINYINT(1) NOT NULL DEFAULT 1`,
+  notify_email_enabled: `TINYINT(1) NOT NULL DEFAULT 1`,
 };
 
 let columnsReady = null;
@@ -61,7 +72,8 @@ async function update(id, data) {
 
   // Checkbox/toggle fields — 0 is a valid value here, so they are normalised
   // separately (pickDefined drops '' but keeps 0).
-  ['gst_override', 'is_cod', 'is_razorpay', 'is_payu', 'is_login_rules'].forEach((k) => {
+  ['gst_override', 'is_cod', 'is_razorpay', 'is_payu', 'is_login_rules',
+    'notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled'].forEach((k) => {
     if (data[k] !== undefined && data[k] !== null && data[k] !== '') {
       payload[k] = (data[k] === true || data[k] === 1 || data[k] === '1' || data[k] === 'true') ? 1 : 0;
     }
@@ -495,6 +507,93 @@ async function listCountries() {
   return rows;
 }
 
+// ---------------------------------------------------------------------------
+// TESTIMONIALS (homepage customer reviews) — table already exists in schema
+// ---------------------------------------------------------------------------
+const TESTIMONIAL_FIELDS = ['name', 'profession', 'review', 'stars', 'status'];
+
+async function listTestimonials(activeOnly = false) {
+  const where = activeOnly ? `WHERE status = 'active'` : '';
+  const [rows] = await db.query(`SELECT * FROM testimonials ${where} ORDER BY review_id DESC`);
+  return rows;
+}
+
+async function createTestimonial(data) {
+  const payload = pickDefined(data, TESTIMONIAL_FIELDS);
+  payload.stars = Math.min(5, Math.max(1, parseInt(payload.stars, 10) || 5));
+  const [result] = await db.query(`INSERT INTO testimonials SET ?`, [payload]);
+  return result.insertId;
+}
+
+async function updateTestimonial(id, data) {
+  const payload = pickDefined(data, TESTIMONIAL_FIELDS);
+  if (payload.stars !== undefined) payload.stars = Math.min(5, Math.max(1, parseInt(payload.stars, 10) || 5));
+  if (!Object.keys(payload).length) return false;
+  await db.query(`UPDATE testimonials SET ? WHERE review_id = ?`, [payload, id]);
+  return true;
+}
+
+async function removeTestimonial(id) {
+  await db.query(`DELETE FROM testimonials WHERE review_id = ?`, [id]);
+}
+
+// ---------------------------------------------------------------------------
+// FAQs — table nahi thi purani DB me, pehle use ke time khud ban jaati hai
+// (settings.ensureColumns wale idempotent pattern jaisa hi)
+// ---------------------------------------------------------------------------
+const FAQ_FIELDS = ['question', 'answer', 'category', 'position', 'status'];
+let faqTableReady = null;
+
+async function ensureFaqTable() {
+  if (faqTableReady) return faqTableReady;
+  faqTableReady = (async () => {
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS faqs (
+          faq_id INT AUTO_INCREMENT PRIMARY KEY,
+          question VARCHAR(500) NOT NULL,
+          answer TEXT NOT NULL,
+          category VARCHAR(100) DEFAULT NULL,
+          position INT NOT NULL DEFAULT 0,
+          status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      `);
+    } catch (e) {
+      console.warn('[faq] ensureFaqTable skipped:', e.message);
+    }
+  })();
+  return faqTableReady;
+}
+
+async function listFaqs(activeOnly = false) {
+  await ensureFaqTable();
+  const where = activeOnly ? `WHERE status = 'active'` : '';
+  const [rows] = await db.query(`SELECT * FROM faqs ${where} ORDER BY position ASC, faq_id ASC`);
+  return rows;
+}
+
+async function createFaq(data) {
+  await ensureFaqTable();
+  const payload = pickDefined(data, FAQ_FIELDS);
+  const [result] = await db.query(`INSERT INTO faqs SET ?`, [payload]);
+  return result.insertId;
+}
+
+async function updateFaq(id, data) {
+  await ensureFaqTable();
+  const payload = pickDefined(data, FAQ_FIELDS);
+  if (!Object.keys(payload).length) return false;
+  await db.query(`UPDATE faqs SET ? WHERE faq_id = ?`, [payload, id]);
+  return true;
+}
+
+async function removeFaq(id) {
+  await ensureFaqTable();
+  await db.query(`DELETE FROM faqs WHERE faq_id = ?`, [id]);
+}
+
 module.exports = {
   getTaxConfig, resolveGstPercent, ensureColumns, getPaymentConfig,
   get, update, calcCharges, isCodEnabled,
@@ -504,4 +603,6 @@ module.exports = {
   listOffers, createOffer, updateOffer, removeOffer,
   listCities, checkCity, createCity, updateCity, removeCity,
   listStates, listCountries,
+  listTestimonials, createTestimonial, updateTestimonial, removeTestimonial,
+  listFaqs, createFaq, updateFaq, removeFaq,
 };
