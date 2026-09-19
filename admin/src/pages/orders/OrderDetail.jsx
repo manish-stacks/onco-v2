@@ -603,12 +603,18 @@ function StatusModal({ open, onClose, order, onDone }) {
   const [note, setNote] = useState('');
   const [showAll, setShowAll] = useState(false);
 
+  const allowed = order.allowed_next_statuses || [];
   const save = useMutation(
-    () => api.patch(`/admin/orders/${order.order_id}/status`, { status, note }),
+    () => api.patch(`/admin/orders/${order.order_id}/status`, {
+      status, note,
+      // Backend requires force:true for a jump outside the normal flow
+      // (e.g. Cancelled -> New) — any admin with order-manage permission
+      // can do this, it's just an explicit "yes I mean it" flag.
+      force: status && !allowed.includes(status) ? true : undefined,
+    }),
     { success: 'Status updated', onSuccess: () => { onClose(); onDone(); setStatus(''); setNote(''); setShowAll(false); } }
   );
 
-  const allowed = order.allowed_next_statuses || [];
   // Payment done ke baad bhi kabhi kabhi order galti se Pending me stuck reh
   // jaata hai — usse recover karne ke liye (ya kisi aur wajah se) admin ko
   // kabhi bhi KOI bhi status manually set karna pad sakta hai, sirf state
@@ -768,18 +774,19 @@ function ContactModal({ open, onClose, order, onDone }) {
 function PaymentModal({ open, onClose, order, onDone }) {
   const [form, setForm] = useState({
     payment_status: order.payment_status,
+    payment_mode: order.payment_mode || 'cod',
     transaction_number: order.transaction_number || '',
   });
 
   const save = useMutation(
     () => api.patch(`/admin/orders/${order.order_id}/payment`, form),
-    { success: 'Payment status updated', onSuccess: () => { onClose(); onDone(); } }
+    { success: 'Payment updated', onSuccess: () => { onClose(); onDone(); } }
   );
 
   return (
     <Modal
-      open={open} onClose={onClose} title="Payment status"
-      subtitle="For marking a bank transfer or manual collection"
+      open={open} onClose={onClose} title="Payment details"
+      subtitle="For marking a bank transfer, manual collection, or correcting the payment mode"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -788,6 +795,12 @@ function PaymentModal({ open, onClose, order, onDone }) {
       }
     >
       <div className="space-y-3">
+        <Field label="Payment mode" required hint="e.g. customer paid online but it was placed as COD by mistake, or vice versa">
+          <Select
+            value={form.payment_mode} options={[{ value: 'cod', label: 'Cash on delivery' }, { value: 'online', label: 'Online (Razorpay)' }]}
+            onChange={(e) => setForm({ ...form, payment_mode: e.target.value })}
+          />
+        </Field>
         <Field label="Payment status" required>
           <Select
             value={form.payment_status} options={PAYMENT_STATUSES}

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, Users, FileText, Tags,
   Ticket, Star, BarChart3, Settings, ShieldCheck, Newspaper, X, Building2, Bell, Activity,
-  Image, Tag, MapPin, Inbox, MonitorSmartphone, CreditCard, ShoppingBag, HelpCircle, Quote,
+  Image, Tag, MapPin, Inbox, MonitorSmartphone, CreditCard, ShoppingBag, HelpCircle, Quote, Truck,
 } from 'lucide-react';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
@@ -20,6 +20,10 @@ const NAV = [
     section: 'Operations',
     items: [
       { to: '/orders', label: 'Orders', icon: ShoppingCart, perm: P.ORDERS_VIEW },
+      {
+        to: `${import.meta.env.VITE_SITE_URL || 'https://oncohealthmart.com'}/track-shipment`,
+        label: 'Track shipment', icon: Truck, perm: P.ORDERS_VIEW, external: true,
+      },
       { to: '/pos', label: 'POS / New order', icon: MonitorSmartphone, perm: P.ORDERS_MANAGE },
       { to: '/prescriptions', label: 'Prescriptions', icon: FileText, perm: P.PRESCRIPTIONS_VIEW },
       { to: '/customers', label: 'Customers', icon: Users, perm: P.CUSTOMERS_VIEW },
@@ -119,18 +123,32 @@ export default function Sidebar({ open, onClose, alertCounts = {}, live = false 
               <ul className="space-y-0.5">
                 {s.items.map((item) => {
                   const count = alertCounts[item.to];
+                  const rowClass = ({ isActive }) => cx(
+                    'flex items-center gap-2.5 px-2.5 py-[7px] rounded transition-colors text-[16px]',
+                    isActive
+                      ? 'bg-teal/20 text-white font-medium'
+                      : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
+                  );
+                  // One shared page for admins and customers alike (avoids two
+                  // different tracking UIs to keep in sync) — opens the public
+                  // website page in a new tab instead of an internal route.
+                  if (item.external) {
+                    return (
+                      <li key={item.to}>
+                        <a href={item.to} target="_blank" rel="noopener noreferrer" className={rowClass({ isActive: false })}>
+                          <item.icon size={15} className="shrink-0" />
+                          <span className="flex-1 truncate">{item.label}</span>
+                        </a>
+                      </li>
+                    );
+                  }
                   return (
                     <li key={item.to}>
                       <NavLink
                         to={item.to}
                         end={item.end}
                         onClick={onClose}
-                        className={({ isActive }) => cx(
-                          'flex items-center gap-2.5 px-2.5 py-[7px] rounded transition-colors text-[16px]',
-                          isActive
-                            ? 'bg-teal/20 text-white font-medium'
-                            : 'text-white/80 hover:text-white hover:bg-white/[0.06]'
-                        )}
+                        className={rowClass}
                       >
                         <item.icon size={15} className="shrink-0" />
                         <span className="flex-1 truncate">{item.label}</span>

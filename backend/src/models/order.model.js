@@ -227,15 +227,16 @@ async function updateTracking(orderId, t) {
   );
 }
 
-async function updatePayment(orderId, { payment_status, transaction_number, refund_amount, refund_reference }, conn = db) {
+async function updatePayment(orderId, { payment_status, payment_mode, transaction_number, refund_amount, refund_reference }, conn = db) {
   await conn.query(
     `UPDATE orders SET
        payment_status = COALESCE(?, payment_status),
+       payment_mode = COALESCE(?, payment_mode),
        transaction_number = COALESCE(?, transaction_number),
        refund_amount = COALESCE(?, refund_amount),
        refund_reference = COALESCE(?, refund_reference)
      WHERE order_id = ?`,
-    [payment_status || null, transaction_number || null,
+    [payment_status || null, payment_mode || null, transaction_number || null,
       refund_amount ?? null, refund_reference || null, orderId]
   );
 }

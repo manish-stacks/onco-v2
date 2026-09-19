@@ -17,7 +17,7 @@ android/
 # next.js
 /.next/
 /out/
-
+credentials
 # production
 /build
 

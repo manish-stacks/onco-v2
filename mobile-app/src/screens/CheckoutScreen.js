@@ -226,27 +226,30 @@ export default function CheckoutScreen({ route, navigation }) {
                 order.
               </Text>
             )}
-            {/*
-            <Divider />
-             <Field
-              label="Patient name (optional)"
-              value={rxFields.patient_name}
-              onChangeText={(v) => setRxFields((f) => ({ ...f, patient_name: v }))}
-              placeholder="Patient full name"
-            />
-            <Field
-              label="Doctor name (optional)"
-              value={rxFields.doctor_name}
-              onChangeText={(v) => setRxFields((f) => ({ ...f, doctor_name: v }))}
-              placeholder="Dr. Name"
-            />
-            <Field
-              label="Hospital / Clinic (optional)"
-              value={rxFields.hospital_name}
-              onChangeText={(v) => setRxFields((f) => ({ ...f, hospital_name: v }))}
-              placeholder="Hospital name"
-              style={{ marginBottom: -12 }}
-            /> */}
+            {(!prescription?.patient_name || !prescription?.doctor_name || !prescription?.hospital_name) && (
+              <>
+                <Divider />
+                <Field
+                  label="Patient name"
+                  value={rxFields.patient_name}
+                  onChangeText={(v) => setRxFields((f) => ({ ...f, patient_name: v }))}
+                  placeholder="Patient full name"
+                />
+                <Field
+                  label="Doctor name"
+                  value={rxFields.doctor_name}
+                  onChangeText={(v) => setRxFields((f) => ({ ...f, doctor_name: v }))}
+                  placeholder="Dr. Name"
+                />
+                <Field
+                  label="Hospital / Clinic"
+                  value={rxFields.hospital_name}
+                  onChangeText={(v) => setRxFields((f) => ({ ...f, hospital_name: v }))}
+                  placeholder="Hospital name"
+                  style={{ marginBottom: -12 }}
+                />
+              </>
+            )}
           </Card>
         ) : null}
 

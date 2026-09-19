@@ -761,7 +761,28 @@ export const orderApi = {
    */
   trackPublic: <T = PublicTrackResult>(order_ref: string, phone: string) =>
     api.data<T>('/orders/track-public', undefined, { method: 'POST', body: { order_ref, phone } }),
+
+  /** Raw AWB lookup, live from DTDC — no order/account needed, separate from trackPublic above */
+  trackShipment: <T = ShipmentTrackResult>(awb: string) =>
+    api.data<T>('/track-shipment', undefined, { method: 'POST', body: { awb } }),
 };
+
+export interface ShipmentTrackStep {
+  status: string;
+  detail: string | null;
+  location: string | null;
+  at: string | null;
+}
+export interface ShipmentTrackResult {
+  awb: string;
+  ref_no: string | null;
+  current_status: string;
+  stage: "picked_up" | "in_transit" | "out_for_delivery" | "delivered" | null;
+  origin: string | null;
+  destination: string | null;
+  expected_delivery: string | null;
+  steps: ShipmentTrackStep[];
+}
 
 export interface PublicTrackResult {
   order_id?: number | string;

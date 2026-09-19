@@ -4,6 +4,7 @@ const orderService = require('../../services/order.service');
 const adminModel = require('../../models/admin.model');
 const customerModel = require('../../models/customer.model');
 const notify = require('../../services/notification.service');
+const dtdc = require('../../services/dtdc.service');
 const cache = require('../../utils/cache');
 const { ok, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination, getSort, toCsv } = require('../../utils/helpers');
@@ -151,22 +152,25 @@ const updateTracking = asyncHandler(async (req, res) => {
 
 /** PATCH /admin/orders/:orderId/payment — manual payment mark (bank transfer, etc.) */
 const updatePayment = asyncHandler(async (req, res) => {
-  const { payment_status, transaction_number } = req.body;
+  const { payment_status, payment_mode, transaction_number } = req.body;
   const valid = Object.values(PAYMENT_STATUS);
   if (!valid.includes(payment_status)) {
     return fail(res, `payment_status must be one of: ${valid.join(', ')}`, 422);
   }
+  if (payment_mode && !['cod', 'online'].includes(payment_mode)) {
+    return fail(res, "payment_mode must be 'cod' or 'online'", 422);
+  }
 
-  await orderModel.updatePayment(req.params.orderId, { payment_status, transaction_number });
+  await orderModel.updatePayment(req.params.orderId, { payment_status, payment_mode, transaction_number });
   await cache.invalidate.orders();
 
   await adminModel.logActivity({
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
     action: 'payment_update', module: 'orders', record_id: req.params.orderId,
-    description: payment_status, ip_address: req.ip,
+    description: `${payment_status}${payment_mode ? ` (${payment_mode})` : ''}`, ip_address: req.ip,
   });
 
-  return ok(res, null, 'Payment status updated');
+  return ok(res, null, 'Payment updated');
 });
 
 /** PATCH /admin/orders/:orderId — shipping address / notes edit */
@@ -330,7 +334,47 @@ const updatePrescriptionStatus = asyncHandler(async (req, res) => {
   return ok(res, await orderModel.findById(req.params.orderId), 'Prescription status updated');
 });
 
+/**
+ * POST /admin/track-shipment — any-AWB live lookup for admin/staff, no order
+ * needed. Same underlying call as the public customer-facing one
+ * (app/order.controller.js trackShipmentPublic) — kept separate so it's
+ * gated behind admin auth like everything else on this side.
+ */
+const trackShipment = asyncHandler(async (req, res) => {
+  const awb = String(req.body?.awb || '').trim();
+  if (!awb) return fail(res, 'AWB number is required', 422);
+  if (!dtdc.isConfigured()) return fail(res, 'DTDC is not configured', 503);
+
+  try {
+    const result = await dtdc.trackShipment(awb);
+    const steps = (result.scans || [])
+      .slice()
+      .sort((a, b) => new Date(a.scan_at || 0) - new Date(b.scan_at || 0))
+      .map((s) => ({ status: s.description, detail: s.detail, location: s.origin || s.destination || null, at: s.scan_at }));
+    const latestStep = steps[steps.length - 1];
+    const currentStatus = result.header?.strStatus || latestStep?.status || 'Pickup scheduled';
+
+    const order = await orderModel.findByRef(awb).catch(() => null);
+
+    return ok(res, {
+      awb,
+      ref_no: order ? order.databaseOrderID : (result.header?.strRefNo || null),
+      order_id: order ? order.order_id : null,
+      current_status: currentStatus,
+      stage: dtdc.stageFromStatus(currentStatus) || (steps.length ? 'picked_up' : null),
+      origin: result.header?.strOrigin || result.header?.strOriginCity || null,
+      destination: result.header?.strDestination || result.header?.strDestinationCity
+        || (order ? [order.customer_shipping_city || order.customer_city, order.customer_shipping_pincode].filter(Boolean).join(', ') : null),
+      expected_delivery: result.header?.strExpectedDeliveryDate || result.header?.strEDD || null,
+      steps,
+    });
+  } catch (err) {
+    return fail(res, err.response?.data?.error || 'Could not fetch tracking — check the AWB number', 502);
+  }
+});
+
 module.exports = {
   list, stats, detail, updateStatus, cancelOrder, deleteOrder, updateTracking,
   updatePayment, updateOrder, exportCsv, invoice, uploadOriginalInvoice, updatePrescriptionStatus,
+  trackShipment,
 };

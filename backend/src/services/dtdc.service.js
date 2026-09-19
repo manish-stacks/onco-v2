@@ -316,9 +316,19 @@ async function trackShipment(awb) {
   const scans = (data?.trackDetails || []).map((s) => ({
     action_code: s.strAction,
     description: s.strActionDesc || s.strAction,
+    // DTDC sends both a short action code/name and a fuller description —
+    // show the description as the main line and the short one underneath
+    // (only when it actually adds something, not a duplicate).
+    detail: (s.strAction && s.strAction !== s.strActionDesc) ? s.strAction : null,
     origin: s.strOrigin,
     destination: s.strDestination,
-    scan_at: parseScanDate(s.strScanDate, s.strScanTime) || null,
+    // strActionDate/strActionTime confirmed as the real field names on this
+    // account — strScanDate/strEventDate kept only as a fallback in case
+    // another response shape ever comes through.
+    scan_at: parseScanDate(
+      s.strActionDate || s.strScanDate || s.strEventDate,
+      s.strActionTime || s.strScanTime || s.strEventTime
+    ) || null,
   }));
 
   await syncScans(awb, scans);
@@ -327,12 +337,39 @@ async function trackShipment(awb) {
 }
 
 /** DTDC "20240115" + "1430" format ko MySQL datetime me */
+/** DTDC's own reference implementation (confirmed by the user) sends dates
+ *  as DDMMYYYY, or as a combined DDMMYYYYHHMM string when there's no
+ *  separate time field. Handle both, plus the odd account that might send
+ *  YYYYMMDD instead — guessed from which chunk looks like a plausible year. */
 function parseScanDate(dateStr, timeStr) {
   if (!dateStr) return null;
-  const d = String(dateStr).replace(/\D/g, '');
+  const raw = String(dateStr).replace(/\D/g, '');
+  let d = raw;
+  let t = String(timeStr || '').replace(/\D/g, '');
+
+  // DDMMYYYYHHMM combined into the date field, no separate time
+  if (raw.length === 12 && !t) {
+    d = raw.slice(0, 8);
+    t = raw.slice(8, 12);
+  }
   if (d.length !== 8) return null;
-  const t = String(timeStr || '0000').replace(/\D/g, '').padStart(4, '0');
-  return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} ${t.slice(0, 2)}:${t.slice(2, 4)}:00`;
+  t = t.padStart(4, '0').slice(0, 4);
+
+  const firstFour = parseInt(d.slice(0, 4), 10);
+  const lastFour = parseInt(d.slice(4, 8), 10);
+  let year, month, day;
+  if (lastFour >= 1900 && lastFour <= 2100) {
+    // DDMMYYYY — DTDC's usual format
+    day = d.slice(0, 2); month = d.slice(2, 4); year = d.slice(4, 8);
+  } else if (firstFour >= 1900 && firstFour <= 2100) {
+    // YYYYMMDD — seen on some accounts
+    year = d.slice(0, 4); month = d.slice(4, 6); day = d.slice(6, 8);
+  } else {
+    return null; // neither half looks like a year — don't guess wrong
+  }
+
+  const iso = `${year}-${month}-${day}T${t.slice(0, 2)}:${t.slice(2, 4)}:00`;
+  return Number.isNaN(new Date(iso).getTime()) ? null : iso.replace('T', ' ');
 }
 
 /** Insert scans into the DB — avoid duplicates */
@@ -428,8 +465,20 @@ function trackingUrl(awb) {
   return `${base}/tracking?awb=${awb}`;
 }
 
+/** Loosely maps a DTDC status/description string to one of the 4 stages used
+ *  in the tracking UI — matched by keyword rather than exact codes, since the
+ *  live API's wording varies (pickup vs picked up vs booked, etc). */
+function stageFromStatus(text) {
+  const s = String(text || '').toLowerCase();
+  if (/deliver(ed)?\b/.test(s) && !/non|fail|out for/.test(s)) return 'delivered';
+  if (/out for delivery|ofd/.test(s)) return 'out_for_delivery';
+  if (/transit|arrived|departed|in-transit|hub|forwarded/.test(s)) return 'in_transit';
+  if (/pick\s*-?up|picked|booked|manifest|shipment created/.test(s)) return 'picked_up';
+  return null;
+}
+
 module.exports = {
   bookShipment, fetchLabel, trackShipment, cancelShipment, syncScans,
   parseWebhook, trackingUrl, isConfigured, config,
-  SERVICE_TYPES, SCAN_TO_ORDER_STATUS,
+  SERVICE_TYPES, SCAN_TO_ORDER_STATUS, stageFromStatus,
 };

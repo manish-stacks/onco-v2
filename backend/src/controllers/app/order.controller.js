@@ -3,6 +3,7 @@ const orderModel = require('../../models/order.model');
 const cartModel = require('../../models/cart.model');
 const razorpayService = require('../../services/razorpay.service');
 const reviewModel = require('../../models/review.model');
+const dtdc = require('../../services/dtdc.service');
 const { ok, created, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
 
@@ -287,8 +288,53 @@ const invoice = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * POST /track-shipment — public, no login required. Anyone with an AWB
+ * (admin or a customer) can look up its live DTDC status directly, same as
+ * the standalone "Track your order" page.
+ */
+const trackShipmentPublic = asyncHandler(async (req, res) => {
+  const awb = String(req.body?.awb || '').trim();
+  if (!awb) return fail(res, 'AWB number is required', 422);
+  if (!dtdc.isConfigured()) return fail(res, 'Tracking is not configured', 503);
+
+  try {
+    const result = await dtdc.trackShipment(awb);
+    const steps = (result.scans || [])
+      .slice()
+      .sort((a, b) => new Date(a.scan_at || 0) - new Date(b.scan_at || 0))
+      .map((s) => ({
+        status: s.description,
+        detail: s.detail,
+        location: s.origin || s.destination || null,
+        at: s.scan_at,
+      }));
+    const latestStep = steps[steps.length - 1];
+    const currentStatus = result.header?.strStatus || latestStep?.status || 'Pickup scheduled';
+
+    // Best-effort enrichment from our own order record, if this AWB is
+    // attached to one — DTDC's own header fields are unreliable across
+    // accounts, so fall back to what we already know about the order.
+    const order = await orderModel.findByRef(awb).catch(() => null);
+
+    return ok(res, {
+      awb,
+      ref_no: order ? order.databaseOrderID : (result.header?.strRefNo || null),
+      current_status: currentStatus,
+      stage: dtdc.stageFromStatus(currentStatus) || (steps.length ? 'picked_up' : null),
+      origin: result.header?.strOrigin || result.header?.strOriginCity || null,
+      destination: result.header?.strDestination || result.header?.strDestinationCity
+        || (order ? [order.customer_shipping_city || order.customer_city, order.customer_shipping_pincode].filter(Boolean).join(', ') : null),
+      expected_delivery: result.header?.strExpectedDeliveryDate || result.header?.strEDD || null,
+      steps,
+    });
+  } catch (err) {
+    return fail(res, err.response?.data?.error || 'Could not fetch tracking — check the AWB number and try again', 502);
+  }
+});
+
 module.exports = {
   quote, checkout, verifyPayment, retryPayment,
   myOrders, orderDetail, trackOrder, cancelOrder, submitReview, trackPublic,
-  reorder, invoice,
+  reorder, invoice, trackShipmentPublic,
 };

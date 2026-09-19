@@ -26,6 +26,7 @@ const supportLinks = [
   { label: "How To Buy", href: "/#" },
   { label: "Support Center", href: "/contact" },
   { label: "Track Your Order", href: "/track" },
+  { label: "Track a Shipment (AWB)", href: "/track-shipment" },
   { label: "Returns Policy", href: "/#" },
   { label: "Our Affiliates", href: "/#" },
   { label: "Sitemap", href: "/#" },

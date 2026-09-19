@@ -153,6 +153,8 @@ router.delete('/prescriptions/:id', customerAuth, prescription.cancelPrescriptio
 // ===========================================================================
 // Public — for tracking an order without logging in (order_ref + phone match)
 router.post('/orders/track-public', order.trackPublic);
+// Public — raw AWB lookup, live from DTDC (no order/account needed at all)
+router.post('/track-shipment', order.trackShipmentPublic);
 
 router.post('/orders/quote', customerAuth, order.quote);
 router.post('/orders/checkout', customerAuth, order.checkout);

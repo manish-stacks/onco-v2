@@ -16,7 +16,8 @@ const cache = require('../utils/cache');
  */
 const ALLOWLIST = [
   '/settings',
-  '/orders/track',
+  '/orders/track-public',
+  '/track-shipment',
 ];
 
 function isAllowed(path) {

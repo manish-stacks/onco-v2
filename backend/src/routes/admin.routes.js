@@ -88,6 +88,7 @@ router.get('/dashboard/quick-stats', requirePermission(P.DASHBOARD_VIEW), dashbo
 router.get('/orders', requirePermission(P.ORDERS_VIEW), order.list);
 router.get('/orders/stats', requirePermission(P.ORDERS_VIEW), order.stats);
 router.get('/orders/export', requirePermission(P.ORDERS_EXPORT), order.exportCsv);
+router.post('/track-shipment', requirePermission(P.ORDERS_VIEW), order.trackShipment);
 router.get('/orders/:orderId', requirePermission(P.ORDERS_VIEW), order.detail);
 router.get('/orders/:orderId/invoice', requirePermission(P.ORDERS_VIEW), order.invoice);
 router.post('/orders/:orderId/original-invoice', requirePermission(P.SHIPPING_MANAGE), uploadInvoice.single('invoice'), order.uploadOriginalInvoice);

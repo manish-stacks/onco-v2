@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User, Search, Plus, Minus, Trash2, ShoppingCart, PackageSearch, PhoneCall, CheckCircle2,
-  BadgePercent,
+  BadgePercent, FileText, X,
 } from 'lucide-react';
 import { useMutation, useDebounced, useResource } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
@@ -394,17 +394,41 @@ export default function Pos() {
                 label="Prescription"
                 hint={needsPrescription
                   ? "Required — the cart has prescription medicine. It's auto-approved since it's verified in person"
-                  : "Optional — photo of the prescription, if the customer has one"}
+                  : "Optional — photo(s) of the prescription, if the customer has one. Add as many pages as needed."}
               >
                 <input
                   type="file"
                   accept="image/*,application/pdf"
                   multiple
-                  onChange={(e) => setPrescriptionFiles(Array.from(e.target.files || []))}
+                  onChange={(e) => {
+                    // Appends instead of replacing — opening the file picker a
+                    // second time (to add one more page) used to wipe out
+                    // whatever was already selected.
+                    const picked = Array.from(e.target.files || []);
+                    if (picked.length) setPrescriptionFiles((prev) => [...prev, ...picked]);
+                    e.target.value = ''; // lets the same file be re-picked if removed then re-added
+                  }}
                   className="block w-full text-xs text-ink-500 file:mr-3 file:rounded-md file:border-0 file:bg-paper-sunk file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal"
                 />
                 {prescriptionFiles.length > 0 && (
-                  <p className="mt-1 text-2xs text-ink-500">{prescriptionFiles.length} file(s) selected</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {prescriptionFiles.map((f, i) => (
+                      <div key={`${f.name}-${f.lastModified}-${i}`}
+                        className="flex items-center gap-1.5 rounded-md border border-line bg-paper-sunk pl-2 pr-1 py-1">
+                        {f.type.startsWith('image/') ? (
+                          <img src={URL.createObjectURL(f)} alt="" className="h-6 w-6 rounded object-cover" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-ink-400" />
+                        )}
+                        <span className="max-w-[110px] truncate text-2xs text-ink-700">{f.name}</span>
+                        <button type="button"
+                          onClick={() => setPrescriptionFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="rounded p-0.5 text-ink-400 hover:bg-paper hover:text-signal-danger">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </Field>
 

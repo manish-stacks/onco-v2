@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, Download, Printer, XCircle } from 'lucide-react';
+import { ShoppingCart, Download, Printer, XCircle, Eye, MapPin } from 'lucide-react';
 import { useList, useDebounced } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -90,7 +90,7 @@ export default function OrderList() {
       render: (o) => (
         <div>
           <div className="flex items-center gap-1.5">
-            <Code>{orderRef(o)}</Code>
+            <Code className="font-semibold text-ink">{orderRef(o)}</Code>
             <SourceTag source={o.orderFrom} />
           </div>
           <p className="text-2xs text-ink-500 mt-0.5">{ago(o.order_date)}</p>
@@ -101,8 +101,9 @@ export default function OrderList() {
       key: 'customer_name', label: 'Customer',
       render: (o) => (
         <div className="min-w-0">
-          <p className="text-[0.8125rem] text-ink truncate max-w-[170px]">{o.customer_name}</p>
+          <p className="text-[0.8125rem] font-semibold text-ink truncate max-w-[170px]">{o.customer_name}</p>
           <Code className="text-2xs">{o.customer_phone}</Code>
+          {o.customer_email && <p className="text-2xs font-semibold text-ink-700 truncate max-w-[170px]">{o.customer_email}</p>}
         </div>
       ),
     },
@@ -145,9 +146,18 @@ export default function OrderList() {
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             <Button size="xs" icon={Printer} onClick={() => printLabel(o.awb_number)}>Label</Button>
             <Button size="xs" variant="dangerGhost" icon={XCircle} onClick={() => cancelShipment(o)}>Cancel</Button>
+            <Button size="xs" variant="primary" icon={MapPin} onClick={() => window.open(`${import.meta.env.VITE_SITE_URL || 'https://oncohealthmart.com'}/track-shipment?awb=${o.awb_number}`, '_blank')}>Track</Button>
           </div>
         )
         : <span className="text-ink-300 text-2xs">—</span>),
+    },
+    {
+      key: '_view', label: '', align: 'right',
+      render: (o) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Button size="xs" icon={Eye} onClick={() => navigate(`/orders/${o.order_id}`)}>View</Button>
+        </div>
+      ),
     },
   ];
 
@@ -199,7 +209,14 @@ export default function OrderList() {
           loading={loading}
           rowKey="order_id"
           rowTone={(o) => toneOf(o.status)}
-          onRowClick={(o) => navigate(`/orders/${o.order_id}`)}
+          // onRowClick={(o) => {
+          //   // Selecting/copying text (e.g. the order ID or email) ends the
+          //   // click on mouseup inside the row — without this check that
+          //   // click still fired the row navigation, so copying a value
+          //   // accidentally opened the order detail page every time.
+          //   if (window.getSelection()?.toString()) return;
+          //   navigate(`/orders/${o.order_id}`);
+          // }}
           emptyIcon={ShoppingCart}
           emptyTitle="No orders found"
           emptyDescription={hasFilters ? 'Try removing the filters.' : 'New orders will appear here.'}

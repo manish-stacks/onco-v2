@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Truck, Package, Printer, RefreshCw, XCircle, MapPin, CheckCircle2, AlertTriangle, FileUp, FileCheck2, PenLine,
+  Truck, Package, Printer, RefreshCw, XCircle, MapPin, CheckCircle2, AlertTriangle, FileUp, FileCheck2, PenLine, ListChecks,
 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
@@ -159,6 +159,10 @@ export default function ShippingPanel({ order, onChanged }) {
                   <Button size="sm" icon={Printer} onClick={openLabel}>Label</Button>
                   <Button size="sm" icon={RefreshCw} onClick={track.run} loading={track.loading}>
                     Refresh tracking
+                  </Button>
+                  <Button size="sm" variant="secondary" icon={ListChecks}
+                    onClick={() => window.open(`${import.meta.env.VITE_SITE_URL || 'https://oncohealthmart.com'}/track-shipment?awb=${order.awb_number}`, '_blank')}>
+                    Full tracking (step-wise)
                   </Button>
                 </>
               ) : (

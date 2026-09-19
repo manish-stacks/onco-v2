@@ -888,7 +888,7 @@ function CheckoutInner() {
                         </label>
                       ))
                       )}
-                      {/* {selectedPrescriptionId
+                       {selectedPrescriptionId
                         && prescriptions.find((p) => String(p.prescription_id) === String(selectedPrescriptionId))?.status !== "Approved" && (
                           <p className="text-xs text-[var(--ink-soft)]">
                             A pharmacist is still verifying this prescription — the order will be placed with the status
@@ -902,7 +902,7 @@ function CheckoutInner() {
                           onChange={(v) => { setDoctorName(v); setPrescErrors((e) => ({ ...e, doctor_name: "" })); }} />
                         <FieldInput label="Hospital / clinic name" className="sm:col-span-2" value={hospitalName} error={prescErrors.hospital_name}
                           onChange={(v) => { setHospitalName(v); setPrescErrors((e) => ({ ...e, hospital_name: "" })); }} />
-                      </div> */}
+                      </div>
                     </div>
                   ) : (
                     // No prescriptions on file — send them to the upload page
