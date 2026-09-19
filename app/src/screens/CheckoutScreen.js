@@ -13,7 +13,7 @@ import {
   StickyBottom,
 } from '../components/ui';
 import { colors, radius } from '../theme';
-import { orderApi } from '../api';
+import { orderApi, prescriptionApi } from '../api';
 import { money, num } from '../utils/format';
 import { useCart } from '../store/CartContext';
 import { useAuth } from '../store/AuthContext';
@@ -97,6 +97,18 @@ export default function CheckoutScreen({ route, navigation }) {
       if (!prescription) return toast.show('Please attach a prescription for this order', 'error');
       if (!rxFields.patient_name.trim() || !rxFields.doctor_name.trim() || !rxFields.hospital_name.trim()) {
         return toast.show('Please fill in patient, doctor and hospital name', 'error');
+      }
+      // Save these onto the prescription itself (not just this order) so the
+      // prescription list + dashboard show the complete details from now on —
+      // same fix as the website checkout.
+      if (!prescription.patient_name || !prescription.doctor_name || !prescription.hospital_name) {
+        prescriptionApi
+          .update(prescription.prescription_id, {
+            patient_name: rxFields.patient_name,
+            doctor_name: rxFields.doctor_name,
+            hospital_name: rxFields.hospital_name,
+          })
+          .catch(() => { /* non-critical — the order still carries these details either way */ });
       }
     }
 

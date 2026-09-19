@@ -116,8 +116,12 @@ export function InlineOtpVerify({ onVerified }: { onVerified: (customer: Custome
               <input
                 required
                 autoFocus
+                type="tel"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder="6-digit OTP"
                 className="w-full bg-transparent text-sm outline-none"
               />

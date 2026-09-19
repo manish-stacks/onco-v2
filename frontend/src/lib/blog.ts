@@ -76,7 +76,13 @@ export async function getBlogs(
       total: res?.pagination?.total ?? rows.length,
       totalPages: res?.pagination?.totalPages ?? 1,
     };
-  } catch {
+  } catch (err) {
+    // This used to fail silently — the page just showed "No articles published
+    // yet" with zero clue why. Logging it here means the real reason (API
+    // unreachable, wrong NEXT_PUBLIC_API_BASE, 500 from the backend, etc.)
+    // shows up in the Next.js server log (`pm2 logs <frontend-process>`)
+    // instead of vanishing.
+    console.error("[blog] getBlogs failed:", err instanceof Error ? err.message : err);
     return { posts: [], total: 0, totalPages: 0 };
   }
 }

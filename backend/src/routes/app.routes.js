@@ -137,6 +137,7 @@ router.post('/prescriptions', customerAuth,
   uploadPrescription.array('images', 10), prescription.upload);
 router.get('/prescriptions', customerAuth, prescription.myPrescriptions);
 router.get('/prescriptions/:id', customerAuth, prescription.prescriptionDetail);
+router.patch('/prescriptions/:id', customerAuth, prescription.updateDetails);
 router.post('/prescriptions/:id/images', customerAuth,
   uploadPrescription.array('images', 10), prescription.addImages);
 router.delete('/prescriptions/:id/images', customerAuth, prescription.removeImage);

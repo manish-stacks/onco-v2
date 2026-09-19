@@ -1,5 +1,6 @@
 const cmsModel = require('../../models/cms.model');
 const settingsModel = require('../../models/settings.model');
+const reviewModel = require('../../models/review.model');
 const subscriberModel = require('../../models/subscriber.model');
 const mail = require('../../services/mail.service');
 const cache = require('../../utils/cache');
@@ -148,7 +149,7 @@ const faqs = asyncHandler(async (req, res) => {
 
 /** GET /testimonials — dynamic testimonials for the website */
 const testimonials = asyncHandler(async (req, res) => {
-  return ok(res, await cache.getOrSet('testimonials:public', cache.TTL.LONG, () => settingsModel.listTestimonials(true)));
+  return ok(res, await cache.getOrSet('testimonials:public', cache.TTL.LONG, () => reviewModel.listTestimonials('active')));
 });
 
 module.exports = {

@@ -82,6 +82,23 @@ const prescriptionDetail = asyncHandler(async (req, res) => {
   return ok(res, presc);
 });
 
+/**
+ * PATCH /prescriptions/:id — fill in patient/doctor/hospital name.
+ * Used at checkout: when a saved prescription is selected but is missing
+ * these fields, the customer fills them in there, and this saves them back
+ * onto the prescription itself so the prescription card and dashboard show
+ * the complete details from then on (not just this one order).
+ */
+const updateDetails = asyncHandler(async (req, res) => {
+  const presc = await prescriptionModel.findById(req.params.id);
+  if (!presc || presc.customer_id !== req.customer.customer_id) return fail(res, 'Prescription not found', 404);
+
+  const { patient_name, doctor_name, hospital_name } = req.body;
+  await prescriptionModel.updateDetails(req.params.id, { patient_name, doctor_name, hospital_name });
+  const updated = await prescriptionModel.findById(req.params.id);
+  return ok(res, updated, 'Prescription updated');
+});
+
 /** DELETE /prescriptions/:id — only while pending */
 const cancelPrescription = asyncHandler(async (req, res) => {
   const presc = await prescriptionModel.findById(req.params.id);
@@ -102,5 +119,5 @@ const cancelPrescription = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  upload, addImages, removeImage, myPrescriptions, prescriptionDetail, cancelPrescription,
+  upload, addImages, removeImage, myPrescriptions, prescriptionDetail, updateDetails, cancelPrescription,
 };

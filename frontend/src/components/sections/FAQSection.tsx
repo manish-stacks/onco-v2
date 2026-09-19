@@ -1,8 +1,14 @@
-
 import { Accordion } from "../ui/accordion";
 import { Reveal } from "../ui/reveal";
 
-const faqs = [
+export interface FaqItem {
+  question: string;
+  answer: string;
+}
+
+// Backend se koi FAQ na aaye (naya setup, admin ne abhi kuch add nahi kiya)
+// to bhi page khaali na dikhe — isliye ek chhota fallback set rakha hai.
+const FALLBACK_FAQS: FaqItem[] = [
   {
     question: "How do I get started with OncoHealthMart?",
     answer:
@@ -21,30 +27,13 @@ const faqs = [
   {
     question: "What is your return policy?",
     answer:
-      "We have a 7-day return policy for all medicines. If you are not satisfied with your purchase, you can return the product within 7 days of delivery for a full refund.",  
+      "We have a 7-day return policy for all medicines. If you are not satisfied with your purchase, you can return the product within 7 days of delivery for a full refund.",
   },
-  {
-    question: "Do you offer home delivery?",
-    answer:
-      "Yes, we offer home delivery for all orders placed on our platform. You can choose the delivery option at checkout.",
-  },
-  {
-    question: "How can I contact customer support?",
-    answer:
-      "You can contact our customer support team at [email or phone number]. We are available 24/7 to assist you with any questions or concerns.",  
-  },
-  {
-    question: "Are the medicines on your platform genuine?",
-    answer:
-      "Yes, we source our medicines from licensed pharmacies and ensure that all products are genuine and safe for consumption.",  
-  },
-  {
-    question: "Do you provide prescription medicines?",
-    answer:
-      "Yes, we offer prescription medicines for certain conditions. Please contact our customer support team for more information.",
-  }
-]
-export function FAQSection() {
+];
+
+export function FAQSection({ faqs }: { faqs?: FaqItem[] }) {
+  const items = faqs && faqs.length ? faqs : FALLBACK_FAQS;
+
   return (
     <section id="faq" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <Reveal className="mb-10 text-center">
@@ -52,7 +41,7 @@ export function FAQSection() {
         <h2 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-3xl">Frequently asked questions</h2>
       </Reveal>
       <Reveal>
-        <Accordion items={faqs} columns={2} />
+        <Accordion items={items} columns={2} />
       </Reveal>
     </section>
   );

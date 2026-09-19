@@ -241,6 +241,10 @@ const server = app.listen(PORT, () => {
 
   // Auto-cancel orders stuck in "Pending" too long (payment never completed)
   require('./src/services/order-autocancel.service').startAutoCancel();
+
+  // Auto-refresh DTDC tracking for shipped orders + notify customer on delivery
+  // (fallback in case DTDC's push webhook isn't enabled for this account yet)
+  require('./src/services/dtdc-poll.service').startDtdcPoll();
 });
 
 /**

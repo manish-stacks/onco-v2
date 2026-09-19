@@ -6,6 +6,8 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { ToastHost } from "@/components/ui/toast-host";
+import { HeaderFooterScripts } from "@/components/HeaderFooterScripts";
+import { contentApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -57,7 +59,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Admin Settings > Header/footer scripts (GTM, analytics etc.) — settings load
+  // fail ho jaaye to bhi site chalti rahe, isliye chup-chaap khaali fallback.
+  const settings = await contentApi
+    .settings<{ header_code?: string; footer_code?: string }>()
+    .catch(() => null);
+
   return (
     <html lang="en" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
@@ -69,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Footer />
             <MobileBottomNav />
             <ToastHost />
+            <HeaderFooterScripts headerCode={settings?.header_code} footerCode={settings?.footer_code} />
           </StoreProvider>
         </AuthProvider>
       </body>

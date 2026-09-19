@@ -817,6 +817,12 @@ export const prescriptionApi = {
 
   detail: <T = unknown>(id: string | number) => api.data<T>(`/prescriptions/${id}`),
 
+  /** Save patient/doctor/hospital name back onto a saved prescription — used
+   * at checkout so these details persist on the prescription card + dashboard,
+   * not just on the order being placed right now. */
+  update: <T = unknown>(id: string | number, data: { patient_name?: string; doctor_name?: string; hospital_name?: string }) =>
+    api.patch<T>(`/prescriptions/${id}`, data),
+
   cancel: <T = unknown>(id: string | number, reason: string) => api.del<T>(`/prescriptions/${id}`, { reason }),
 
   remove: <T = unknown>(id: string | number) => api.del<T>(`/prescriptions/${id}`),
@@ -851,6 +857,8 @@ export const contentApi = {
   countries: <T = unknown>(opts?: RequestOptions) => api.data<T>('/locations/countries', undefined, { revalidate: 86400, ...opts }),
   serviceableCities: <T = unknown>(opts?: RequestOptions) =>
     api.data<T>('/locations/cities', undefined, { revalidate: 3600, ...opts }),
+
+  faqs: <T = unknown>(opts?: RequestOptions) => api.data<T>('/faqs', undefined, { revalidate: 3600, ...opts }),
 };
 
 export default api;

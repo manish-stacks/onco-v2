@@ -92,6 +92,10 @@ export const prescriptionApi = {
     requestData('/prescriptions', { method: 'POST', body: formData, isForm: true, timeout: 60000 }),
   list: (params = {}) => requestPaged('/prescriptions', { params }),
   detail: (id) => requestData(`/prescriptions/${id}`),
+  /** Save patient/doctor/hospital name back onto the prescription — same as
+   * the website checkout, so these persist on the prescription/dashboard,
+   * not just on the order being placed right now. */
+  update: (id, data) => requestData(`/prescriptions/${id}`, { method: 'PATCH', body: data }),
   addImages: (id, formData) =>
     requestData(`/prescriptions/${id}/images`, { method: 'POST', body: formData, isForm: true, timeout: 60000 }),
   removeImage: (id, image_path) =>

@@ -14,6 +14,7 @@ import { FAQSection } from "@/components/sections/FAQSection";
 import { MegaSaleBanner } from "@/components/sections/mega-sale-banner";
 import { getHomeData } from "@/lib/home";
 import { productToMedicine, categoryToTag, brandToTag, testimonialToTag } from "@/lib/adapters";
+import { contentApi } from "@/lib/api";
 import { SITE_URL } from "@/lib/seo";
 import type { Metadata } from "next";
 
@@ -24,7 +25,10 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const home = await getHomeData();
+  const [home, faqs] = await Promise.all([
+    getHomeData(),
+    contentApi.faqs<{ question: string; answer: string }[]>().catch(() => []),
+  ]);
 
   const topSelling = home.top_selling.map(productToMedicine);
   const latest = home.latest_products.map(productToMedicine);
@@ -51,7 +55,7 @@ export default async function Home() {
       <Testimonials testimonials={testimonials} />
       <BlogPreview />
       <WhyOncoHealthMart />
-      <FAQSection />
+      <FAQSection faqs={faqs ?? undefined} />
       <Newsletter />
     </>
   );

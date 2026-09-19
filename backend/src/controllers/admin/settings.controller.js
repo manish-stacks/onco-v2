@@ -1,5 +1,6 @@
 const settingsModel = require('../../models/settings.model');
 const cmsModel = require('../../models/cms.model');
+const reviewModel = require('../../models/review.model');
 const cache = require('../../utils/cache');
 const { storeFile } = require('../../middleware/upload');
 const { ok, created, fail, paginated, asyncHandler } = require('../../utils/response');
@@ -211,28 +212,26 @@ const removeOffer = asyncHandler(async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// TESTIMONIALS
+// TESTIMONIALS (model lives in review.model.js, alongside product_reviews —
+// that's the module the homepage feed already reads from)
 // ---------------------------------------------------------------------------
-const listTestimonials = asyncHandler(async (req, res) => ok(res, await settingsModel.listTestimonials()));
+const listTestimonials = asyncHandler(async (req, res) => ok(res, await reviewModel.listTestimonials()));
 
 const createTestimonial = asyncHandler(async (req, res) => {
-  const id = await settingsModel.createTestimonial(req.body);
+  const id = await reviewModel.createTestimonial(req.body);
   await cache.delByPrefix('home:');
-  await cache.delByPrefix('testimonials:');
   return created(res, { id }, 'Testimonial added');
 });
 
 const updateTestimonial = asyncHandler(async (req, res) => {
-  await settingsModel.updateTestimonial(req.params.reviewId, req.body);
+  await reviewModel.updateTestimonial(req.params.reviewId, req.body);
   await cache.delByPrefix('home:');
-  await cache.delByPrefix('testimonials:');
   return ok(res, null, 'Testimonial updated');
 });
 
 const removeTestimonial = asyncHandler(async (req, res) => {
-  await settingsModel.removeTestimonial(req.params.reviewId);
+  await reviewModel.removeTestimonial(req.params.reviewId);
   await cache.delByPrefix('home:');
-  await cache.delByPrefix('testimonials:');
   return ok(res, null, 'Testimonial deleted');
 });
 

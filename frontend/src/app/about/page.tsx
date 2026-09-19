@@ -59,9 +59,9 @@ export default function AboutPage() {
       <div className="bg-[var(--ink)]">
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[var(--blue-500)]">Who We Are</p>
-          <h1 className="font-display text-3xl font-bold text-white sm:text-4xl">About Onco Health Mart</h1>
+          <h1 className="font-display text-3xl font-bold text-white sm:text-4xl">Bringing Specialised Medicines Closer to You</h1>
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/60">
-            Your trusted online pharmacy delivering genuine medicines, healthcare devices and wellness essentials to your door — safely and on time.
+            At Onco Health Mart, we are committed to making specialised medicines more accessible, reliable, and convenient for patients and their families.
           </p>
         </div>
       </div>
@@ -88,14 +88,14 @@ export default function AboutPage() {
           <Reveal delay={0.1}>
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[var(--blue-500)]">Our Story</p>
             <h2 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-3xl">
-              Medicine & Health Care<br />
-              <span className="text-[var(--blue-500)]">For Your Family</span>
+              Specialised Medicines,<br />
+              <span className="text-[var(--blue-500)]">Delivered With Care</span>
             </h2>
             <p className="mt-5 text-sm leading-7 text-[var(--ink-soft)]">
-              Founded in 2014, Onco Health Mart started with a single mission: make quality healthcare accessible to every household. What began as a small dispensary has grown into a full-service digital pharmacy trusted by over 15,000 patients nationwide.
+              Our goal is to simplify the journey of finding the right medicine — providing a trusted platform for sourcing and delivering genuine medicines with care, right to your doorstep.
             </p>
             <p className="mt-4 text-sm leading-7 text-[var(--ink-soft)]">
-              We partner with certified manufacturers and licensed distributors to ensure every product on our platform is genuine, stored correctly and delivered with care. Our in-house pharmacy team reviews every listing so you can shop with complete confidence.
+              We focus on specialised medicines, oncology-related medicines, and other critical healthcare requirements, while maintaining a strong commitment to quality, authenticity, and responsible handling. Your health matters to us, and every medicine we provide is handled with responsibility, care, and trust.
             </p>
             <div className="mt-8">
               <Button href="/contact" size="lg" icon={<ArrowRight size={17} />}>
@@ -103,6 +103,27 @@ export default function AboutPage() {
               </Button>
             </div>
           </Reveal>
+        </div>
+      </section>
+
+      {/* ── Mission / Vision / Purpose ── */}
+      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          {[
+            { label: "Our Mission", title: "Bringing Specialised Medicines Closer to Every Patient", icon: HeartPulse },
+            { label: "Our Vision", title: "Creating a Smarter, More Accessible Healthcare Experience", icon: FlaskConical },
+            { label: "Our Purpose", title: "Making Specialised Healthcare Simpler, Safer & More Connected", icon: ShieldCheck },
+          ].map(({ label, title, icon: Icon }, i) => (
+            <Reveal key={label} delay={i * 0.07}>
+              <div className="flex h-full flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6 shadow-sm">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--blue-50)]">
+                  <Icon size={22} className="text-[var(--blue-500)]" />
+                </span>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--blue-500)]">{label}</p>
+                <p className="font-display text-sm font-bold leading-relaxed text-[var(--ink)]">{title}</p>
+              </div>
+            </Reveal>
+          ))}
         </div>
       </section>
 

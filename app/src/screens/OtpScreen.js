@@ -101,6 +101,8 @@ export default function OtpScreen({ route, navigation }) {
             }}
             keyboardType="number-pad"
             maxLength={LENGTH}
+            textContentType="oneTimeCode"
+            autoComplete="sms-otp"
             style={styles.hidden}
             autoFocus
           />

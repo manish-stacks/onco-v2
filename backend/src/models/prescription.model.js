@@ -84,6 +84,20 @@ async function updateStatus(prescriptionId, status, { reviewedBy, rejectionReaso
   );
 }
 
+/** Fill in patient / doctor / hospital name — used when the customer completes
+ *  these at checkout for a prescription that was missing them. Only touches a
+ *  field when a non-empty value is actually given, so it never blanks one out. */
+async function updateDetails(prescriptionId, { patient_name, doctor_name, hospital_name } = {}) {
+  await db.query(
+    `UPDATE prescriptions SET
+       patient_name = COALESCE(NULLIF(?, ''), patient_name),
+       doctor_name = COALESCE(NULLIF(?, ''), doctor_name),
+       hospital_name = COALESCE(NULLIF(?, ''), hospital_name)
+     WHERE prescription_id = ?`,
+    [patient_name || '', doctor_name || '', hospital_name || '', prescriptionId]
+  );
+}
+
 /** Add more images to the images array (the customer sent more later) */
 async function addImages(prescriptionId, newImages = []) {
   const [[row]] = await db.query(`SELECT images FROM prescriptions WHERE prescription_id = ?`, [prescriptionId]);
@@ -159,6 +173,6 @@ async function countByStatus() {
 }
 
 module.exports = {
-  create, findById, findByReference, list, updateStatus,
+  create, findById, findByReference, list, updateStatus, updateDetails,
   addImages, removeImage, setMedicines, remove, countByStatus, hydrate,
 };

@@ -142,7 +142,15 @@ async function findOrCreateCustomer({ mobile, customer_name, email_id, address, 
  */
 const createOrder = asyncHandler(async (req, res) => {
   const b = req.body || {};
-  const c = b.customer || {};
+  // multipart/form-data (prescription files attached) sends every field as a
+  // string, so `customer` arrives as a JSON string, not an object — parse it
+  // the same way `items` already is below, otherwise c.mobile/c.customer_name
+  // are always undefined and validation fails even with correct input.
+  let customerInput = b.customer;
+  if (typeof customerInput === 'string') {
+    try { customerInput = JSON.parse(customerInput); } catch { customerInput = {}; }
+  }
+  const c = customerInput || {};
   const errors = {};
 
   const mobile = normaliseMobile(c.mobile || b.customer_phone);

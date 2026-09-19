@@ -433,11 +433,22 @@ async function findStalePending(minutes) {
   return rows;
 }
 
+/** Orders that are out with DTDC and not yet delivered/cancelled — used by the
+ *  auto-tracking poller as a fallback when DTDC hasn't pushed a webhook. */
+async function findActiveDtdcShipments() {
+  const [rows] = await db.query(
+    `SELECT order_id FROM orders
+     WHERE courier_name = 'DTDC' AND awb_number IS NOT NULL
+       AND status NOT IN ('Completed', 'Cancelled', 'Delivery Failed')`
+  );
+  return rows;
+}
+
 module.exports = {
   create, addItems, logStatus, findById, findByRazorpayOrderId,
   list, listForExport, updateStatus, updateTracking, updatePayment,
   setInvoiceNumber, setOriginalInvoice, updateFields, getItems, customerHasPurchased, stats,
   buildFilters, SORTABLE, findByRefAndPhone,findByRef,
   paymentsList, paymentsSummary,
-  remove, findStalePending,
+  remove, findStalePending, findActiveDtdcShipments,
 };

@@ -449,10 +449,13 @@ const requestOtp = asyncHandler(async (req, res) => {
 const verifyOtp = asyncHandler(async (req, res) => {
   const {
     customer_id,
-    otp,
     fcm_token,
     platform,
   } = req.body;
+  // Mobile keyboards / SMS autofill (WebOTP, Android SMS Retriever) sometimes
+  // hand back the code with a leading/trailing space or newline — an exact
+  // DB match then fails even though the user typed/autofilled it correctly.
+  const otp = String(req.body.otp || '').trim();
 
   /* -------------------------
      Verify OTP

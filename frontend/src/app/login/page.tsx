@@ -280,7 +280,9 @@ function LoginInner() {
                     <input
                       required
                       autoFocus
+                      type="tel"
                       inputMode="numeric"
+                      autoComplete="one-time-code"
                       maxLength={6}
                       value={otp}
                       onChange={(e) =>

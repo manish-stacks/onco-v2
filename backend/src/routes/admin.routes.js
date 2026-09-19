@@ -263,10 +263,11 @@ router.post('/offers', requirePermission(P.SETTINGS_MANAGE), settings.createOffe
 router.put('/offers/:offerId', requirePermission(P.SETTINGS_MANAGE), settings.updateOffer);
 router.delete('/offers/:offerId', requirePermission(P.SETTINGS_MANAGE), settings.removeOffer);
 
-router.get('/testimonials', requirePermission(P.SETTINGS_VIEW), settings.listTestimonials);
-router.post('/testimonials', requirePermission(P.SETTINGS_MANAGE), settings.createTestimonial);
-router.put('/testimonials/:reviewId', requirePermission(P.SETTINGS_MANAGE), settings.updateTestimonial);
-router.delete('/testimonials/:reviewId', requirePermission(P.SETTINGS_MANAGE), settings.removeTestimonial);
+// NOTE: testimonials are registered once already, above (near REVIEWS_*
+// permissions, using catalog.controller) — a second, dead duplicate set
+// using settings.controller + SETTINGS_* permissions used to be here.
+// Express only ever runs the first-registered handler for a path, so the
+// duplicate never actually ran; removed to avoid confusion.
 
 router.get('/faqs', requirePermission(P.SETTINGS_VIEW), settings.listFaqs);
 router.post('/faqs', requirePermission(P.SETTINGS_MANAGE), settings.createFaq);

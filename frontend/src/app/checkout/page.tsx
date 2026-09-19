@@ -107,6 +107,8 @@ function CheckoutInner() {
 
   const [shippingSame, setShippingSame] = useState(true);
   const [shippingAddress, setShippingAddress] = useState<Address>(EMPTY_ADDRESS);
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
+  const [showAllPrescriptions, setShowAllPrescriptions] = useState(false);
 
   // Auto-fill City/State from the PIN code — India Post's free public API,
   // no key needed. Fires once the user has typed a full 6-digit PIN, and
@@ -460,6 +462,15 @@ function CheckoutInner() {
         setError("Please fill in the patient, doctor and hospital details.");
         return;
       }
+      // Save these onto the prescription itself (not just this order) so the
+      // prescription card + dashboard show the complete details from now on.
+      const selectedPresc = prescriptions.find((p) => String(p.prescription_id) === String(selectedPrescriptionId));
+      if (selectedPresc && (!selectedPresc.patient_name || !selectedPresc.doctor_name || !selectedPresc.hospital_name)) {
+        prescriptionApi
+          .update(selectedPrescriptionId!, { patient_name: patientName, doctor_name: doctorName, hospital_name: hospitalName })
+          .then(() => loadPrescriptions(selectedPrescriptionId))
+          .catch(() => { /* non-critical — the order still carries these details either way */ });
+      }
     }
     if (paymentMode === "online" && gateways.length === 0) {
       setError("Online payment is not available right now. Please try Cash on Delivery.");
@@ -626,7 +637,25 @@ function CheckoutInner() {
                     </p>
                   )}
 
-                  {addresses.map((a) => (
+                  {/* More than one saved address takes a lot of vertical space when every
+                      card is shown fully — once one is selected, collapse the rest behind
+                      a "Change" link so the page doesn't need so much scrolling. */}
+                  {!showAllAddresses && selectedAddress && addresses.length > 1 ? (
+                    <div className="flex items-start gap-3 rounded-[var(--radius-sm)] border border-[var(--blue-500)] bg-[var(--blue-50)] p-4 text-sm">
+                      <MapPin size={16} className="mt-0.5 shrink-0 text-[var(--blue-500)]" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-[var(--ink)]">
+                          {selectedAddress.full_name} · {selectedAddress.phone}
+                          {selectedAddress.type && <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-medium uppercase">{selectedAddress.type}</span>}
+                        </p>
+                        <p className="text-[var(--ink-soft)]">{addressLine(selectedAddress)}, {selectedAddress.city}, {selectedAddress.state} - {selectedAddress.pincode}</p>
+                      </div>
+                      <button type="button" onClick={() => setShowAllAddresses(true)} className="shrink-0 text-sm font-semibold text-[var(--blue-600)]">
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                  addresses.map((a) => (
                     <div
                       key={a.ad_id}
                       className={`flex items-start gap-3 rounded-[var(--radius-sm)] border p-4 text-sm transition ${selectedAddressId === a.ad_id ? "border-[var(--blue-500)] bg-[var(--blue-50)]" : "border-[var(--line)]"
@@ -636,9 +665,9 @@ function CheckoutInner() {
                         type="radio"
                         className="mt-1 cursor-pointer"
                         checked={selectedAddressId === a.ad_id}
-                        onChange={() => setSelectedAddressId(a.ad_id ?? null)}
+                        onChange={() => { setSelectedAddressId(a.ad_id ?? null); setShowAllAddresses(false); }}
                       />
-                      <div className="flex-1 cursor-pointer" onClick={() => setSelectedAddressId(a.ad_id ?? null)}>
+                      <div className="flex-1 cursor-pointer" onClick={() => { setSelectedAddressId(a.ad_id ?? null); setShowAllAddresses(false); }}>
                         <p className="font-semibold text-[var(--ink)]">
                           {a.full_name} · {a.phone}
                           {a.type && <span className="ml-1 rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-medium uppercase">{a.type}</span>}
@@ -665,7 +694,8 @@ function CheckoutInner() {
                         </button>
                       </div>
                     </div>
-                  ))}
+                  ))
+                  )}
                 </div>
 
                 {!showAddressForm ? (
@@ -779,7 +809,38 @@ function CheckoutInner() {
 
                   {prescriptions.length > 0 ? (
                     <div className="space-y-2">
-                      {prescriptions.map((p) => (
+                      {/* Same collapse treatment as the address list — once one is
+                          picked, hide the rest behind "Change" instead of showing
+                          every saved prescription in full. */}
+                      {!showAllPrescriptions && selectedPrescriptionId && prescriptions.length > 1 ? (
+                        (() => {
+                          const p = prescriptions.find((x) => String(x.prescription_id) === String(selectedPrescriptionId));
+                          if (!p) return null;
+                          return (
+                            <div className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-[var(--blue-500)] bg-[var(--blue-50)] p-3 text-sm">
+                              {p.images?.[0] && (
+                                isPdfUrl(p.images[0]) ? (
+                                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-white text-[10px] font-semibold text-[var(--blue-600)]">PDF</span>
+                                ) : (
+                                  <Image src={mediaUrl(p.images[0])} alt="prescription" width={40} height={40} className="h-10 w-10 rounded object-cover" />
+                                )
+                              )}
+                              <span className="flex-1">
+                                <span className="block font-medium">{p.reference_code || `Prescription #${p.prescription_id}`}</span>
+                                {(p.patient_name || p.doctor_name) && (
+                                  <span className="block text-xs text-[var(--ink-soft)]">
+                                    {[p.patient_name, p.doctor_name && `Dr. ${p.doctor_name}`, p.hospital_name].filter(Boolean).join(" · ")}
+                                  </span>
+                                )}
+                              </span>
+                              <button type="button" onClick={() => setShowAllPrescriptions(true)} className="shrink-0 text-xs font-semibold text-[var(--blue-600)]">
+                                Change
+                              </button>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                      prescriptions.map((p) => (
                         <label
                           key={p.prescription_id}
                           className={`flex cursor-pointer items-center gap-3 rounded-[var(--radius-sm)] border p-3 text-sm ${String(selectedPrescriptionId) === String(p.prescription_id)
@@ -790,7 +851,7 @@ function CheckoutInner() {
                           <input
                             type="radio"
                             checked={String(selectedPrescriptionId) === String(p.prescription_id)}
-                            onChange={() => setSelectedPrescriptionId(p.prescription_id)}
+                            onChange={() => { setSelectedPrescriptionId(p.prescription_id); setShowAllPrescriptions(false); }}
                           />
                           {p.images?.[0] && (
                             isPdfUrl(p.images[0]) ? (
@@ -825,7 +886,8 @@ function CheckoutInner() {
                             View
                           </button>
                         </label>
-                      ))}
+                      ))
+                      )}
                       {/* {selectedPrescriptionId
                         && prescriptions.find((p) => String(p.prescription_id) === String(selectedPrescriptionId))?.status !== "Approved" && (
                           <p className="text-xs text-[var(--ink-soft)]">

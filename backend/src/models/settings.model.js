@@ -508,34 +508,10 @@ async function listCountries() {
 }
 
 // ---------------------------------------------------------------------------
-// TESTIMONIALS (homepage customer reviews) — table already exists in schema
+// (Testimonials live in review.model.js — they sit next to product_reviews
+// there, and that's the module the homepage feed already used. No duplicate
+// copy here.)
 // ---------------------------------------------------------------------------
-const TESTIMONIAL_FIELDS = ['name', 'profession', 'review', 'stars', 'status'];
-
-async function listTestimonials(activeOnly = false) {
-  const where = activeOnly ? `WHERE status = 'active'` : '';
-  const [rows] = await db.query(`SELECT * FROM testimonials ${where} ORDER BY review_id DESC`);
-  return rows;
-}
-
-async function createTestimonial(data) {
-  const payload = pickDefined(data, TESTIMONIAL_FIELDS);
-  payload.stars = Math.min(5, Math.max(1, parseInt(payload.stars, 10) || 5));
-  const [result] = await db.query(`INSERT INTO testimonials SET ?`, [payload]);
-  return result.insertId;
-}
-
-async function updateTestimonial(id, data) {
-  const payload = pickDefined(data, TESTIMONIAL_FIELDS);
-  if (payload.stars !== undefined) payload.stars = Math.min(5, Math.max(1, parseInt(payload.stars, 10) || 5));
-  if (!Object.keys(payload).length) return false;
-  await db.query(`UPDATE testimonials SET ? WHERE review_id = ?`, [payload, id]);
-  return true;
-}
-
-async function removeTestimonial(id) {
-  await db.query(`DELETE FROM testimonials WHERE review_id = ?`, [id]);
-}
 
 // ---------------------------------------------------------------------------
 // FAQs — table nahi thi purani DB me, pehle use ke time khud ban jaati hai
@@ -603,6 +579,5 @@ module.exports = {
   listOffers, createOffer, updateOffer, removeOffer,
   listCities, checkCity, createCity, updateCity, removeCity,
   listStates, listCountries,
-  listTestimonials, createTestimonial, updateTestimonial, removeTestimonial,
   listFaqs, createFaq, updateFaq, removeFaq,
 };
