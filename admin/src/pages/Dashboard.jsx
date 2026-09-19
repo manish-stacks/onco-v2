@@ -5,16 +5,65 @@ import {
 } from 'recharts';
 import {
   ShoppingCart, IndianRupee, Users, Package, AlertTriangle, CalendarClock,
-  FileText, TrendingUp, ArrowRight,
+  FileText, TrendingUp, ArrowRight, Wrench,
 } from 'lucide-react';
-import { useResource } from '@/hooks/useApi';
+import { useResource, useMutation } from '@/hooks/useApi';
 import { DATE_PRESETS, TONE_HEX, toneOf } from '@/lib/constants';
 import { compactInr, inr, num, date, ago, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Select, StatusPill, Code, SourceTag, PageLoader, EmptyState, cx } from '@/components/ui';
+import { api } from '@/lib/api';
 import { Health } from '@/pages/system/System';
 import { useAuth } from '@/context/AuthContext';
 import { PERMISSIONS as P } from '@/lib/constants';
+
+/** Quick on/off for the whole storefront (website + app) — Settings > General
+ *  has the full form with a custom message, this is the one-click version for
+ *  "site is down for a bit, put up the maintenance page right now". */
+function MaintenanceToggle() {
+  const { can } = useAuth();
+  const { data, reload } = useResource('/admin/settings');
+  const on = !!Number(data?.maintenance_mode);
+
+  const toggle = useMutation(
+    () => api.put(`/admin/settings/${data.id}`, { maintenance_mode: on ? 0 : 1 }),
+    { success: on ? 'Site is back online' : 'Site is now in maintenance mode', onSuccess: reload }
+  );
+
+  if (!data || !can(P.SETTINGS_MANAGE)) return null;
+
+  return (
+    <div className={cx(
+      'mb-4 flex items-center justify-between gap-3 rounded-lg border px-4 py-3',
+      on ? 'border-signal-danger/30 bg-signal-dangerBg' : 'border-line bg-white'
+    )}>
+      <div className="flex items-center gap-3">
+        <Wrench className={cx('w-4 h-4 shrink-0', on ? 'text-signal-danger' : 'text-ink-400')} />
+        <div>
+          <p className="text-[0.8125rem] font-semibold text-ink">Site maintenance mode</p>
+          <p className="text-2xs text-ink-500">
+            {on
+              ? 'The website and app are showing the maintenance page to everyone right now.'
+              : 'Website and app are live. Turn this on to take the storefront offline temporarily.'}
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={toggle.run}
+        disabled={toggle.loading}
+        className={cx(
+          'shrink-0 px-3 py-1.5 rounded-md text-[0.8125rem] font-medium border transition-colors disabled:opacity-50',
+          on
+            ? 'bg-white border-signal-danger/30 text-signal-danger hover:bg-signal-dangerBg'
+            : 'bg-ink text-white border-ink hover:opacity-90'
+        )}
+      >
+        {toggle.loading ? 'Saving…' : on ? 'Turn off' : 'Turn on'}
+      </button>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [preset, setPreset] = useState('month');
@@ -40,6 +89,8 @@ export default function Dashboard() {
           />
         }
       />
+
+      <MaintenanceToggle />
 
       {/* System health — if something is down, show it first */}
       {can(P.SYSTEM_VIEW) && <Health compact />}

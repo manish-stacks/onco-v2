@@ -422,6 +422,12 @@ export const authApi = {
   updateProfile: <T = unknown>(payload: Record<string, unknown>) =>
     api.data<T>('/auth/me', undefined, { method: 'PATCH', body: payload }),
 
+  /** Web push — register/unregister this browser for order-update notifications */
+  registerDevice: (fcm_token: string) =>
+    api.post('/auth/device-token', { fcm_token, platform: 'web' }),
+  unregisterDevice: (fcm_token: string) =>
+    api.del('/auth/device-token', { fcm_token }),
+
   logout(): void {
     tokenStore.clear();
   },

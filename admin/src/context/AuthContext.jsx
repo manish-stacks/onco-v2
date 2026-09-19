@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { api, tokenStore, onUnauthorized } from '@/lib/api';
+import { enablePush, disablePush } from '@/lib/push';
 
 const AuthContext = createContext(null);
 
@@ -9,6 +10,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const logout = useCallback(async () => {
+    await disablePush();
     try {
       if (tokenStore.get()) await api.post('/admin/auth/logout');
     } catch {
@@ -39,6 +41,7 @@ export function AuthProvider({ children }) {
         if (!alive) return;
         setAdmin(res.data);
         setPermissions(res.data.permissions || []);
+        enablePush(); // re-register this device's token after a page reload
       } catch {
         tokenStore.clear();
       } finally {
@@ -53,6 +56,7 @@ export function AuthProvider({ children }) {
     tokenStore.set(data.token);
     setAdmin(data.admin);
     setPermissions(data.permissions || []);
+    enablePush(); // best-effort, never blocks login
     return data.admin;
   }, []);
 

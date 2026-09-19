@@ -12,7 +12,8 @@ const SETTINGS_FIELDS = ['organization', 'contact_address', 'contact_phone', 'co
   'is_razorpay', 'is_payu',
   'login_start_time', 'login_end_time', 'status',
   'meta_title', 'meta_description', 'meta_keywords', 'og_image', 'google_site_verification', 'robots_txt',
-  'notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled'];
+  'notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled',
+  'maintenance_mode', 'maintenance_message'];
 
 /**
  * Columns that were added later. On an old database they simply do not exist,
@@ -34,6 +35,8 @@ const LATE_COLUMNS = {
   notify_whatsapp_enabled: `TINYINT(1) NOT NULL DEFAULT 1`,
   notify_sms_enabled: `TINYINT(1) NOT NULL DEFAULT 1`,
   notify_email_enabled: `TINYINT(1) NOT NULL DEFAULT 1`,
+  maintenance_mode: `TINYINT(1) NOT NULL DEFAULT 0`,
+  maintenance_message: `TEXT DEFAULT NULL`,
 };
 
 let columnsReady = null;
@@ -73,7 +76,7 @@ async function update(id, data) {
   // Checkbox/toggle fields — 0 is a valid value here, so they are normalised
   // separately (pickDefined drops '' but keeps 0).
   ['gst_override', 'is_cod', 'is_razorpay', 'is_payu', 'is_login_rules',
-    'notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled'].forEach((k) => {
+    'notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled', 'maintenance_mode'].forEach((k) => {
     if (data[k] !== undefined && data[k] !== null && data[k] !== '') {
       payload[k] = (data[k] === true || data[k] === 1 || data[k] === '1' || data[k] === 'true') ? 1 : 0;
     }

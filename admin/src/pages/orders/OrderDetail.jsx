@@ -7,7 +7,7 @@ import {
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { api, mediaUrl, isPdfUrl } from '@/lib/api';
-import { PERMISSIONS as P, PAYMENT_STATUSES, toneOf, TONE_HEX } from '@/lib/constants';
+import { PERMISSIONS as P, PAYMENT_STATUSES, ORDER_STATUSES, toneOf, TONE_HEX, paymentPillProps } from '@/lib/constants';
 import { inr, num, dateTime, date, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import {
@@ -67,7 +67,7 @@ export default function OrderDetail() {
             <Button icon={Printer} onClick={() => window.open(`/orders/${orderId}/invoice`, '_blank')}>
               Invoice
             </Button>
-            {canManage && order.allowed_next_statuses?.length > 0 && (
+            {canManage && (
               <Button variant="primary" icon={PackageCheck} onClick={() => setStatusOpen(true)}>
                 Move status
               </Button>
@@ -98,7 +98,7 @@ export default function OrderDetail() {
           </Card>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-1">
           <Card
             title="Customer"
             dense
@@ -561,7 +561,7 @@ function PaymentBlock({ order }) {
     <div className="p-4 space-y-2 text-[0.8125rem]">
       <div className="flex items-center justify-between">
         <span className="text-ink-500">Status</span>
-        <StatusPill status={order.payment_status} size="xs" />
+        <StatusPill {...paymentPillProps(order)} size="xs" />
       </div>
       <div className="flex items-center justify-between">
         <span className="text-ink-500">Mode</span>
@@ -601,13 +601,20 @@ function PaymentBlock({ order }) {
 function StatusModal({ open, onClose, order, onDone }) {
   const [status, setStatus] = useState('');
   const [note, setNote] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
   const save = useMutation(
     () => api.patch(`/admin/orders/${order.order_id}/status`, { status, note }),
-    { success: 'Status updated', onSuccess: () => { onClose(); onDone(); setStatus(''); setNote(''); } }
+    { success: 'Status updated', onSuccess: () => { onClose(); onDone(); setStatus(''); setNote(''); setShowAll(false); } }
   );
 
   const allowed = order.allowed_next_statuses || [];
+  // Payment done ke baad bhi kabhi kabhi order galti se Pending me stuck reh
+  // jaata hai — usse recover karne ke liye (ya kisi aur wajah se) admin ko
+  // kabhi bhi KOI bhi status manually set karna pad sakta hai, sirf state
+  // machine ke "allowed next" tak limited nahi. Backend already accepts any
+  // status — ye sirf UI restriction thi.
+  const otherStatuses = ORDER_STATUSES.filter((s) => !allowed.includes(s) && s !== order.status);
 
   return (
     <Modal
@@ -623,28 +630,60 @@ function StatusModal({ open, onClose, order, onDone }) {
       }
     >
       <div className="space-y-3">
-        <Field label="Next status" required hint="Only the options allowed from the current status">
-          <div className="grid grid-cols-2 gap-2">
-            {allowed.map((s) => (
-              <button
-                key={s} type="button" onClick={() => setStatus(s)}
-                className={cx(
-                  'px-3 py-2 rounded border text-[0.8125rem] text-left transition-colors',
-                  status === s
-                    ? 'border-teal bg-teal-light text-teal-dark font-medium'
-                    : 'border-line hover:border-line-strong text-ink-700'
-                )}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </Field>
+        {allowed.length > 0 && (
+          <Field label="Next status" hint="Recommended — the normal next step from the current status">
+            <div className="grid grid-cols-2 gap-2">
+              {allowed.map((s) => (
+                <button
+                  key={s} type="button" onClick={() => setStatus(s)}
+                  className={cx(
+                    'px-3 py-2 rounded border text-[0.8125rem] text-left transition-colors',
+                    status === s
+                      ? 'border-teal bg-teal-light text-teal-dark font-medium'
+                      : 'border-line hover:border-line-strong text-ink-700'
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
+
+        {!showAll ? (
+          <button type="button" onClick={() => setShowAll(true)} className="text-2xs font-semibold text-teal-dark">
+            Set a different status manually →
+          </button>
+        ) : (
+          <Field label="All statuses" hint="Manual override — use this to fix an order stuck in the wrong status (e.g. payment succeeded but it never left Pending)">
+            <div className="grid grid-cols-2 gap-2">
+              {otherStatuses.map((s) => (
+                <button
+                  key={s} type="button" onClick={() => setStatus(s)}
+                  className={cx(
+                    'px-3 py-2 rounded border text-[0.8125rem] text-left transition-colors',
+                    status === s
+                      ? 'border-teal bg-teal-light text-teal-dark font-medium'
+                      : 'border-line hover:border-line-strong text-ink-700'
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
 
         {status === 'Cancelled' && (
           <p className="text-2xs text-signal-warn bg-signal-warnBg border border-signal-warn/20 rounded px-3 py-2">
             Cancelling restores the stock, gives back the coupon use, and for a paid order the
             Razorpay refund automatically start ho jaayega.
+          </p>
+        )}
+        {status && !allowed.includes(status) && status !== 'Cancelled' && (
+          <p className="text-2xs text-signal-warn bg-signal-warnBg border border-signal-warn/20 rounded px-3 py-2">
+            This skips the normal order flow — only the status changes, nothing else (no stock/coupon/refund
+            action is triggered). Use this to correct a stuck order.
           </p>
         )}
 

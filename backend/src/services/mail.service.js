@@ -18,10 +18,16 @@ function isConfigured() {
 
 function getTransporter() {
   if (transporter) return transporter;
+  const port = Number(process.env.SMTP_PORT || 587);
+  // Port 465 is implicit TLS and MUST have secure:true, or the handshake
+  // fails silently on every single send (this was exactly the ".env has
+  // SMTP_PORT=465 with SMTP_SECURE=false" bug — self-correct it here so a
+  // wrong .env value can't quietly kill every outgoing email again).
+  const secure = port === 465 ? true : String(process.env.SMTP_SECURE || 'false') === 'true';
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: String(process.env.SMTP_SECURE || 'false') === 'true',
+    port,
+    secure,
     auth: process.env.SMTP_USER
       ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
       : undefined,

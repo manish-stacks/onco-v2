@@ -63,6 +63,7 @@ const PERMISSIONS = {
   // ⚠ Shows the live OTP — grant it only to those who truly need it
   OTP_VIEW: 'otp.view',
   NOTIFICATIONS_VIEW: 'notifications.view',
+  NOTIFICATIONS_MANAGE: 'notifications.manage',
 
   SYSTEM_VIEW: 'system.view',
   SYSTEM_MANAGE: 'system.manage',

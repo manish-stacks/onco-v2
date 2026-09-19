@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { authApi, onUnauthorized, tokenStore, ApiError } from "@/lib/api";
+import { enablePush, disablePush } from "@/lib/push";
 import type { Customer } from "@/types";
 
 interface AuthContextValue {
@@ -52,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => onUnauthorized(() => setUser(null)), []);
 
+  // Register this browser for push once we know who's logged in — covers
+  // both a fresh login and restoring the session on page load. Runs once
+  // per session (not on every user object change) since re-registering the
+  // same token repeatedly is harmless but pointless.
+  useEffect(() => {
+    if (user) enablePush();
+  }, [!!user]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const requestOtp = useCallback(async (mobile: string, customer_name?: string) => {
     const data = await authApi.requestOtp({ mobile, customer_name, allow_signup: true });
     return (data || {}) as { customer_id: string | number; is_new_user?: boolean; dev_otp?: string };
@@ -76,6 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const logout = useCallback(() => {
+    disablePush();
     authApi.logout();
     setUser(null);
   }, []);

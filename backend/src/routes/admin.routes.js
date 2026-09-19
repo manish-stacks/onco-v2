@@ -72,6 +72,8 @@ router.post('/auth/change-password', validate({
   new_password: { required: true, minLength: 8 },
 }), auth.changePassword);
 router.post('/auth/logout', auth.logout);
+router.post('/auth/device-token', auth.registerDevice);
+router.delete('/auth/device-token', auth.unregisterDevice);
 
 // ===========================================================================
 // DASHBOARD
@@ -129,6 +131,12 @@ router.get('/payments/export', requirePermission(P.PAYMENTS_VIEW), payment.expor
 router.get('/otp-logs', requirePermission(P.OTP_VIEW), otpCtrl.list);
 router.get('/otp-logs/stats', requirePermission(P.OTP_VIEW), otpCtrl.stats);
 router.get('/notification-logs', requirePermission(P.NOTIFICATIONS_VIEW), otpCtrl.notificationLogs);
+// NOTE: gated on NOTIFICATIONS_VIEW (not the new NOTIFICATIONS_MANAGE permission
+// constant) so it works immediately for existing admin accounts without
+// needing a role_permissions migration first. Switch this to
+// P.NOTIFICATIONS_MANAGE once that permission has been synced into the roles
+// that should have it (Admins > Roles).
+router.post('/notifications/send', requirePermission(P.NOTIFICATIONS_VIEW), otpCtrl.sendCustom);
 
 // ===========================================================================
 // PRODUCTS

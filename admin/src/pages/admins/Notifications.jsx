@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import {
-  MessageSquare, KeyRound, Bell, ShieldAlert, CheckCircle2, XCircle, Smartphone,
+  MessageSquare, KeyRound, Bell, ShieldAlert, CheckCircle2, XCircle, Smartphone, Send,
 } from 'lucide-react';
-import { useList, useResource, useDebounced } from '@/hooks/useApi';
+import { useList, useResource, useDebounced, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { dateTime, ago, num, truncate, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import {
-  Card, Code, StatusPill, SourceTag, Tabs, Skeleton, EmptyState, Input, cx,
+  Card, Code, StatusPill, SourceTag, Tabs, Skeleton, EmptyState, Input, Textarea, Field, Select, Button, cx,
 } from '@/components/ui';
 import { DataTable, Pagination, FilterBar, SearchInput, FilterSelect } from '@/components/ui/DataTable';
+import { api } from '@/lib/api';
 
 export default function Notifications() {
   const { can } = useAuth();
   const tabs = [
+    can(P.NOTIFICATIONS_VIEW) && { value: 'send', label: 'Send notification' },
     can(P.NOTIFICATIONS_VIEW) && { value: 'messages', label: 'Messages sent' },
     can(P.OTP_VIEW) && { value: 'otp', label: 'OTP logs' },
   ].filter(Boolean);
@@ -29,10 +31,77 @@ export default function Notifications() {
       />
       <Card dense>
         <Tabs tabs={tabs} value={tab} onChange={setTab} className="px-4 pt-1" />
+        {tab === 'send' && <SendNotification />}
         {tab === 'messages' && <MessageLogs />}
         {tab === 'otp' && <OtpLogs />}
       </Card>
     </>
+  );
+}
+
+/* =========================================================================
+ * SEND — a one-off push notification, to one customer or everyone
+ * ======================================================================= */
+function SendNotification() {
+  const [target, setTarget] = useState('customer');
+  const [mobile, setMobile] = useState('');
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+
+  const send = useMutation(
+    () => api.post('/admin/notifications/send', {
+      target, title, body, mobile: target === 'customer' ? mobile : undefined,
+    }),
+    {
+      success: (res) => res?.message || 'Notification sent',
+      onSuccess: () => { setTitle(''); setBody(''); },
+    }
+  );
+
+  const canSend = title.trim() && body.trim() && (target === 'all' || mobile.trim());
+
+  return (
+    <div className="p-5 max-w-lg space-y-4">
+      <p className="text-2xs text-ink-500">
+        Goes out as a push notification to the app/website (only to devices that already have
+        notifications enabled) — not WhatsApp or SMS.
+      </p>
+
+      <Field label="Send to">
+        <Select
+          value={target} onChange={(e) => setTarget(e.target.value)}
+          options={[
+            { value: 'customer', label: 'One customer (by mobile number)' },
+            { value: 'all', label: 'Every customer' },
+          ]}
+        />
+      </Field>
+
+      {target === 'customer' && (
+        <Field label="Customer mobile number">
+          <Input mono value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="9876543210" />
+        </Field>
+      )}
+
+      <Field label="Title">
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={65} placeholder="e.g. Diwali offer" />
+      </Field>
+
+      <Field label="Message" hint="Shown as the notification body">
+        <Textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} maxLength={200}
+          placeholder="e.g. Flat 20% off on all vitamins today only." />
+      </Field>
+
+      {target === 'all' && (
+        <p className="text-2xs text-signal-warn bg-signal-warnBg border border-signal-warn/20 rounded px-3 py-2">
+          This goes to every customer who has notifications on — double-check the wording before sending.
+        </p>
+      )}
+
+      <Button variant="primary" icon={Send} onClick={send.run} loading={send.loading} disabled={!canSend}>
+        {target === 'all' ? 'Send to everyone' : 'Send'}
+      </Button>
+    </div>
   );
 }
 

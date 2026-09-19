@@ -133,3 +133,15 @@ export const TONE_HEX = {
 };
 
 export const toneOf = (status) => STATUS_TONE[status] || 'idle';
+
+/** A fresh COD order is legitimately "Unpaid" until delivery — showing that
+ *  in red next to every COD order makes the list look like a payment problem
+ *  when it's expected. Show "COD" (neutral tone) instead in that one case;
+ *  everything else (online Unpaid/Paid/Failed/Refunded, or a COD order
+ *  already marked Paid on delivery) still shows its real status as-is. */
+export function paymentPillProps(order) {
+  if (order?.payment_mode === 'cod' && order?.payment_status === 'Unpaid') {
+    return { status: 'COD', tone: 'idle' };
+  }
+  return { status: order?.payment_status, tone: toneOf(order?.payment_status) };
+}

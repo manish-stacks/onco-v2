@@ -11,6 +11,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.oncohealthmart.store",
       "icon": "./assets/logo/ic_launcher.png",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Onco Health Mart uses your location to detect your address and provide accurate delivery services while the app is in use.",
@@ -37,6 +38,7 @@
       },
       "icon": "./assets/logo/ic_launcher.png",
       "package": "com.happy_coding.app",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "CAMERA",
         "READ_MEDIA_IMAGES"

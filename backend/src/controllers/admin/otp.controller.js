@@ -1,7 +1,9 @@
 const db = require('../../config/db');
 const adminModel = require('../../models/admin.model');
+const customerModel = require('../../models/customer.model');
+const push = require('../../services/firebase.service');
 const { QueryBuilder } = require('../../utils/queryBuilder');
-const { ok, paginated, asyncHandler } = require('../../utils/response');
+const { ok, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
 
 /**
@@ -123,4 +125,35 @@ const notificationLogs = asyncHandler(async (req, res) => {
   return paginated(res, rows, total, page, limit);
 });
 
-module.exports = { list, stats, notificationLogs };
+/**
+ * POST /admin/notifications/send — a one-off push notification composed by
+ * an admin, either to one customer (by mobile number) or to everyone with
+ * a registered device.
+ */
+const sendCustom = asyncHandler(async (req, res) => {
+  const { title, body, target, mobile } = req.body;
+  if (!title || !body) return fail(res, 'title and body are required', 422);
+  if (!['all', 'customer'].includes(target)) return fail(res, "target must be 'all' or 'customer'", 422);
+
+  let result;
+  if (target === 'customer') {
+    if (!mobile) return fail(res, 'mobile is required when target is customer', 422);
+    const customer = await customerModel.findByMobile(mobile);
+    if (!customer) return fail(res, 'No customer found with that mobile number', 404);
+    result = await push.sendToCustomer(customer.customer_id, { title, body }, { type: 'custom_admin' });
+  } else {
+    result = await push.sendToAllCustomers({ title, body }, { type: 'custom_admin' });
+  }
+
+  await adminModel.logActivity({
+    admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
+    action: 'send_notification', module: 'notifications',
+    description: `${target === 'all' ? 'Broadcast' : `To ${mobile}`}: ${title}`,
+    ip_address: req.ip,
+  });
+
+  if (result?.failed) return fail(res, result.error || 'Could not send the notification', 502);
+  return ok(res, result, target === 'all' ? `Sent to ${result?.sent ?? 0} device(s)` : 'Notification sent');
+});
+
+module.exports = { list, stats, notificationLogs, sendCustom };

@@ -114,6 +114,8 @@ const publicSettings = asyncHandler(async (req, res) => {
       shipping_threshold: s.shipping_threshold,
       is_cod: s.is_cod,
       cod_fee: s.cod_fee,
+      maintenance_mode: !!s.maintenance_mode,
+      maintenance_message: s.maintenance_message,
       // Header/footer script (GTM, analytics, meta pixel etc.) — admin-controlled,
       // trusted content only, frontend injects as-is into <head>/before </body>
       header_code: s.header_code,

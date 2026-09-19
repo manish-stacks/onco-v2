@@ -40,6 +40,12 @@ const create = asyncHandler(async (req, res) => {
   if (!admin_username || !password || !user_type) {
     return fail(res, 'admin_username, password and user_type are required', 422);
   }
+  // OTP login is mandatory (see auth.controller.js) — a mobile number is
+  // required at creation time so nobody can end up locked out of their own
+  // account by having no number to send the OTP to.
+  if (!admin_phone) {
+    return fail(res, 'A mobile number is required — OTP login is sent here', 422, { admin_phone: ['Phone number is required'] });
+  }
   if (password.length < 8) return fail(res, 'The password must be at least 8 characters', 422);
 
   if (await adminModel.findByUsername(admin_username)) {

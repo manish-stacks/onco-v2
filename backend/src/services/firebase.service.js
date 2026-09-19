@@ -99,6 +99,17 @@ async function tokensForAdmins() {
   return rows.map((r) => r.token);
 }
 
+/** Every registered customer device — used for "send to everyone" broadcasts
+ *  from the admin panel. Topics (sendToTopic) would need every device to
+ *  actively subscribe first, which nothing in this app does yet, so this
+ *  reads straight from the tokens we already have on file instead. */
+async function tokensForAllCustomers() {
+  const [rows] = await db.query(
+    `SELECT token FROM device_tokens WHERE customer_id IS NOT NULL AND is_active = 1`
+  );
+  return rows.map((r) => r.token);
+}
+
 /** FCM reported the token is dead — remove it from the DB, otherwise it fails every time */
 async function deactivateTokens(tokens = []) {
   if (!tokens.length) return;
@@ -149,47 +160,60 @@ async function sendToTokens(tokens, notification, data = {}, meta = {}) {
     stringData[k] = v === null || v === undefined ? '' : String(v);
   });
 
-  try {
-    const res = await fb.messaging().sendEachForMulticast({
-      tokens: clean,
-      notification: {
-        title: notification.title,
-        body: notification.body,
-        ...(notification.image ? { imageUrl: notification.image } : {}),
-      },
-      data: stringData,
-      android: {
-        priority: 'high',
-        notification: {
-          channelId: notification.channel || 'orders',
-          sound: 'default',
-        },
-      },
-      apns: {
-        payload: { aps: { sound: 'default', badge: 1 } },
-      },
-    });
+  // sendEachForMulticast caps out at 500 tokens per call — a broadcast to
+  // every customer easily has more than that, so send in batches.
+  const BATCH_SIZE = 500;
+  const batches = [];
+  for (let i = 0; i < clean.length; i += BATCH_SIZE) batches.push(clean.slice(i, i + BATCH_SIZE));
 
-    // clean up dead tokens
-    const dead = [];
-    res.responses.forEach((r, i) => {
-      const code = r.error?.code;
-      if (code === 'messaging/registration-token-not-registered'
-        || code === 'messaging/invalid-registration-token') {
-        dead.push(clean[i]);
-      }
-    });
+  let successCount = 0;
+  let failureCount = 0;
+  const dead = [];
+
+  try {
+    for (const batch of batches) {
+      const res = await fb.messaging().sendEachForMulticast({
+        tokens: batch,
+        notification: {
+          title: notification.title,
+          body: notification.body,
+          ...(notification.image ? { imageUrl: notification.image } : {}),
+        },
+        data: stringData,
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: notification.channel || 'orders',
+            sound: 'default',
+          },
+        },
+        apns: {
+          payload: { aps: { sound: 'default', badge: 1 } },
+        },
+      });
+
+      successCount += res.successCount;
+      failureCount += res.failureCount;
+
+      res.responses.forEach((r, i) => {
+        const code = r.error?.code;
+        if (code === 'messaging/registration-token-not-registered'
+          || code === 'messaging/invalid-registration-token') {
+          dead.push(batch[i]);
+        }
+      });
+    }
     if (dead.length) await deactivateTokens(dead);
 
     await logPush({
       ...meta,
       template: notification.title,
       recipient: `${clean.length} tokens`,
-      success: res.successCount > 0,
-      response: `sent ${res.successCount}, failed ${res.failureCount}, removed ${dead.length}`,
+      success: successCount > 0,
+      response: `sent ${successCount}, failed ${failureCount}, removed ${dead.length}`,
     });
 
-    return { sent: res.successCount, failed: res.failureCount, removed: dead.length };
+    return { sent: successCount, failed: failureCount, removed: dead.length };
   } catch (err) {
     console.error('[fcm] send fail:', err.message);
     await logPush({ ...meta, template: notification.title, recipient: `${clean.length} tokens`, success: false, error: err.message });
@@ -230,8 +254,14 @@ async function sendToTopic(topic, notification, data = {}) {
   }
 }
 
+/** "Send to everyone" broadcast from the admin panel — see tokensForAllCustomers's note */
+async function sendToAllCustomers(notification, data = {}) {
+  const tokens = await tokensForAllCustomers();
+  return sendToTokens(tokens, notification, data, {});
+}
+
 module.exports = {
   isConfigured, registerToken, removeToken,
-  tokensForCustomer, tokensForAdmins,
-  sendToTokens, sendToCustomer, sendToAdmins, sendToTopic,
+  tokensForCustomer, tokensForAdmins, tokensForAllCustomers,
+  sendToTokens, sendToCustomer, sendToAdmins, sendToTopic, sendToAllCustomers,
 };

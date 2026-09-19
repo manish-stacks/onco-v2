@@ -252,7 +252,7 @@ function MemberModal({ open, onClose, member, roles, onDone }) {
         <Field label="Email">
           <Input type="email" value={form.admin_email || ''} onChange={(e) => set('admin_email', e.target.value)} />
         </Field>
-        <Field label="Phone">
+        <Field label="Phone" required hint="Required — OTP login is sent here, no phone means they can't log in">
           <Input mono value={form.admin_phone || ''} onChange={(e) => set('admin_phone', e.target.value)} />
         </Field>
 

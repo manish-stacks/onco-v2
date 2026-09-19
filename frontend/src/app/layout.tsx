@@ -63,8 +63,28 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Admin Settings > Header/footer scripts (GTM, analytics etc.) — settings load
   // fail ho jaaye to bhi site chalti rahe, isliye chup-chaap khaali fallback.
   const settings = await contentApi
-    .settings<{ header_code?: string; footer_code?: string }>()
+    .settings<{ header_code?: string; footer_code?: string; maintenance_mode?: boolean; maintenance_message?: string }>({
+      // Maintenance is a toggle the admin expects to take effect immediately,
+      // not after the usual 15-minute settings cache — check it fresh every time.
+      cache: "no-store",
+    })
     .catch(() => null);
+
+  if (settings?.maintenance_mode) {
+    return (
+      <html lang="en" className="h-full antialiased">
+        <body className="flex h-full flex-col items-center justify-center gap-4 bg-[var(--paper)] px-6 text-center">
+          <h1 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-3xl">
+            We&apos;ll be right back
+          </h1>
+          <p className="max-w-md text-sm leading-relaxed text-[var(--ink-soft)]">
+            {settings.maintenance_message
+              || "We're currently doing some scheduled maintenance. Please check back shortly."}
+          </p>
+        </body>
+      </html>
+    );
+  }
 
   return (
     <html lang="en" className="h-full antialiased">

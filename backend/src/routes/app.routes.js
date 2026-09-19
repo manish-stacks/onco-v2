@@ -13,12 +13,17 @@ const payment = require('../controllers/app/payment.controller');
 const { customerAuth, optionalAuth } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 const { uploadPrescription } = require('../middleware/upload');
+const { maintenanceGate } = require('../middleware/maintenance');
 
 /**
  * BOTH the website and the mobile app use these routes.
  * The client simply sends a header:  X-Client-Platform: web  |  app
  * orders.orderFrom and prescriptions.source are set automatically from it.
  */
+
+// Site maintenance toggle (Settings > General in the admin panel) — blocks
+// everything below except a small allowlist. See middleware/maintenance.js.
+router.use(maintenanceGate);
 
 // ===========================================================================
 // AUTH

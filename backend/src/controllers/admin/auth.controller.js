@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const adminModel = require('../../models/admin.model');
 const smsService = require('../../services/sms.service');
+const pushService = require('../../services/firebase.service');
 const { getRolePermissions } = require('../../middleware/adminAuth');
 const { ok, fail, asyncHandler } = require('../../utils/response');
 const { storeFile } = require('../../middleware/upload');
@@ -74,9 +75,19 @@ const login = asyncHandler(async (req, res) => {
   if (!match) return fail(res, 'Username or password is incorrect', 401);
 
   // ---- Step 2: OTP to the admin's registered mobile (like the old site) ----
-  // Only when it's enabled AND the account actually has a phone number — otherwise
-  // nobody can be locked out and we fall back to a direct login.
-  if (adminOtpEnabled() && admin.admin_phone) {
+  if (adminOtpEnabled()) {
+    // No phone on file used to silently skip straight to the dashboard — that
+    // was a loophole (anyone could dodge 2FA by just not adding a number).
+    // OTP is meant to be mandatory, so block instead and make it obvious
+    // what needs fixing.
+    if (!admin.admin_phone) {
+      return fail(
+        res,
+        'A mobile number must be added to this account before you can log in — ask a super admin to add one under Admins > Team.',
+        403
+      );
+    }
+
     let devOtp = null;
     try {
       devOtp = await dispatchAdminOtp(admin, req);
@@ -184,6 +195,12 @@ const changePassword = asyncHandler(async (req, res) => {
 
 /** POST /admin/auth/logout — activity log ke liye */
 const logout = asyncHandler(async (req, res) => {
+  // Deactivate this device's push token too, so a logged-out admin's browser
+  // doesn't keep getting new-order notifications meant for whoever is logged
+  // in on it next.
+  if (req.body?.fcm_token) {
+    await pushService.removeToken(req.body.fcm_token).catch(() => {});
+  }
   await adminModel.logActivity({
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
     action: 'logout', module: 'auth', ip_address: req.ip,
@@ -191,4 +208,29 @@ const logout = asyncHandler(async (req, res) => {
   return ok(res, null, 'Logged out');
 });
 
-module.exports = { login, verifyOtp, resendOtp, me, updateProfile, changePassword, logout };
+/** POST /admin/auth/device-token — register this browser/device for push
+ *  (new-order alerts, payment-failed alerts, etc.) */
+const registerDevice = asyncHandler(async (req, res) => {
+  const { fcm_token, platform, device_info } = req.body;
+  if (!fcm_token) return fail(res, 'fcm_token is required', 422);
+
+  await pushService.registerToken({
+    token: fcm_token,
+    adminId: req.admin.admin_id,
+    platform: platform || 'web',
+    deviceInfo: device_info || req.headers['user-agent'],
+  });
+  return ok(res, null, 'Device registered');
+});
+
+/** DELETE /admin/auth/device-token */
+const unregisterDevice = asyncHandler(async (req, res) => {
+  if (!req.body.fcm_token) return fail(res, 'fcm_token is required', 422);
+  await pushService.removeToken(req.body.fcm_token);
+  return ok(res, null, 'Device unregistered');
+});
+
+module.exports = {
+  login, verifyOtp, resendOtp, me, updateProfile, changePassword, logout,
+  registerDevice, unregisterDevice,
+};

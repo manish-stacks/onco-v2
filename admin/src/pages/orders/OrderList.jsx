@@ -5,7 +5,7 @@ import { useList, useDebounced } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { api, tokenStore } from '@/lib/api';
-import { PERMISSIONS as P, ORDER_STATUSES, PAYMENT_STATUSES, toneOf } from '@/lib/constants';
+import { PERMISSIONS as P, ORDER_STATUSES, PAYMENT_STATUSES, toneOf, paymentPillProps } from '@/lib/constants';
 import { inr, num, dateTime, ago, orderRef } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Button, StatusPill, SourceTag, Code, Tabs } from '@/components/ui';
@@ -124,7 +124,7 @@ export default function OrderList() {
       render: (o) => (
         <div>
           <p className="text-[0.8125rem] font-semibold tabular-nums text-ink">{inr(o.amount)}</p>
-          <StatusPill status={o.payment_status} size="xs" />
+          <StatusPill {...paymentPillProps(o)} size="xs" />
         </div>
       ),
     },

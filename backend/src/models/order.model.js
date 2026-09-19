@@ -427,8 +427,23 @@ async function remove(conn, orderId) {
 /** Orders still "Pending" after `minutes` — candidates for auto-cancel. */
 async function findStalePending(minutes) {
   const [rows] = await db.query(
-    `SELECT order_id FROM orders WHERE status = 'Pending' AND order_date < (NOW() - INTERVAL ? MINUTE)`,
+    `SELECT order_id, payment_status FROM orders
+     WHERE status = 'Pending' AND payment_status != 'Paid'
+       AND order_date < (NOW() - INTERVAL ? MINUTE)`,
     [minutes]
+  );
+  return rows;
+}
+
+/** A "Pending" order whose payment already succeeded — should never happen
+ *  (markOrderPaid moves Pending -> New the moment payment_status becomes
+ *  Paid) but if that status transition ever failed partway through, this
+ *  order would otherwise sit here forever and eventually get swept up by
+ *  the stale-pending auto-cancel (which would cancel + refund a customer
+ *  who already paid). The poller uses this to self-heal such orders instead. */
+async function findStuckPaidPending() {
+  const [rows] = await db.query(
+    `SELECT order_id FROM orders WHERE status = 'Pending' AND payment_status = 'Paid'`
   );
   return rows;
 }
@@ -450,5 +465,5 @@ module.exports = {
   setInvoiceNumber, setOriginalInvoice, updateFields, getItems, customerHasPurchased, stats,
   buildFilters, SORTABLE, findByRefAndPhone,findByRef,
   paymentsList, paymentsSummary,
-  remove, findStalePending, findActiveDtdcShipments,
+  remove, findStalePending, findStuckPaidPending, findActiveDtdcShipments,
 };

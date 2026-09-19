@@ -18,6 +18,23 @@ const AUTO_CANCEL_MINUTES = parseInt(process.env.ORDER_AUTO_CANCEL_MINUTES, 10) 
 const CHECK_INTERVAL_MS = 15 * 60 * 1000; // scan every 15 minutes
 
 async function autoCancelStalePending() {
+  // Self-heal first: a "Pending" order whose payment already succeeded must
+  // never be auto-cancelled/refunded — push it forward instead. See
+  // findStuckPaidPending()'s comment for why this can happen at all.
+  try {
+    const stuckPaid = await orderModel.findStuckPaidPending();
+    for (const { order_id } of stuckPaid) {
+      try {
+        await orderModel.updateStatus(order_id, 'New', 'system:auto-heal', 'Payment was already successful — auto-recovered from a stuck Pending status');
+        console.log(`[auto-cancel] order #${order_id} was Pending but already Paid — moved to New instead of cancelling`);
+      } catch (err) {
+        console.error(`[auto-cancel] could not auto-heal paid order #${order_id}:`, err.message);
+      }
+    }
+  } catch (err) {
+    console.error('[auto-cancel] could not scan for stuck paid-pending orders:', err.message);
+  }
+
   let stale = [];
   try {
     stale = await orderModel.findStalePending(AUTO_CANCEL_MINUTES);
