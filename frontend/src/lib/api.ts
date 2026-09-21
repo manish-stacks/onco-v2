@@ -422,6 +422,9 @@ export const authApi = {
   updateProfile: <T = unknown>(payload: Record<string, unknown>) =>
     api.data<T>('/auth/me', undefined, { method: 'PATCH', body: payload }),
 
+  /** Soft-delete — backend anonymizes the account (keeps orders for records) */
+  deleteAccount: () => api.del('/auth/me'),
+
   /** Web push — register/unregister this browser for order-update notifications */
   registerDevice: (fcm_token: string) =>
     api.post('/auth/device-token', { fcm_token, platform: 'web' }),
@@ -507,6 +510,10 @@ export const catalogApi = {
 
   category: <T = unknown>(slug: string, opts?: RequestOptions) =>
     api.data<T>(`/categories/${slug}`, undefined, { revalidate: 60, ...opts }),
+
+  /** Every Active product in a category, no page-size cap — powers /products/:slug */
+  categoryProducts: <T = unknown>(slug: string, opts?: RequestOptions) =>
+    api.data<T>(`/categories/${slug}/products`, undefined, { revalidate: 60, ...opts }),
 
   /** Search box autocomplete — both products and categories */
   search: <T = unknown>(q: string, opts?: RequestOptions) =>

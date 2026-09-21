@@ -21,6 +21,7 @@ interface AuthContextValue {
   loginPassword: (mobile: string, password: string) => Promise<Customer | null>;
   register: (payload: { mobile: string; password: string; customer_name?: string }) => Promise<Customer | null>;
   logout: () => void;
+  deleteAccount: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -90,6 +91,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  /** Permanent — backend anonymizes the account (orders/prescriptions are kept) */
+  const deleteAccount = useCallback(async () => {
+    await authApi.deleteAccount();
+    disablePush();
+    tokenStore.clear();
+    setUser(null);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -101,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginPassword,
         register,
         logout,
+        deleteAccount,
         refresh,
       }}
     >

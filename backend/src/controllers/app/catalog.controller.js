@@ -78,6 +78,24 @@ const categoryDetail = asyncHandler(async (req, res) => {
 });
 
 /**
+ * GET /categories/:slug/products — every Active product in this category,
+ * no page-size cap. Deliberately separate from the shared /products listing
+ * (shop/search/admin all hit that one and its limit stays capped) — the
+ * category page needs the full set at once for its client-side filters.
+ */
+const categoryProducts = asyncHandler(async (req, res) => {
+  const category = await cache.getOrSet(`categories:slug:${req.params.slug}`, cache.TTL.LONG,
+    () => categoryModel.findBySlug(req.params.slug));
+  if (!category) return fail(res, 'Category not found', 404);
+
+  const key = cache.buildKey('products:by-category', { category_id: category.category_id });
+  const products = await cache.getOrSet(key, cache.TTL.MEDIUM,
+    () => productModel.listAllByCategory(category.category_id));
+
+  return ok(res, { category, products, total: products.length });
+});
+
+/**
  * GET /home — all homepage data in a single call.
  * The app does not need to hit 8 separate APIs, and the whole response is cached.
  */
@@ -179,6 +197,6 @@ const listBrands = asyncHandler(async (req, res) => {
 
 module.exports = {
   listProducts, productDetail, productReviews, listBrands,
-  listCategories, categoryTree, categoryDetail,
+  listCategories, categoryTree, categoryDetail, categoryProducts,
   home, search, checkServiceability,
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -18,6 +18,24 @@ import type { CategoryTag, BrandTag, Medicine } from "@/types";
 
 const PAGE_SIZE = 8;
 type SortKey = "popular" | "price-low" | "price-high" | "rating";
+
+/**
+ * Windowed page numbers instead of one button per page — a category can run
+ * into 30-40+ pages here, and rendering all of them in one row was the thing
+ * overflowing the page horizontally (which, in turn, was breaking the sticky
+ * header). Always keeps first, last, current ±1, with "…" for the gaps.
+ */
+function getPageWindow(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = new Set([1, 2, total - 1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const result: (number | "…")[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - (sorted[i - 1] as number) > 1) result.push("…");
+    result.push(p);
+  });
+  return result;
+}
 
 /**
  * Comes from the CMS rich-text editor — sometimes pasted from Word/Google Docs
@@ -69,10 +87,24 @@ export function CategoryListing({
   const [sort, setSort] = useState<SortKey>("popular");
   const [page, setPage] = useState(1);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
-  const [maxPrice, setMaxPrice] = useState(1000);
+  // ₹1000 was a hardcoded cap that silently hid every medicine priced above
+  // it — fine for a cheap category, but it was quietly filtering out most of
+  // e.g. anti-cancer medicines (genuinely expensive) down to a handful.
+  // Compute the real ceiling from this category's own data instead.
+  const priceCeiling = useMemo(() => {
+    const highest = medicines.reduce((max, m) => Math.max(max, m.price), 0);
+    return Math.max(1000, Math.ceil(highest / 100) * 100);
+  }, [medicines]);
+  const [maxPrice, setMaxPrice] = useState(priceCeiling);
   const [rxOnly, setRxOnly] = useState(false);
   const [inStockOnly, setInStockOnly] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // maxPrice needs to track the ceiling: it's still "no filter applied" by
+  // default, it just has to widen (or narrow) when the category changes.
+  useEffect(() => {
+    setMaxPrice(priceCeiling);
+  }, [priceCeiling]);
 
   // Some brand rows can repeat with the same id (e.g. a brand mapped to more
   // than one sub-category). Keeping duplicates around means several checkboxes
@@ -123,7 +155,7 @@ export function CategoryListing({
         <input
           type="range"
           min={50}
-          max={1000}
+          max={priceCeiling}
           step={10}
           value={maxPrice}
           onChange={(e) => {
@@ -205,9 +237,7 @@ export function CategoryListing({
           <div className="flex flex-col justify-center p-6 sm:p-8">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <h1 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-3xl">{category.name}</h1>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--blue-50)] px-3 py-1 text-xs font-semibold text-[var(--blue-600)]">
-                <Package size={12} /> {category.productCount ?? filtered.length} products
-              </span>
+              
             </div>
             {category.description && <CategoryDescription html={category.description} slug={category.slug} />}
           </div>
@@ -288,19 +318,39 @@ export function CategoryListing({
           )}
 
           {totalPages > 1 && (
-            <div className="mt-10 flex items-center justify-center gap-2">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPage(i + 1)}
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium",
-                    page === i + 1 ? "bg-[var(--blue-500)] text-white" : "border border-[var(--line)] text-[var(--ink-soft)]"
-                  )}
-                >
-                  {i + 1}
-                </button>
-              ))}
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="flex h-9 items-center justify-center rounded-full border border-[var(--line)] px-3 text-sm font-medium text-[var(--ink-soft)] disabled:opacity-40"
+              >
+                Prev
+              </button>
+              {getPageWindow(page, totalPages).map((p, i) =>
+                p === "…" ? (
+                  <span key={`ellipsis-${i}`} className="flex h-9 w-9 items-center justify-center text-sm text-[var(--ink-soft)]">
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium",
+                      page === p ? "bg-[var(--blue-500)] text-white" : "border border-[var(--line)] text-[var(--ink-soft)]"
+                    )}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="flex h-9 items-center justify-center rounded-full border border-[var(--line)] px-3 text-sm font-medium text-[var(--ink-soft)] disabled:opacity-40"
+              >
+                Next
+              </button>
             </div>
           )}
         </div>

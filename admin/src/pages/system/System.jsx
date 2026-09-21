@@ -562,7 +562,7 @@ function MediaMigration() {
                 </p>
                 {doneCount > 0 && (
                   <p className="text-2xs text-signal-ok pl-6 mt-0.5 tabular-nums">
-                    {num(doneCount)} ho chuki
+                    {num(doneCount)} done already
                   </p>
                 )}
               </button>

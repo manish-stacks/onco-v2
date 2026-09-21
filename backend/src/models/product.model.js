@@ -131,6 +131,31 @@ async function list(
   };
 }
 
+/**
+ * Dedicated category-page query — every Active product in a category, no
+ * limit/offset. Kept separate from `list()` on purpose: `list()` backs the
+ * shared /products endpoint (shop, search, admin) and its page size is
+ * capped there deliberately; a category can run into the hundreds of
+ * products and the category page needs the full set in one shot for its
+ * client-side price/brand filters to work correctly.
+ */
+async function listAllByCategory(categoryId) {
+  const [rows] = await db.query(
+    `
+    SELECT DISTINCT
+      p.*,
+      (SELECT b.title FROM brands b WHERE b.id = p.brand_id LIMIT 1) AS brand_name
+    FROM products p
+    INNER JOIN product_categories pc ON pc.product_id = p.product_id
+    WHERE pc.category_id = ? AND p.status = 'Active'
+    ORDER BY p.product_id DESC
+    LIMIT 5000
+    `,
+    [categoryId]
+  );
+  return rows;
+}
+
 async function findById(productId) {
   const [[product]] = await db.query(
     `SELECT p.*, b.title AS brand_name FROM products p
@@ -334,7 +359,7 @@ async function incrementSold(productId, qty, conn = db) {
 }
 
 module.exports = {
-  list, findById, findBySlug, findByIds, getPricingInfo,
+  list, listAllByCategory, findById, findBySlug, findByIds, getPricingInfo,
   create, update, remove, setStatus, bulkSetStatus, setCategories,
   generateUniqueSlug, slugExists, related, incrementSold,
   bulkSetFlags, toggleFlag, flagCounts,

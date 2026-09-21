@@ -48,12 +48,16 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const category = await getCategory(slug);
   if (!category) notFound();
 
-  const [productsRes, home] = await Promise.all([
-    catalogApi.products<ApiProduct[]>({ category_id: category.category_id, limit: 100 }),
+  const [categoryProductsRes, home] = await Promise.all([
+    // Dedicated endpoint — every Active product in this category, no
+    // page-size cap (a category here can run into the hundreds of products,
+    // and CategoryListing's price/brand filters need the full set to work
+    // correctly across the whole category, not just one server page).
+    catalogApi.categoryProducts<{ products: ApiProduct[] }>(slug),
     getHomeData(),
   ]);
 
-  const medicines = (productsRes?.data ?? []).map(productToMedicine);
+  const medicines = (categoryProductsRes?.products ?? []).map(productToMedicine);
   const brands = home.brands.map(brandToTag);
 
   return <CategoryListing category={categoryToTag(category)} medicines={medicines} brands={brands} />;

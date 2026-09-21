@@ -85,7 +85,11 @@ async function findById(id) {
 }
 
 async function findBySlug(slug) {
-  const [[row]] = await db.query(`SELECT * FROM categories WHERE slug = ? AND status = 'Active'`, [slug]);
+  const [[row]] = await db.query(
+    `SELECT c.*, (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_id = c.category_id) AS product_count
+     FROM categories c WHERE c.slug = ? AND c.status = 'Active'`,
+    [slug]
+  );
   return row || null;
 }
 

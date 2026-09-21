@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   LayoutDashboard, User, Package, MapPin, FileText, Heart, LogOut, Plus, Loader2,
   ArrowRight, Pencil, Check, X, Mail, Phone, Eye, Truck, Settings as SettingsIcon,
-  ListChecks, Layers, Wallet, Camera,
+  ListChecks, Layers, Wallet, Camera, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatINR, cn, orderRef } from "@/lib/utils";
@@ -33,7 +33,7 @@ function statusTone(status?: string) {
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user, isLoggedIn, loading: authLoading, logout, refresh } = useAuth();
+  const { user, isLoggedIn, loading: authLoading, logout, deleteAccount, refresh } = useAuth();
   const { toggleWishlist } = useStore();
   const [active, setActive] = useState<TabId>("dashboard");
 
@@ -149,6 +149,20 @@ export default function AccountPage() {
         return;
       }
       throw err;
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!confirm(
+      "This permanently deletes your account and personal data (name, email, phone, address). " +
+      "Your order history is kept for legal/accounting records, but you won't be able to log back in with this number. This cannot be undone."
+    )) return;
+    if (!confirm("Are you sure? This is permanent and cannot be reversed.")) return;
+    try {
+      await deleteAccount();
+      router.push("/");
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Could not delete account, please try again.");
     }
   }
 
@@ -416,6 +430,9 @@ export default function AccountPage() {
                       <SettingRow title="Need Help?" desc="Reach our support team" href="/contact" />
                       <button onClick={logout} className="flex w-full items-center gap-2 rounded-xl border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3.5 text-sm font-semibold text-[var(--coral-500)]">
                         <LogOut size={15} /> Logout from this device
+                      </button>
+                      <button onClick={handleDeleteAccount} className="flex w-full items-center gap-2 rounded-xl border border-[#FCC7BE] bg-[#FFF1EE] px-4 py-3.5 text-sm font-semibold text-[var(--coral-500)]">
+                        <Trash2 size={15} /> Delete account
                       </button>
                     </div>
                   </Card>

@@ -163,7 +163,7 @@ export default function AboutPage() {
       </section>
 
       {/* ── Team ── */}
-      <section className="bg-[var(--ink)] py-16">
+      {/* <section className="bg-[var(--ink)] py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <Reveal className="mb-10 text-center">
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-[var(--blue-500)]">The People Behind It</p>
@@ -188,7 +188,7 @@ export default function AboutPage() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* ── Perks bar ── */}
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

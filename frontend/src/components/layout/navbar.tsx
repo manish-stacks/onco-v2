@@ -93,7 +93,7 @@ export function Navbar() {
 
   return (
     <header className="relative z-50 bg-white">
-      {/* Promo strip */}
+      {/* Promo strip — scrolls away normally, not part of the sticky bit */}
       <div className="bg-blue-900">
         <div className="mx-auto flex h-9 max-w-7xl items-center justify-between gap-3 overflow-x-auto px-4 text-xs text-white sm:px-6 lg:px-8">
           <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
@@ -111,8 +111,9 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Main row: logo + search + account icons */}
-      <div className="mx-auto flex h-20 max-w-7xl items-center gap-4 bg-white px-4 sm:px-6 lg:px-8">
+      {/* Main row: logo + search + account icons — this is what actually stays visible on scroll */}
+      <div className="sticky top-0 z-50 bg-white shadow-sm">
+        <div className="mx-auto flex h-20 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex shrink-0 items-center">
           <Image src="/logo.png" alt="Onco Health Mart" width={200} height={63} className="h-12 w-auto object-contain md:h-14" priority />
         </Link>
@@ -248,6 +249,7 @@ export function Navbar() {
           </button>
         </div>
       </div>
+      </div>
 
       {/* Mobile search row */}
       <div className="border-t border-line bg-white px-4 py-2.5 sm:px-6 lg:hidden">
@@ -262,8 +264,8 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Category bar */}
-      <div className="sticky top-0 hidden bg-blue-50/50 lg:block">
+      {/* Category bar — sticks directly below the main row (top-20 = 80px = h-20) */}
+      <div className="sticky top-20 z-40 hidden bg-blue-50/50 lg:block">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <div
             className="relative"

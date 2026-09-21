@@ -32,15 +32,35 @@ async function pollActiveShipments() {
     return;
   }
 
+  // If DTDC's tracking token has expired (or their API is down), EVERY order
+  // fails the same way — hammering all of them and logging each one is just
+  // noise. After a run of consecutive failures, assume it's a systemic issue
+  // (not a bad AWB on one order) and stop this cycle early; the next cycle
+  // will pick up where this left off.
+  const CONSECUTIVE_FAILURE_LIMIT = 5;
+  let consecutiveFailures = 0;
+  let checked = 0;
+
   for (const { order_id } of rows) {
     try {
       await shipping.refreshTracking(order_id);
+      consecutiveFailures = 0;
+      checked++;
     } catch (err) {
       // A courier-side hiccup on one AWB must never stop the rest of the batch.
       console.error(`[dtdc-poll] order #${order_id} tracking refresh failed:`, err.message);
+      consecutiveFailures++;
+      if (consecutiveFailures >= CONSECUTIVE_FAILURE_LIMIT) {
+        console.error(
+          `[dtdc-poll] ${consecutiveFailures} failures in a row — likely DTDC_TRACKING_TOKEN expired ` +
+          `or DTDC's tracking API is down, not a per-order issue. Stopping this cycle early ` +
+          `(${rows.length - checked - consecutiveFailures} order(s) skipped) — will retry next cycle.`
+        );
+        break;
+      }
     }
   }
-  if (rows.length) console.log(`[dtdc-poll] checked ${rows.length} active DTDC shipment(s)`);
+  if (checked) console.log(`[dtdc-poll] checked ${checked} active DTDC shipment(s)`);
 }
 
 let timer = null;

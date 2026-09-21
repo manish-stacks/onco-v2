@@ -81,6 +81,7 @@ router.get('/products/:productId/reviews', catalog.productReviews);
 router.get('/categories', catalog.listCategories);
 router.get('/categories/tree', catalog.categoryTree);
 router.get('/categories/:slug', catalog.categoryDetail);
+router.get('/categories/:slug/products', catalog.categoryProducts);
 router.get('/serviceable-city', catalog.checkServiceability);
 
 // ===========================================================================
