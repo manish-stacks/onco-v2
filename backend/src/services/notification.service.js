@@ -3,6 +3,7 @@ const sms = require('./sms.service');
 const push = require('./firebase.service');
 const mail = require('./mail.service');
 const events = require('./events.service');
+const settingsModel = require('../models/settings.model');
 const { inrPlain, formatItems } = require('../utils/notify-format');
 const { orderRef } = require('../utils/helpers');
 
@@ -113,6 +114,61 @@ async function orderPlaced(order, items = []) {
     }, { type: 'new_order', order_id: order.order_id }),
     'orderPlaced admin push'
   );
+
+  // Order confirmation email — customer + admin. Was missing entirely
+  // (only WhatsApp/SMS/push were wired up for orderPlaced) — this is that.
+  const itemRows = items.map((it) =>
+    `<tr>
+       <td style="padding:6px 8px;border-bottom:1px solid #eee;">${String(it.product_name || 'Item')}</td>
+       <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${it.unit_quantity}</td>
+       <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">₹${inrPlain(it.line_total)}</td>
+     </tr>`
+  ).join('');
+  const itemsTable = `
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;">Item</th>
+        <th style="text-align:center;padding:6px 8px;border-bottom:2px solid #ddd;">Qty</th>
+        <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #ddd;">Amount</th>
+      </tr></thead>
+      <tbody>${itemRows}</tbody>
+    </table>`;
+
+  if (order.customer_email) {
+    fireAndForget(
+      mail.send(
+        order.customer_email,
+        `Order Confirmed — ${orderRef(order)}`,
+        `<p>Hi ${order.customer_name || 'Customer'},</p>
+         <p>Thanks for your order! We've received <b>${orderRef(order)}</b> and it's being processed.</p>
+         ${itemsTable}
+         <p><b>Total: ₹${inrPlain(order.amount)}</b> (${values.payment_method})</p>
+         <p>Shipping to: ${values.ship_name}, ${shipAddress}${values.pincode ? ' - ' + values.pincode : ''}</p>
+         <p>We'll notify you as your order moves through processing, shipping and delivery.</p>`,
+        { customerId: order.customer_id, orderId: order.order_id }
+      ),
+      'orderPlaced customer email'
+    );
+  }
+
+  fireAndForget(
+    (async () => {
+      const settings = await settingsModel.get();
+      const adminEmail = settings?.contact_email;
+      if (!adminEmail) return { success: false, error: 'no admin contact_email configured in settings' };
+      return mail.send(
+        adminEmail,
+        `New Order — ${orderRef(order)} (₹${inrPlain(order.amount)})`,
+        `<p>New order placed on the website.</p>
+         <p><b>${orderRef(order)}</b> — ${order.customer_name} (${order.customer_phone || 'no phone'})</p>
+         ${itemsTable}
+         <p><b>Total: ₹${inrPlain(order.amount)}</b> (${values.payment_method}) — via ${order.orderFrom || 'web'}</p>
+         <p>Shipping to: ${values.ship_name}, ${shipAddress}${values.pincode ? ' - ' + values.pincode : ''}</p>`,
+        { orderId: order.order_id }
+      );
+    })(),
+    'orderPlaced admin email'
+  );
 }
 
 /** Payment confirm */
@@ -198,6 +254,19 @@ async function orderStatusChanged(order, newStatus) {
     { orderId: order.order_id }),
     'orderStatus push'
   );
+
+  if (order.customer_email) {
+    fireAndForget(
+      mail.send(
+        order.customer_email,
+        `Order ${orderRef(order)} — ${newStatus}`,
+        `<p>Hi ${order.customer_name || 'Customer'},</p>
+         <p>Your order <b>${orderRef(order)}</b> is now <b>${newStatus}</b>.</p>`,
+        { customerId: order.customer_id, orderId: order.order_id }
+      ),
+      'orderStatus email'
+    );
+  }
 }
 
 /** Shipped — with the AWB */
@@ -229,6 +298,22 @@ async function orderShipped(order, { courier, awb, trackingUrl, notes }) {
     }, { orderId: order.order_id }),
     'orderShipped push'
   );
+
+  if (order.customer_email) {
+    fireAndForget(
+      mail.send(
+        order.customer_email,
+        `Order Shipped — ${orderRef(order)}`,
+        `<p>Hi ${order.customer_shipping_name || order.customer_name || 'Customer'},</p>
+         <p>Your order <b>${orderRef(order)}</b> has been shipped via <b>${courier || 'DTDC'}</b>.</p>
+         <p>AWB: <b>${awb}</b></p>
+         ${trackingUrl ? `<p><a href="${trackingUrl}">Track your shipment</a></p>` : ''}
+         ${notes ? `<p>${String(notes)}</p>` : ''}`,
+        { customerId: order.customer_id, orderId: order.order_id }
+      ),
+      'orderShipped email'
+    );
+  }
 }
 
 /** Order cancel */
@@ -256,6 +341,20 @@ async function orderCancelled(order, reason) {
     }, { type: 'order_cancelled', order_id: order.order_id }, { orderId: order.order_id }),
     'orderCancelled push'
   );
+
+  if (order.customer_email) {
+    fireAndForget(
+      mail.send(
+        order.customer_email,
+        `Order Cancelled — ${orderRef(order)}`,
+        `<p>Hi ${order.customer_name || 'Customer'},</p>
+         <p>Your order <b>${orderRef(order)}</b> has been cancelled.</p>
+         ${reason ? `<p>Reason: ${String(reason)}</p>` : ''}`,
+        { customerId: order.customer_id, orderId: order.order_id }
+      ),
+      'orderCancelled email'
+    );
+  }
 }
 
 /** Prescription review notification */
