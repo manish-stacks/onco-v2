@@ -171,7 +171,7 @@ export default function Settings() {
         </SettingsSection>
 
         <SettingsSection icon={Bell} title="Notifications"
-          hint="Off karoge to us channel pe koi order/prescription message nahi jayega">
+          hint="Turning this off stops all order/prescription messages on that channel">
           <Checkbox
             label="WhatsApp notifications"
             checked={form.notify_whatsapp_enabled === undefined || form.notify_whatsapp_enabled === null
@@ -191,24 +191,24 @@ export default function Settings() {
             onChange={(e) => set('notify_email_enabled', e.target.checked ? 1 : 0)}
           />
           <p className="text-2xs text-ink-500 bg-paper-sunk rounded-md p-2.5">
-            Sirf order/prescription update jaisi customer notifications control karta hai —
-            login OTP is se affect nahi hota, wo hamesha kaam karega.
+            Only controls customer notifications like order/prescription updates —
+            login OTP is not affected by this and will always keep working.
           </p>
         </SettingsSection>
 
         <SettingsSection icon={Code2} title="Header / footer scripts"
-          hint="Google Tag Manager, analytics, Meta Pixel jaise scripts — website ke <head> aur </body> se pehle inject honge">
-          <Field label="Header script" hint="<head> ke andar jayega">
+          hint="Scripts like Google Tag Manager, analytics, Meta Pixel — injected before the website's <head> and </body>">
+          <Field label="Header script" hint="Goes inside <head>">
             <Textarea rows={4} className="font-mono" value={form.header_code || ''}
               onChange={(e) => set('header_code', e.target.value)} placeholder="<script>...</script>" />
           </Field>
-          <Field label="Footer script" hint="</body> se pehle jayega">
+          <Field label="Footer script" hint="Goes just before </body>">
             <Textarea rows={4} className="font-mono" value={form.footer_code || ''}
               onChange={(e) => set('footer_code', e.target.value)} placeholder="<script>...</script>" />
           </Field>
           <p className="text-2xs text-ink-500 bg-paper-sunk rounded-md p-2.5">
-            Yahan jo bhi paste karoge wo seedha website me chalega (trusted admin-only field hai) —
-            sirf trusted source (Google, Meta, etc.) ka code hi paste karna.
+            Whatever you paste here runs directly on the live website (this is a trusted, admin-only field) —
+            only paste code from a trusted source (Google, Meta, etc.).
           </p>
         </SettingsSection>
 
@@ -248,13 +248,13 @@ export default function Settings() {
             <Input value={form.google_site_verification || ''} onChange={(e) => set('google_site_verification', e.target.value)} />
           </Field>
           <Field label="robots.txt"
-            hint="Khaali chhod do to default (sab crawl karne do) use hoga">
+            hint="Leave empty to use the default (allow crawling everything)">
             <Textarea rows={4} className="font-mono" value={form.robots_txt || ''} onChange={(e) => set('robots_txt', e.target.value)} />
           </Field>
           <p className="text-2xs text-ink-500 bg-paper-sunk rounded-md p-2.5 space-y-1">
             <span className="block">
               Sitemap: <code className="font-mono">{(import.meta.env.VITE_API_BASE || '').replace(/\/api\/?$/, '')}/sitemap.xml</code>
-              {' '}— naya product/category add hote hi khud-ba-khud isme aa jayega, kuch karna nahi padega.
+              {' '}— automatically updates whenever a product/category is added, nothing to do manually.
             </span>
             <span className="block">
               robots.txt: <code className="font-mono">{(import.meta.env.VITE_API_BASE || '').replace(/\/api\/?$/, '')}/robots.txt</code>

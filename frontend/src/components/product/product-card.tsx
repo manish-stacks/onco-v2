@@ -35,7 +35,7 @@ export function ProductCard({ medicine }: { medicine: Medicine }) {
         />
       </button>
 
-      <Link href={`/medicines/${medicine.slug}`} className="block">
+      <Link href={`/product-details/${medicine.id}/${medicine.slug}`} className="block">
         <div className="relative mb-4 flex aspect-square items-center justify-center overflow-hidden rounded-xl bg-blue-50/40">
           <Image
             src={medicine.image}

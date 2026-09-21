@@ -64,8 +64,18 @@ export function CategoryGrid() {
       setContainerWidth(containerRef.current.offsetWidth);
     };
     measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    // Debounced — resize fires continuously while dragging a window edge,
+    // and re-measuring the DOM on every one of those events is what causes lag.
+    let timer: ReturnType<typeof setTimeout>;
+    const debounced = () => {
+      clearTimeout(timer);
+      timer = setTimeout(measure, 150);
+    };
+    window.addEventListener("resize", debounced);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", debounced);
+    };
   }, [categories]);
 
   const visibleCount = itemWidth ? Math.max(Math.floor(containerWidth / itemWidth), 1) : 1;
@@ -141,7 +151,7 @@ export function CategoryGrid() {
             <ChevronRight size={16} />
           </button>
           <Link
-            href="/category"
+            href="/products"
             className="flex items-center gap-1 text-sm font-semibold text-[var(--blue-600)]"
           >
             View More
@@ -191,7 +201,7 @@ export function CategoryGrid() {
                 className={`flex-shrink-0 ${ITEM_WIDTH_CLASS}`}
               >
                 <Link
-                  href={`/category/${category.slug}`}
+                  href={`/products/${category.slug}`}
                   draggable={false}
                   onClick={(e) => {
                     if (isDraggingRef.current) e.preventDefault();

@@ -40,8 +40,7 @@
       "package": "com.happy_coding.app",
       "googleServicesFile": "./google-services.json",
       "permissions": [
-        "CAMERA",
-        "READ_MEDIA_IMAGES"
+        "CAMERA"
       ]
     },
     "web": {
@@ -58,10 +57,19 @@
         }
       ],
       "expo-notifications",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
+          }
+        }
+      ]
     ],
     "extra": {
-      "apiBase": "https://www.api.oncohealthmart.com",
+      "apiBase": "https://api.oncohealthmart.com",
       "eas": {
         "projectId": "bdb294ff-0afe-4463-85be-2fa5187578d8"
       }

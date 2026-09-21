@@ -69,7 +69,7 @@ const MEDIA_MAP = [
 
 /** The old site where the images currently live */
 function legacyBase() {
-  return (process.env.LEGACY_MEDIA_BASE_URL || 'https://oncohealthmart.com').replace(/\/$/, '');
+  return (process.env.LEGACY_MEDIA_BASE_URL || 'https://demo.oncohealthmart.com').replace(/\/$/, '');
 }
 
 /**

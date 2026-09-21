@@ -127,7 +127,7 @@ function SearchInner() {
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {categories.map((c) => (
-                <Link key={c.id} href={`/category/${c.slug}`} className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-4 text-sm font-medium hover:border-[var(--blue-500)]">
+                <Link key={c.id} href={`/products/${c.slug}`} className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-4 text-sm font-medium hover:border-[var(--blue-500)]">
                   {c.name}
                 </Link>
               ))}

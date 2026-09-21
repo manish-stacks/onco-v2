@@ -16,8 +16,9 @@ const cache = require('../utils/cache');
 const settingsModel = require('../models/settings.model');
 
 const PATHS = {
-  product: (slug) => `/medicines/${slug}`,
-  category: (slug) => `/category/${slug}`,
+  product: (id, slug) => `/product-details/${id}/${slug}`,
+  category: (slug) => `/products/${slug}`,
+  page: (slug) => `/${slug}`,
 };
 
 const SITEMAP_CACHE_KEY = 'seo:sitemap:xml';
@@ -42,25 +43,25 @@ function urlTag(loc, lastmod, changefreq, priority) {
 async function buildSitemapXml() {
   const base = (process.env.PUBLIC_SITE_URL || '').replace(/\/+$/, '');
 
-  const [[categories], [products]] = await Promise.all([
+  const [[categories], [products], [pages]] = await Promise.all([
     db.query(`SELECT slug, updated_at FROM categories WHERE status = 'Active' AND slug IS NOT NULL AND slug <> ''`),
-    db.query(`SELECT slug, updated_at FROM products WHERE status = 'Active' AND slug IS NOT NULL AND slug <> ''`),
+    db.query(`SELECT product_id, slug, updated_at FROM products WHERE status = 'Active' AND slug IS NOT NULL AND slug <> ''`),
+    db.query(`SELECT slug FROM pages WHERE status = 'Active' AND slug IS NOT NULL AND slug <> ''`),
   ]);
 
   const urls = [
     urlTag(`${base}/`, toW3CDate(), 'daily', '1.0'),
     // Static routes that always exist on this frontend
-    ...['/shop', '/category', '/brands', '/about', '/contact', '/track'].map(
+    ...['/shop', '/products', '/brands', '/about', '/contact', '/track'].map(
       (p) => urlTag(`${base}${p}`, toW3CDate(), 'monthly', '0.5')
     ),
   ];
 
   for (const c of categories) urls.push(urlTag(`${base}${PATHS.category(c.slug)}`, toW3CDate(c.updated_at), 'weekly', '0.7'));
-  for (const p of products) urls.push(urlTag(`${base}${PATHS.product(p.slug)}`, toW3CDate(p.updated_at), 'weekly', '0.8'));
-  // NOTE: `pages` (CMS) table ke liye abhi frontend me koi /[slug] route nahi hai
-  // (sirf /about, /contact jaise fixed routes hain) — isliye yahan shamil nahi kiya,
-  // warna sitemap me 404 wale links chale jaate. Jab CMS pages ka route bane,
-  // yahan `PATHS.page` wapas jod dena.
+  for (const p of products) urls.push(urlTag(`${base}${PATHS.product(p.product_id, p.slug)}`, toW3CDate(p.updated_at), 'weekly', '0.8'));
+  // CMS pages (privacy-policy, terms-and-conditions, etc.) — now that the
+  // frontend has a /[slug] route to render them (see app/[slug]/page.tsx).
+  for (const pg of pages) urls.push(urlTag(`${base}${PATHS.page(pg.slug)}`, toW3CDate(), 'yearly', '0.3'));
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n`
     + `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;

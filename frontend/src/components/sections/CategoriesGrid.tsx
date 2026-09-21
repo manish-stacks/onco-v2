@@ -192,7 +192,7 @@ export function CategoriesGrid({ categories }: { categories: CategoryTag[] }) {
                       ref={(el) => {
                         cardRefs.current[c.slug] = el;
                       }}
-                      href={`/category/${c.slug}`}
+                      href={`/products/${c.slug}`}
                       className="
                         group relative overflow-hidden rounded-[22px]
                         border border-slate-200/80 bg-white

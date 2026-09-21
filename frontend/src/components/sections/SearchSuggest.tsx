@@ -139,7 +139,7 @@ export function SearchSuggest({
                 key={c.category_id}
                 onClick={() => {
                   setOpen(false);
-                  router.push(`/category/${c.slug}`);
+                  router.push(`/products/${c.slug}`);
                 }}
                 className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-black/[0.03]"
               >
@@ -156,7 +156,7 @@ export function SearchSuggest({
               {products.slice(0, 5).map((p) => (
                 <Link
                   key={p.product_id}
-                  href={`/medicines/${p.slug}`}
+                  href={`/product-details/${p.product_id}/${p.slug}`}
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-black/[0.03]"
                 >

@@ -155,11 +155,11 @@ export default function CartPage() {
                 exit={{ opacity: 0, x: -20 }}
                 className="flex gap-4 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-4"
               >
-                <Link href={`/medicines/${item.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-[var(--blue-50)]">
+                <Link href={`/product-details/${item.product_id}/${item.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-[var(--blue-50)]">
                   <Image src={mediaUrl(item.image_1)} alt={item.product_name} fill className="object-cover" />
                 </Link>
                 <div className="flex-1">
-                  <Link href={`/medicines/${item.slug}`} className="font-semibold text-[var(--ink)] hover:underline">
+                  <Link href={`/product-details/${item.product_id}/${item.slug}`} className="font-semibold text-[var(--ink)] hover:underline">
                     {item.product_name}
                   </Link>
                   {!item.in_stock && (

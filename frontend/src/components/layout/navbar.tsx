@@ -83,7 +83,7 @@ export function Navbar() {
     const q = (term ?? query).trim();
     if (!q && !catSlug) return;
     if (!q && catSlug) {
-      router.push(`/category/${catSlug}`);
+      router.push(`/products/${catSlug}`);
       return;
     }
     const params = new URLSearchParams({ q });
@@ -384,7 +384,7 @@ export function Navbar() {
                 <div className="mt-2 border-t border-line pt-2">
                   <p className="px-3 pb-2 text-xs font-semibold uppercase text-ink-soft">Categories</p>
                   {categories.slice(0, 8).map((c) => (
-                    <Link key={c.id} href={`/category/${c.slug}`} onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm hover:bg-black/5">
+                    <Link key={c.id} href={`/products/${c.slug}`} onClick={() => setMobileOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm hover:bg-black/5">
                       {c.name}
                     </Link>
                   ))}

@@ -85,7 +85,7 @@ export function MegaMenu() {
               return (
                 <Link
                   key={r.id}
-                  href={`/category/${r.slug}`}
+                  href={`/products/${r.slug}`}
                   onMouseEnter={() => setActiveId(r.id)}
                   className={cn(
                     "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors",
@@ -109,7 +109,7 @@ export function MegaMenu() {
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-ink">{active.name}</p>
                   <Link
-                    href={`/category/${active.slug}`}
+                    href={`/products/${active.slug}`}
                     className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
                   >
                     View All <ArrowRight size={12} />
@@ -121,7 +121,7 @@ export function MegaMenu() {
                     {active.children.map((child) => (
                       <Link
                         key={child.id}
-                        href={`/category/${child.slug}`}
+                        href={`/products/${child.slug}`}
                         className="group flex items-start gap-2.5 rounded-lg p-1.5 transition-colors hover:bg-blue-50/60"
                       >
                         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-500 transition-colors group-hover:bg-blue-500 group-hover:text-white">
@@ -147,7 +147,7 @@ export function MegaMenu() {
                     {products.map((p) => (
                       <Link
                         key={p.id}
-                        href={`/medicines/${p.slug}`}
+                        href={`/product-details/${p.product_id}/${p.slug}`}
                         className="group rounded-lg border border-line/60 p-2 transition-colors hover:border-blue-500 hover:bg-blue-50/40"
                       >
                         <div className="relative mb-2 aspect-square overflow-hidden rounded-md bg-blue-50">
@@ -160,7 +160,7 @@ export function MegaMenu() {
                   </div>
                 ) : (
                   <Link
-                    href={`/category/${active.slug}`}
+                    href={`/products/${active.slug}`}
                     className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line text-center text-sm text-ink-soft hover:border-blue-500 hover:text-blue-600"
                   >
                     <Package size={22} />

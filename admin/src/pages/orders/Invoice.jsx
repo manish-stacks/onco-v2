@@ -198,7 +198,7 @@ export default function Invoice() {
             This is a computer-generated invoice; no signature is required.
             Medicines are not returnable — if you receive a damaged or wrong item, tell us within 48 hours.
           </p>
-          {seller?.email && <p className="mt-1">Kisi bhi sawaal ke liye: {seller.email}</p>}
+          {seller?.email && <p className="mt-1">For any questions, write to: {seller.email}</p>}
         </footer>
       </div>
     </>

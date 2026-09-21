@@ -19,7 +19,7 @@ const fallbackSlides: Banner[] = [
     banner_type: "rich",
     banner_image:
       "https://live.themewild.com/medion/assets/img/hero/02.png",
-    banner_link: "/category/health-essentials",
+    banner_link: "/products/health-essentials",
     ribbon: "EASY HEALTH CARE",
     title_top: "Medicine & Health Care",
     title_bottom: "For Your Family",
@@ -33,7 +33,7 @@ const fallbackSlides: Banner[] = [
     banner_type: "rich",
     banner_image:
       "https://live.themewild.com/medion/assets/img/hero/03.png",
-    banner_link: "/category/health-essentials",
+    banner_link: "/products/health-essentials",
     ribbon: "TRUSTED BY DOCTORS",
     title_top: "Genuine Supplements",
     title_bottom: "Delivered Fast",
@@ -47,7 +47,7 @@ const fallbackSlides: Banner[] = [
     banner_type: "rich",
     banner_image:
       "https://live.themewild.com/medion/assets/img/product/05.png",
-    banner_link: "/category/health-essentials",
+    banner_link: "/products/health-essentials",
     ribbon: "MEGA HEALTH SALE",
     title_top: "Up To 40% Off",
     title_bottom: "On Wellness Range",
@@ -344,7 +344,7 @@ export function Hero() {
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   ) : (
-                    <Button href="/category/health-essentials">
+                    <Button href="/products/health-essentials">
                       Shop Now
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>

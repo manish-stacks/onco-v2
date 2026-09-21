@@ -6,6 +6,7 @@ import { AppHeader, Card, PrimaryButton } from '../components/ui';
 import { colors, radius } from '../theme';
 import { useAuth } from '../store/AuthContext';
 import { useSettings } from '../store/SettingsContext';
+import { useToast } from '../store/ToastContext';
 
 const MENU = [
   { key: 'Orders', icon: 'cube-outline', label: 'My Orders' },
@@ -18,14 +19,44 @@ const MENU = [
 ];
 
 export default function ProfileScreen({ navigation }) {
-  const { customer, isLoggedIn, logout } = useAuth();
+  const { customer, isLoggedIn, logout, deleteAccount } = useAuth();
   const { settings } = useSettings();
+  const toast = useToast();
 
   const confirmLogout = () =>
     Alert.alert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Log out', style: 'destructive', onPress: logout },
     ]);
+
+  const confirmDeleteAccount = () =>
+    Alert.alert(
+      'Delete account',
+      'This permanently deletes your account and personal data. Your order history is kept for legal/accounting records, but you will not be able to log back in with this number. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () =>
+            Alert.alert('Are you sure?', 'This is permanent and cannot be reversed.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Yes, delete my account',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await deleteAccount();
+                    toast.show('Your account has been deleted');
+                  } catch (e) {
+                    toast.show(e?.message || 'Could not delete account, please try again', 'error');
+                  }
+                },
+              },
+            ]),
+        },
+      ]
+    );
 
   return (
     <Screen>
@@ -72,12 +103,20 @@ export default function ProfileScreen({ navigation }) {
         ))}
 
         {isLoggedIn ? (
-          <Pressable onPress={confirmLogout}>
-            <Card style={styles.row}>
-              <Ionicons name="log-out-outline" size={18} color={colors.accent} />
-              <Text style={[styles.rowText, { color: colors.accent }]}>Log out</Text>
-            </Card>
-          </Pressable>
+          <>
+            <Pressable onPress={confirmLogout}>
+              <Card style={styles.row}>
+                <Ionicons name="log-out-outline" size={18} color={colors.accent} />
+                <Text style={[styles.rowText, { color: colors.accent }]}>Log out</Text>
+              </Card>
+            </Pressable>
+            <Pressable onPress={confirmDeleteAccount}>
+              <Card style={styles.row}>
+                <Ionicons name="trash-outline" size={18} color={colors.accent} />
+                <Text style={[styles.rowText, { color: colors.accent }]}>Delete account</Text>
+              </Card>
+            </Pressable>
+          </>
         ) : null}
 
         <Text style={styles.footer}>

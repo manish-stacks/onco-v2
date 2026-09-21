@@ -13,12 +13,12 @@ import { FaFacebookF, FaXTwitter, FaLinkedinIn, FaYoutube, FaWhatsapp } from "re
 
 const quickLinks = [
   { label: "About Us", href: "/about" },
-  { label: "Delivery Info", href: "/#" },
+  { label: "Delivery Info", href: "/delivery-shipping-policy" },
   { label: "Contact Us", href: "/contact" },
   { label: "Update News", href: "/blog" },
   { label: "Our Testimonials", href: "/#" },
-  { label: "Terms Of Service", href: "/pages/terms-of-service" },
-  { label: "Privacy policy", href: "/pages/privacy-policy" },
+  { label: "Terms Of Service", href: "/terms-and-conditions" },
+  { label: "Privacy policy", href: "/privacy-policy" },
 ];
 
 const supportLinks = [
@@ -27,7 +27,7 @@ const supportLinks = [
   { label: "Support Center", href: "/contact" },
   { label: "Track Your Order", href: "/track" },
   { label: "Track a Shipment (AWB)", href: "/track-shipment" },
-  { label: "Returns Policy", href: "/#" },
+  { label: "Returns Policy", href: "/return-and-cancellation-policy" },
   { label: "Our Affiliates", href: "/#" },
   { label: "Sitemap", href: "/#" },
 ];
@@ -99,7 +99,7 @@ export function Footer() {
             <ul className="space-y-3">
               {categories.slice(0, 10).map((c) => (
                 <li key={c.id}>
-                  <Link href={`/category/${c.slug}`} className="flex items-center gap-1.5 text-sm text-[var(--ink-soft)] transition-colors hover:text-[var(--blue-600)]">
+                  <Link href={`/products/${c.slug}`} className="flex items-center gap-1.5 text-sm text-[var(--ink-soft)] transition-colors hover:text-[var(--blue-600)]">
                     <ChevronRight size={12} className="text-[var(--blue-400)]" /> {c.name}
                   </Link>
                 </li>

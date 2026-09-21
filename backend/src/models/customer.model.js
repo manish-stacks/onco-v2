@@ -75,6 +75,28 @@ async function setStatus(customerId, status) {
   await db.query(`UPDATE customers SET status = ? WHERE customer_id = ?`, [status, customerId]);
 }
 
+/**
+ * Self-service account deletion (Play Store / App Store data-deletion requirement).
+ * Orders/prescriptions are kept as historical records (required for accounting,
+ * tax and dispute purposes), but every piece of personal data on the account
+ * itself is wiped and the account is locked out permanently.
+ */
+async function anonymizeAndDelete(customerId) {
+  const placeholder = `deleted_${customerId}_${Date.now()}`;
+  await db.query(
+    `UPDATE customers SET
+       customer_name = 'Deleted User',
+       email_id = NULL,
+       mobile = ?,
+       address = NULL, city = NULL, state = NULL, country = NULL, pincode = NULL,
+       password = NULL,
+       otp = NULL, otp_expires = NULL,
+       status = 'Deleted'
+     WHERE customer_id = ?`,
+    [placeholder, customerId]
+  );
+}
+
 /** Admin panel customer list — with order count + lifetime value */
 async function list(filters = {}, { limit = 20, offset = 0 } = {}) {
   const qb = new QueryBuilder('c');
@@ -144,5 +166,5 @@ async function stats() {
 
 module.exports = {
   findByMobile, findByEmail, findById, create, setOtp, verifyOtp,
-  updatePassword, updateLastLogin, update, setStatus, list, profile, stats,
+  updatePassword, updateLastLogin, update, setStatus, anonymizeAndDelete, list, profile, stats,
 };

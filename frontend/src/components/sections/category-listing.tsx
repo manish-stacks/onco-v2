@@ -45,7 +45,7 @@ function CategoryDescription({ html, slug }: { html: string; slug: string }) {
       />
       {needsMore && (
         <Link
-          href={`/category/${slug}/about`}
+          href={`/products/${slug}/about`}
           className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[var(--blue-600)]"
         >
           Read more
@@ -333,7 +333,7 @@ function ListRow({ medicine }: { medicine: Medicine }) {
   const { addToCart } = useStore();
   return (
     <div className="flex gap-4 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-4">
-      <Link href={`/medicines/${medicine.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-[var(--blue-50)]">
+      <Link href={`/product-details/${medicine.id}/${medicine.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-[var(--blue-50)]">
         <Image src={medicine.image} alt={medicine.name} fill className="object-cover" />
       </Link>
       <div className="flex-1">
@@ -345,7 +345,7 @@ function ListRow({ medicine }: { medicine: Medicine }) {
             </span>
           )}
         </div>
-        <Link href={`/medicines/${medicine.slug}`} className="font-semibold text-[var(--ink)] hover:underline">
+        <Link href={`/product-details/${medicine.id}/${medicine.slug}`} className="font-semibold text-[var(--ink)] hover:underline">
           {medicine.name}
         </Link>
         <p className="mb-2 text-xs text-[var(--ink-soft)]">{medicine.manufacturer} · {medicine.packSize}</p>

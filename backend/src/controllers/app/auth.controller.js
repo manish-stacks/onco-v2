@@ -857,6 +857,15 @@ const logout = asyncHandler(
    EXPORTS
 ========================================================= */
 
+/* =========================================================
+ * DELETE /auth/me — permanent, self-service account deletion
+ * (required by Google Play / App Store data-deletion policy)
+ * ========================================================= */
+const deleteAccount = asyncHandler(async (req, res) => {
+  await customerModel.anonymizeAndDelete(req.customer.customer_id);
+  return ok(res, null, 'Your account and personal data have been deleted');
+});
+
 module.exports = {
   register,
   login,
@@ -866,6 +875,7 @@ module.exports = {
   changePassword,
   me,
   updateProfile,
+  deleteAccount,
   registerDevice,
   unregisterDevice,
   logout,

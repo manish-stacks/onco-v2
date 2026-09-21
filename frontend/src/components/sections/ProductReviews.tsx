@@ -185,7 +185,7 @@ export function ProductReviews({ productId, slug }: { productId: string; slug: s
           {!isLoggedIn ? (
             <div>
               <p className="mb-2 text-sm text-[var(--ink-soft)]">Purchased this product? Share your experience.</p>
-              <Button href={`/login?redirect=/medicines/${slug}`} variant="outline" icon={<PenLine size={15} />}>
+              <Button href={`/login?redirect=/product-details/${productId}/${slug}`} variant="outline" icon={<PenLine size={15} />}>
                 Login to Write a Review
               </Button>
             </div>

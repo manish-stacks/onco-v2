@@ -93,11 +93,11 @@ export default function WishlistPage() {
       <div className="space-y-4">
         {items.map((m) => (
           <div key={m.id} className="flex flex-col gap-4 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-4 sm:flex-row sm:items-center">
-            <Link href={`/medicines/${m.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-[var(--blue-50)]">
+            <Link href={`/product-details/${m.id}/${m.slug}`} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-[var(--radius-sm)] bg-[var(--blue-50)]">
               <Image src={m.image} alt={m.name} fill className="object-cover" />
             </Link>
             <div className="flex-1">
-              <Link href={`/medicines/${m.slug}`} className="font-semibold text-[var(--ink)] hover:underline">{m.name}</Link>
+              <Link href={`/product-details/${m.id}/${m.slug}`} className="font-semibold text-[var(--ink)] hover:underline">{m.name}</Link>
               <p className="mb-2 text-xs text-[var(--ink-soft)]">{m.manufacturer} · {m.packSize}</p>
               <Rating value={m.rating} count={m.reviewCount} />
             </div>

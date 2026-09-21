@@ -21,7 +21,7 @@ export function MobileBottomNav() {
 
   const items = [
     { label: "Home", href: "/", icon: Home, match: (p: string) => p === "/" },
-    { label: "Shop", href: "/shop", icon: LayoutGrid, match: (p: string) => p.startsWith("/shop") || p.startsWith("/category") },
+    { label: "Shop", href: "/shop", icon: LayoutGrid, match: (p: string) => p.startsWith("/shop") || p.startsWith("/products") },
     { label: "Cart", href: "/cart", icon: ShoppingBag, match: (p: string) => p.startsWith("/cart"), badge: cartCount },
     { label: "Wishlist", href: "/wishlist", icon: Heart, match: (p: string) => p.startsWith("/wishlist"), badge: wishlistIds.length },
     {

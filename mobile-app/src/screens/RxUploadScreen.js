@@ -45,8 +45,11 @@ export default function RxUploadScreen({ navigation }) {
   };
 
   const pickGallery = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return toast.show('Gallery permission is required', 'error');
+    // No permission request here on purpose — launchImageLibraryAsync uses the
+    // OS-level photo picker (Android Photo Picker / iOS PHPicker), which lets
+    // the user choose photos without granting the app broad gallery access.
+    // Requesting READ_MEDIA_IMAGES ourselves is exactly what Google Play flags
+    // as "not using the system picker", so we let the picker handle it directly.
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,

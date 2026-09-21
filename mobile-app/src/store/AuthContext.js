@@ -23,6 +23,13 @@ export function AuthProvider({ children }) {
     setCustomer(null);
   }, []);
 
+  /** Permanent — calls the backend to wipe personal data, then logs out locally */
+  const deleteAccount = useCallback(async () => {
+    await authApi.deleteAccount();
+    await tokenStore.clear();
+    setCustomer(null);
+  }, []);
+
   useEffect(() => {
     setUnauthorizedHandler(() => setCustomer(null));
   }, []);
@@ -96,11 +103,12 @@ export function AuthProvider({ children }) {
       onboarded,
       signIn,
       logout,
+      deleteAccount,
       refreshCustomer,
       setCustomer,
       completeOnboarding,
     }),
-    [booting, customer, onboarded, signIn, logout, refreshCustomer, completeOnboarding]
+    [booting, customer, onboarded, signIn, logout, deleteAccount, refreshCustomer, completeOnboarding]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

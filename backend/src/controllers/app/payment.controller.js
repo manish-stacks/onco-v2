@@ -66,16 +66,27 @@ async function razorpayWebhook(req, res) {
       case 'payment.captured':
         await orderService.markOrderPaid(order.order_id, paymentId, 'razorpay-webhook');
         break;
-      case 'payment.failed':
+      case 'payment.failed': {
+        // Razorpay explicitly guarantees "at least once" delivery — the same
+        // event can (and does) arrive more than once for one payment attempt.
+        // Without this check, every duplicate delivery re-sends the WhatsApp/
+        // push alert for the SAME failed payment — this is the "same message
+        // hitting again and again" bug.
+        const alreadyAlerted = order.payment_status === 'Failed' && order.transaction_number === paymentId;
         await orderService.markOrderPaymentFailed(order.order_id, paymentId);
-        notify.paymentFailedAlert({
-          order,
-          paymentId,
-          gatewayOrderId,
-          context: 'razorpay webhook',
-          error: entity?.error_description || 'payment failed',
-        });
+        if (!alreadyAlerted) {
+          notify.paymentFailedAlert({
+            order,
+            paymentId,
+            gatewayOrderId,
+            context: 'razorpay webhook',
+            error: entity?.error_description || 'payment failed',
+          });
+        } else {
+          console.log(`[webhook:razorpay] duplicate payment.failed for ${paymentId} — alert already sent, skipping`);
+        }
         break;
+      }
       case 'refund.processed':
         await orderModel.updatePayment(order.order_id, {
           payment_status: 'Refunded', refund_reference: paymentId,

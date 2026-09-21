@@ -301,7 +301,7 @@ export default function AccountPage() {
                         {wishlistItems.map((m) => (
                           <div key={m.id} className="flex items-center gap-3 rounded-xl border border-[var(--line)] p-3">
                             <Image src={m.image} alt={m.name} width={48} height={48} className="rounded-lg object-cover" />
-                            <Link href={`/medicines/${m.slug}`} className="flex-1 text-sm font-medium text-[var(--ink)] hover:underline">{m.name}</Link>
+                            <Link href={`/product-details/${m.id}/${m.slug}`} className="flex-1 text-sm font-medium text-[var(--ink)] hover:underline">{m.name}</Link>
                             <p className="font-mono-nums text-sm font-semibold">{formatINR(m.price)}</p>
                             <button onClick={() => handleRemoveWishlist(m.id)} className="text-xs font-medium text-[var(--coral-500)]">Remove</button>
                           </div>

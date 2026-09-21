@@ -18,6 +18,8 @@ export const authApi = {
 
   updateProfile: (payload) => requestData('/auth/me', { method: 'PATCH', body: payload }),
 
+  deleteAccount: () => request('/auth/me', { method: 'DELETE' }),
+
   changePassword: (old_password, new_password) =>
     request('/auth/password/change', { method: 'POST', body: { old_password, new_password } }),
 

@@ -67,6 +67,7 @@ router.post('/auth/password/change', customerAuth, validate({
 
 router.get('/auth/me', customerAuth, auth.me);
 router.patch('/auth/me', customerAuth, auth.updateProfile);
+router.delete('/auth/me', customerAuth, auth.deleteAccount);
 
 // ===========================================================================
 // CATALOG (public — login optional)
