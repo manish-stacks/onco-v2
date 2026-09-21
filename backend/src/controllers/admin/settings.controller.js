@@ -2,6 +2,7 @@ const settingsModel = require('../../models/settings.model');
 const cmsModel = require('../../models/cms.model');
 const reviewModel = require('../../models/review.model');
 const cache = require('../../utils/cache');
+const mailService = require('../../services/mail.service');
 const { storeFile } = require('../../middleware/upload');
 const { ok, created, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
@@ -10,18 +11,44 @@ const { getPagination } = require('../../utils/helpers');
 // SITE SETTINGS
 // ---------------------------------------------------------------------------
 const getSettings = asyncHandler(async (req, res) => {
-  return ok(res, await settingsModel.get());
+  const row = await settingsModel.get();
+  // The password never goes back to the browser — just whether one is set,
+  // so the admin form can show a "•••• saved" placeholder instead of either
+  // leaking it or forcing a re-type on every unrelated settings save.
+  if (row) {
+    row.smtp_pass_set = !!row.smtp_pass;
+    delete row.smtp_pass;
+  }
+  return ok(res, row);
 });
 
 const updateSettings = asyncHandler(async (req, res) => {
   const data = { ...req.body };
   if (req.file) data.logo = await storeFile(req.file, 'settings');
+  // Saving the settings form again (with the masked placeholder still in the
+  // password field) must not overwrite the real stored password with blanks.
+  if (data.smtp_pass === '' || data.smtp_pass === undefined) delete data.smtp_pass;
 
   const updated = await settingsModel.update(req.params.id, data);
   if (!updated) return fail(res, 'No valid field was provided', 422);
 
   await cache.invalidate.settings();
-  return ok(res, await settingsModel.get(), 'Settings updated');
+  const row = await settingsModel.get();
+  if (row) {
+    row.smtp_pass_set = !!row.smtp_pass;
+    delete row.smtp_pass;
+  }
+  return ok(res, row, 'Settings updated');
+});
+
+/** POST /admin/settings/test-email — send a real test email with the currently-saved SMTP config */
+const testEmailSettings = asyncHandler(async (req, res) => {
+  const to = String(req.body.to || '').trim();
+  if (!to) return fail(res, 'Recipient email is required', 422);
+
+  const result = await mailService.sendTest(to);
+  if (!result.success) return fail(res, result.error || 'Test email failed', 502);
+  return ok(res, null, `Test email sent to ${to}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -374,7 +401,7 @@ const removeEnquiry = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  getSettings, updateSettings,
+  getSettings, updateSettings, testEmailSettings,
   listBanners, createBanner, updateBanner, removeBanner,
   listDeals, createDeal, updateDeal, removeDeal,
   listOffers, createOffer, updateOffer, removeOffer,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Building2, Truck, CreditCard, Share2, Search, Bell, Code2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building2, Truck, CreditCard, Share2, Search, Bell, Code2, Mail, Send } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { api, mediaUrl } from '@/lib/api';
@@ -39,6 +39,7 @@ export default function Settings() {
   const { data, loading, reload } = useResource('/admin/settings');
   const [form, setForm] = useState({});
   const [logo, setLogo] = useState(null);
+  const [testEmailTo, setTestEmailTo] = useState('');
 
   useEffect(() => { if (data) setForm(data); }, [data]);
 
@@ -56,6 +57,7 @@ export default function Settings() {
       ['notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled'].forEach((k) => {
         fd.set(k, (form[k] === undefined || form[k] === null ? true : !!Number(form[k])) ? 1 : 0);
       });
+      fd.set('smtp_secure', Number(form.smtp_secure) ? 1 : 0);
       if (logo) fd.append('logo', logo);
       return api.form(`/admin/settings/${data.id}`, fd, 'PUT');
     },
@@ -64,6 +66,11 @@ export default function Settings() {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const canManage = can(P.SETTINGS_MANAGE);
+
+  const testEmail = useMutation(
+    () => api.post('/admin/settings/test-email', { to: testEmailTo }),
+    { success: (res) => res?.message || 'Test email sent' }
+  );
 
   if (loading) {
     return (
@@ -194,6 +201,57 @@ export default function Settings() {
             Only controls customer notifications like order/prescription updates —
             login OTP is not affected by this and will always keep working.
           </p>
+        </SettingsSection>
+
+        <SettingsSection icon={Mail} title="Email / SMTP"
+          hint="Fill this in and use the test button below — takes priority over any SMTP_* values in the server .env">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="SMTP host">
+              <Input value={form.smtp_host || ''} onChange={(e) => set('smtp_host', e.target.value)} placeholder="smtp.gmail.com" />
+            </Field>
+            <Field label="SMTP port">
+              <Input type="number" value={form.smtp_port || ''} onChange={(e) => set('smtp_port', e.target.value)} placeholder="587" />
+            </Field>
+          </div>
+          <Field label="SMTP username">
+            <Input value={form.smtp_user || ''} onChange={(e) => set('smtp_user', e.target.value)} placeholder="you@example.com" />
+          </Field>
+          <Field label={`SMTP password${data.smtp_pass_set ? ' (already saved — leave blank to keep it)' : ''}`}>
+            <Input
+              type="password"
+              value={form.smtp_pass || ''}
+              onChange={(e) => set('smtp_pass', e.target.value)}
+              placeholder={data.smtp_pass_set ? '••••••••' : 'App password / SMTP password'}
+            />
+          </Field>
+          <Field label="From address" hint="Leave blank to use the SMTP username">
+            <Input value={form.smtp_from || ''} onChange={(e) => set('smtp_from', e.target.value)} placeholder="Onco HealthMart <no-reply@oncohealthmart.com>" />
+          </Field>
+          <Checkbox
+            label="Use SSL (port 465)"
+            checked={!!Number(form.smtp_secure)}
+            onChange={(e) => set('smtp_secure', e.target.checked ? 1 : 0)}
+          />
+
+          <div className="mt-3 border-t border-line pt-3">
+            <Field label="Send a test email to">
+              <div className="flex gap-2">
+                <Input value={testEmailTo} onChange={(e) => setTestEmailTo(e.target.value)} placeholder="you@example.com" />
+                <Button
+                  icon={Send}
+                  onClick={() => testEmail.run()}
+                  loading={testEmail.loading}
+                  disabled={!testEmailTo}
+                >
+                  Send test
+                </Button>
+              </div>
+            </Field>
+            <p className="text-2xs text-ink-500 mt-1.5">
+              Save the SMTP settings above first — the test button sends with whatever is
+              currently saved, not what's typed but unsaved in the form.
+            </p>
+          </div>
         </SettingsSection>
 
         <SettingsSection icon={Code2} title="Header / footer scripts"

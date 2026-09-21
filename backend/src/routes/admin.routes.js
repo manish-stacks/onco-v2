@@ -256,6 +256,7 @@ router.get('/reports/export', requirePermission(P.REPORTS_EXPORT), report.export
 // ===========================================================================
 router.get('/settings', requirePermission(P.SETTINGS_VIEW), settings.getSettings);
 router.put('/settings/:id', requirePermission(P.SETTINGS_MANAGE), uploadBanner.single('logo'), settings.updateSettings);
+router.post('/settings/test-email', requirePermission(P.SETTINGS_MANAGE), settings.testEmailSettings);
 
 router.get('/banners', requirePermission(P.SETTINGS_VIEW), settings.listBanners);
 router.post('/banners', requirePermission(P.SETTINGS_MANAGE), uploadBanner.single('banner_image'), settings.createBanner);

@@ -13,7 +13,8 @@ const SETTINGS_FIELDS = ['organization', 'contact_address', 'contact_phone', 'co
   'login_start_time', 'login_end_time', 'status',
   'meta_title', 'meta_description', 'meta_keywords', 'og_image', 'google_site_verification', 'robots_txt',
   'notify_whatsapp_enabled', 'notify_sms_enabled', 'notify_email_enabled',
-  'maintenance_mode', 'maintenance_message'];
+  'maintenance_mode', 'maintenance_message',
+  'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass', 'smtp_from'];
 
 /**
  * Columns that were added later. On an old database they simply do not exist,
@@ -37,6 +38,14 @@ const LATE_COLUMNS = {
   notify_email_enabled: `TINYINT(1) NOT NULL DEFAULT 1`,
   maintenance_mode: `TINYINT(1) NOT NULL DEFAULT 0`,
   maintenance_message: `TEXT DEFAULT NULL`,
+  // SMTP — admin-configurable instead of only .env, so mail can be fixed
+  // and test-sent from the panel without a redeploy.
+  smtp_host: `VARCHAR(255) DEFAULT NULL`,
+  smtp_port: `INT DEFAULT NULL`,
+  smtp_secure: `TINYINT(1) NOT NULL DEFAULT 0`,
+  smtp_user: `VARCHAR(255) DEFAULT NULL`,
+  smtp_pass: `VARCHAR(255) DEFAULT NULL`,
+  smtp_from: `VARCHAR(255) DEFAULT NULL`,
 };
 
 let columnsReady = null;
