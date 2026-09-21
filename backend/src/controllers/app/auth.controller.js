@@ -372,7 +372,12 @@ const requestOtp = asyncHandler(async (req, res) => {
      Generate OTP
   ------------------------- */
 
-  const otp = genOtp(6);
+  // App Store / Play Store review team logs in with this fixed number every
+  // time — give them a fixed OTP too instead of a fresh random one, since
+  // they can't receive real SMS on their test device.
+  const REVIEW_MOBILE = process.env.APP_REVIEW_TEST_MOBILE || '7217619794';
+  const REVIEW_OTP = process.env.APP_REVIEW_TEST_OTP || '123456';
+  const otp = cleanMobile === REVIEW_MOBILE ? REVIEW_OTP : genOtp(6);
 
   const expiryMinutes = 10;
 
