@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import Screen from '../components/Screen';
 import ProductCard from '../components/ProductCard';
-import { AppHeader, Chip, EmptyState, Loader } from '../components/ui';
+import { AppHeader, CartHeaderButton, Chip, EmptyState, Loader } from '../components/ui';
 import { colors } from '../theme';
 import { catalogApi } from '../api';
 
@@ -97,7 +97,7 @@ export default function ProductListScreen({ route, navigation }) {
 
   return (
     <Screen>
-      <AppHeader title={title} back />
+      <AppHeader title={title} back right={<CartHeaderButton />} />
 
       <ScrollView
         horizontal
@@ -139,5 +139,5 @@ export default function ProductListScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  filters: { paddingHorizontal: 18, paddingBottom: 12, gap: 8 },
+  filters: { paddingHorizontal: 18, paddingBottom: 12, gap: 8, height:45 },
 });

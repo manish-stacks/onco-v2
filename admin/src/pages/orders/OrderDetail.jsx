@@ -227,7 +227,11 @@ function ItemsTable({ order }) {
           {Number(order.refund_amount) > 0 && (
             <Row label="Refunded" value={`− ${inr(order.refund_amount)}`} tone="danger" />
           )}
+          <div className="pt-1.5 border-t border-line">
+            <Row label="Final amount" value={inr(order.amount - order.refund_amount)} bold />
+          </div>
         </dl>
+          
       </div>
     </>
   );
@@ -776,7 +780,10 @@ function PaymentModal({ open, onClose, order, onDone }) {
     payment_status: order.payment_status,
     payment_mode: order.payment_mode || 'cod',
     transaction_number: order.transaction_number || '',
+    refund_amount: order.refund_amount || '',
+    refund_reference: order.refund_reference || '',
   });
+  const isRefundStatus = form.payment_status === 'Refunded' || form.payment_status === 'Partially Refunded';
 
   const save = useMutation(
     () => api.patch(`/admin/orders/${order.order_id}/payment`, form),
@@ -807,9 +814,23 @@ function PaymentModal({ open, onClose, order, onDone }) {
             onChange={(e) => setForm({ ...form, payment_status: e.target.value })}
           />
         </Field>
-        <Field label="Transaction reference" hint="UTR, cheque number, or gateway payment ID">
-          <Input mono value={form.transaction_number}
-            onChange={(e) => setForm({ ...form, transaction_number: e.target.value })} />
+        {isRefundStatus && (
+          <Field label="Refund amount (₹)" required hint="This is what actually drives the bill — the invoice shows Total minus this as the Net Amount Paid">
+            <Input
+              type="number" min="0" step="0.01"
+              value={form.refund_amount}
+              onChange={(e) => setForm({ ...form, refund_amount: e.target.value })}
+              placeholder={`Up to ${order.amount}`}
+            />
+          </Field>
+        )}
+        <Field label={isRefundStatus ? 'Refund reference' : 'Transaction reference'} hint="UTR, cheque number, or gateway payment ID">
+          <Input mono
+            value={isRefundStatus ? form.refund_reference : form.transaction_number}
+            onChange={(e) => setForm(isRefundStatus
+              ? { ...form, refund_reference: e.target.value }
+              : { ...form, transaction_number: e.target.value })}
+          />
         </Field>
       </div>
     </Modal>

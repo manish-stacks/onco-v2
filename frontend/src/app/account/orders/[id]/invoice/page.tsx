@@ -16,7 +16,7 @@ interface Invoice {
   seller?: { name?: string; address?: string; phone?: string; email?: string; logo?: string } | null;
   buyer?: { name?: string; phone?: string; email?: string; shipping_address?: string; city?: string; state?: string; pincode?: string };
   items?: InvoiceItem[];
-  totals?: { subtotal?: number; gst?: number; discount?: number; shipping?: number; additional?: number; total?: number };
+  totals?: { subtotal?: number; gst?: number; discount?: number; shipping?: number; additional?: number; total?: number; refund_amount?: number; net_paid?: number };
   payment?: { mode?: string; status?: string; transaction?: string };
 }
 
@@ -148,6 +148,15 @@ export default function InvoicePage() {
           <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]">
             <span>Total</span><span className="tabular-nums">{formatINR(t.total ?? 0)}</span>
           </div>
+          {!!t.refund_amount && (
+            <>
+              <Row label="Refunded" value={`- ${formatINR(t.refund_amount)}`} />
+              <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]">
+                <span>Net Amount Paid</span>
+                <span className="tabular-nums">{formatINR(t.net_paid ?? (t.total ?? 0) - t.refund_amount)}</span>
+              </div>
+            </>
+          )}
         </div>
 
         {inv.payment && (

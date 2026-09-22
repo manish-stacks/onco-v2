@@ -12,6 +12,8 @@ import { useNavigation } from '@react-navigation/native';
 import { colors, radius, shadow } from '../theme';
 import { statusTone } from '../utils/format';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCart } from '../store/CartContext';
+import { goTab, TABS } from '../utils/nav';
 
 // ---------------------------------------------------------------------------
 export function Card({ style, children, ...rest }) {
@@ -150,6 +152,30 @@ export function AppHeader({ title, back = false, right, subtitle, onRightPress, 
           ) : null)}
       </View>
     </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * Cart icon + live badge, for any screen's AppHeader `right` slot:
+ *   <AppHeader title="Category" back right={<CartHeaderButton />} />
+ * Screens that don't pass this (like ProductListScreen was) show no cart
+ * indicator at all until the user backs out to a tab screen — this is the
+ * fix for that.
+ */
+export function CartHeaderButton() {
+  const navigation = useNavigation();
+  const { count } = useCart();
+  return (
+    <Pressable style={[styles.iconBtn, shadow]} onPress={() => goTab(navigation, TABS.cart)} hitSlop={6}>
+      <Ionicons name="cart-outline" size={18} color={colors.text} />
+      {count > 0 ? (
+        <View style={styles.cartBadge}>
+          <Text style={styles.cartBadgeText}>{count > 99 ? '99+' : count}</Text>
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -313,6 +339,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.accent || '#e53935',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 12, includeFontPadding: false },
 
   qty: {
     flexDirection: 'row',

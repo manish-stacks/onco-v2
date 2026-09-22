@@ -83,7 +83,19 @@ export default function OtpScreen({ route, navigation }) {
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <Text style={styles.sub}>Code sent to +91 {mobile}</Text>
 
-          <Pressable style={styles.boxRow} onPress={() => inputRef.current?.focus()}>
+          <Pressable
+            style={styles.boxRow}
+            onPress={() => {
+              // On Android, if the keyboard was dismissed by the system (back
+              // gesture, tapping outside) rather than an actual blur event,
+              // the TextInput can think it's still focused — so a plain
+              // .focus() becomes a no-op and the keyboard never reappears.
+              // Force blur first so focus() is guaranteed to be a real
+              // focus transition.
+              inputRef.current?.blur();
+              requestAnimationFrame(() => inputRef.current?.focus());
+            }}
+          >
             {boxes.map((_, i) => (
               <View key={i} style={[styles.box, code.length === i && styles.boxActive]}>
                 <Text style={styles.boxText}>{code[i] || ''}</Text>

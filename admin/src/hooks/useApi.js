@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
 
@@ -15,12 +16,25 @@ export function useDebounced(value, delay = 350) {
 /**
  * Paginated list + filters. Every list page uses this.
  *   const { rows, pagination, filters, setFilter, loading, reload } = useList('/admin/orders');
+ *
+ * Pass `syncUrl: true` to also mirror filters into the URL's query string —
+ * without it, filters are only ever in local component state, so navigating
+ * to a detail page and pressing Back remounts the list with none of them
+ * (this was the "filters reset after opening an order" bug on OrderList).
+ * Off by default so it doesn't change behaviour on every other list page.
  */
-export function useList(path, initialFilters = {}, { immediate = true } = {}) {
+export function useList(path, initialFilters = {}, { immediate = true, syncUrl = false } = {}) {
+  const [urlParams, setUrlParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0, totalPages: 1 });
   const [extra, setExtra] = useState({});
-  const [filters, setFilters] = useState({ page: 1, limit: 25, ...initialFilters });
+  const [filters, setFilters] = useState(() => {
+    if (!syncUrl) return { page: 1, limit: 25, ...initialFilters };
+    const fromUrl = Object.fromEntries(urlParams);
+    if (fromUrl.page) fromUrl.page = Number(fromUrl.page);
+    if (fromUrl.limit) fromUrl.limit = Number(fromUrl.limit);
+    return { page: 1, limit: 25, ...initialFilters, ...fromUrl };
+  });
   const [loading, setLoading] = useState(immediate);
   const [error, setError] = useState(null);
   const toast = useToast();
@@ -50,6 +64,19 @@ export function useList(path, initialFilters = {}, { immediate = true } = {}) {
     if (immediate) load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filters), path]);
+
+  // Keep the URL in sync so Back (from an order/detail page) restores the
+  // exact same filters instead of the list remounting blank. `replace` so
+  // typing in a filter doesn't spam a new history entry per keystroke.
+  useEffect(() => {
+    if (!syncUrl) return;
+    const qp = {};
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') qp[k] = String(v);
+    });
+    setUrlParams(qp, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(filters), syncUrl]);
 
   /** Go back to page 1 when a filter changes — otherwise an empty page is shown */
   const setFilter = useCallback((key, value) => {

@@ -84,6 +84,25 @@ async function send(to, subject, html, meta = {}) {
     return { success: false, error: 'email disabled in settings' };
   }
 
+  return sendRaw(to, subject, html, meta);
+}
+
+/**
+ * Admin operational alerts (new order, payment failed, etc.) must NOT be
+ * silenced by the "Email notifications" toggle — that toggle is explicitly
+ * documented, in the admin UI itself, as controlling CUSTOMER notifications
+ * only ("Only controls customer notifications like order/prescription
+ * updates"). Routing admin alerts through the gated send() meant turning
+ * that toggle off to quiet customer spam would also silently kill the
+ * admin's own new-order emails — use this for anything addressed to the
+ * store/admin, not the customer.
+ */
+async function sendAdminAlert(to, subject, html, meta = {}) {
+  if (!to) return { success: false, error: 'no recipient email' };
+  return sendRaw(to, subject, html, meta);
+}
+
+async function sendRaw(to, subject, html, meta = {}) {
   if (!(await isConfigured())) {
     console.warn('[mail] SMTP not configured — skipping email:', subject);
     await log({ to, subject, ...meta, success: false, error: 'SMTP not configured' });
@@ -130,4 +149,4 @@ async function sendTest(to) {
   }
 }
 
-module.exports = { send, sendTest, isConfigured };
+module.exports = { send, sendAdminAlert, sendTest, isConfigured };

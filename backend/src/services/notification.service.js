@@ -156,7 +156,7 @@ async function orderPlaced(order, items = []) {
       const settings = await settingsModel.get();
       const adminEmail = settings?.contact_email;
       if (!adminEmail) return { success: false, error: 'no admin contact_email configured in settings' };
-      return mail.send(
+      return mail.sendAdminAlert(
         adminEmail,
         `New Order — ${orderRef(order)} (₹${inrPlain(order.amount)})`,
         `<p>New order placed on the website.</p>

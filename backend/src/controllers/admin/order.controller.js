@@ -152,7 +152,7 @@ const updateTracking = asyncHandler(async (req, res) => {
 
 /** PATCH /admin/orders/:orderId/payment — manual payment mark (bank transfer, etc.) */
 const updatePayment = asyncHandler(async (req, res) => {
-  const { payment_status, payment_mode, transaction_number } = req.body;
+  const { payment_status, payment_mode, transaction_number, refund_amount, refund_reference } = req.body;
   const valid = Object.values(PAYMENT_STATUS);
   if (!valid.includes(payment_status)) {
     return fail(res, `payment_status must be one of: ${valid.join(', ')}`, 422);
@@ -160,14 +160,25 @@ const updatePayment = asyncHandler(async (req, res) => {
   if (payment_mode && !['cod', 'online'].includes(payment_mode)) {
     return fail(res, "payment_mode must be 'cod' or 'online'", 422);
   }
+  const isRefundStatus = payment_status === 'Refunded' || payment_status === 'Partially Refunded';
+  if (isRefundStatus && refund_amount !== undefined && refund_amount !== null && refund_amount !== '') {
+    if (Number.isNaN(Number(refund_amount)) || Number(refund_amount) < 0) {
+      return fail(res, 'refund_amount must be a positive number', 422);
+    }
+  }
 
-  await orderModel.updatePayment(req.params.orderId, { payment_status, payment_mode, transaction_number });
+  await orderModel.updatePayment(req.params.orderId, {
+    payment_status, payment_mode, transaction_number,
+    refund_amount: isRefundStatus ? refund_amount : undefined,
+    refund_reference: isRefundStatus ? refund_reference : undefined,
+  });
   await cache.invalidate.orders();
 
   await adminModel.logActivity({
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
     action: 'payment_update', module: 'orders', record_id: req.params.orderId,
-    description: `${payment_status}${payment_mode ? ` (${payment_mode})` : ''}`, ip_address: req.ip,
+    description: `${payment_status}${payment_mode ? ` (${payment_mode})` : ''}${refund_amount ? ` — refund ₹${refund_amount}` : ''}`,
+    ip_address: req.ip,
   });
 
   return ok(res, null, 'Payment updated');
@@ -249,11 +260,17 @@ const invoice = asyncHandler(async (req, res) => {
       shipping: order.shipping_charge,
       additional: order.additional_charge,
       total: order.amount,
+      refund_amount: order.refund_amount || 0,
+      // What the customer is actually left having paid, after any refund —
+      // this is the number the printed bill needs, not just the original total.
+      net_paid: Math.max(0, Number(order.amount || 0) - Number(order.refund_amount || 0)),
     },
     payment: {
       mode: order.payment_mode,
       status: order.payment_status,
       transaction: order.transaction_number,
+      refund_amount: order.refund_amount || 0,
+      refund_reference: order.refund_reference || null,
     },
   });
 });

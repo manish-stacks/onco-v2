@@ -35,7 +35,8 @@ export default function OrderList() {
 
   const { rows, pagination, filters, setFilter, setManyFilters, resetFilters, loading, reload } = useList(
     '/admin/orders',
-    { status: params.get('status') || '', orderFrom: params.get('orderFrom') || '' }
+    { status: params.get('status') || '', orderFrom: params.get('orderFrom') || '' },
+    { syncUrl: true }
   );
 
   const BASE = import.meta.env.VITE_API_BASE || '';
@@ -130,6 +131,30 @@ export default function OrderList() {
       ),
     },
     {
+      key: 'payment_mode', label: 'Payment',
+      render: (o) => {
+        const mode = String(o.payment_mode || '').toLowerCase();
+        // POS orders store the actual method (Cash/UPI/Card/Bank Transfer/COD);
+        // web/app orders only ever store 'cod' or 'online'. Was previously
+        // collapsing everything non-COD to "Online", which mislabeled every
+        // in-store Cash/UPI/Card/Bank-Transfer POS sale.
+        const LABELS = {
+          cod: 'Cash on Delivery', online: 'Online',
+          cash: 'Cash', upi: 'UPI', card: 'Card (swipe machine)',
+          'bank transfer': 'Bank transfer',
+        };
+        const label = LABELS[mode] || o.payment_mode || '—';
+        return (
+          <div className="text-2xs">
+            <p className="font-semibold text-ink-700">{label}</p>
+            {o.payment_gateway && mode === 'online' && (
+              <p className="text-ink-500 capitalize">{o.payment_gateway}</p>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: 'status', label: 'Status',
       render: (o) => <StatusPill status={o.status} />,
     },
@@ -194,7 +219,14 @@ export default function OrderList() {
           />
           <FilterSelect
             label="Mode" value={filters.payment_mode} placeholder="All"
-            options={[{ value: 'cod', label: 'COD' }, { value: 'online', label: 'Online' }]}
+            options={[
+              { value: 'Online', label: 'Online' },
+              { value: 'COD', label: 'Cash on Delivery' },
+              { value: 'Cash', label: 'Cash' },
+              { value: 'UPI', label: 'UPI' },
+              { value: 'Card', label: 'Card (swipe machine)' },
+              { value: 'Bank Transfer', label: 'Bank transfer' },
+            ]}
             onChange={(v) => setFilter('payment_mode', v)}
           />
           <DateRangeFilter

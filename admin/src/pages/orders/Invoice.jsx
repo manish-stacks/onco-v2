@@ -190,6 +190,20 @@ export default function Invoice() {
                 <dd className="text-base font-semibold tabular-nums text-ink">{inr(totals.total)}</dd>
               </div>
             </div>
+            {Number(totals.refund_amount) > 0 && (
+              <>
+                <TotalRow label="Refunded" value={`− ${inr(totals.refund_amount)}`} tone="danger" />
+                <div className="pt-2 mt-1 border-t-2 border-ink">
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-[0.8125rem] font-semibold text-ink">Net Amount Paid</dt>
+                    <dd className="text-base font-semibold tabular-nums text-ink">{inr(totals.net_paid)}</dd>
+                  </div>
+                </div>
+                {payment?.refund_reference && (
+                  <p className="text-2xs text-ink-500 pt-1">Refund ref: {payment.refund_reference}</p>
+                )}
+              </>
+            )}
           </dl>
         </section>
 

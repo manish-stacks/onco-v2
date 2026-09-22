@@ -279,11 +279,14 @@ const invoice = asyncHandler(async (req, res) => {
       shipping: order.shipping_charge,
       additional: order.additional_charge,
       total: order.amount,
+      refund_amount: order.refund_amount || 0,
+      net_paid: Math.max(0, Number(order.amount || 0) - Number(order.refund_amount || 0)),
     },
     payment: {
       mode: order.payment_mode,
       status: order.payment_status,
       transaction: order.transaction_number,
+      refund_amount: order.refund_amount || 0,
     },
   });
 });
