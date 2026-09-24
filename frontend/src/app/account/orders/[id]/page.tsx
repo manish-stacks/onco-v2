@@ -178,6 +178,19 @@ export default function OrderDetailPage() {
           <div className="flex justify-between text-[var(--ink-soft)]"><span>Subtotal</span><span>{formatINR(order.subtotal ?? 0)}</span></div>
           {!!order.shipping_charge && <div className="flex justify-between text-[var(--ink-soft)]"><span>Shipping</span><span>{formatINR(order.shipping_charge)}</span></div>}
           <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]"><span>Total</span><span>{formatINR(order.amount)}</span></div>
+          {Number(order.cod_advance_amount) > 0 && (
+            <>
+              <div className="flex justify-between text-sm text-[var(--ink-soft)]">
+                <span>{Number(order.cod_advance_paid) === 1 ? "Advance paid online" : "Advance (payment pending)"}</span>
+                <span>{formatINR(Number(order.cod_advance_amount))}</span>
+              </div>
+              {Number(order.cod_advance_paid) === 1 && (
+                <div className="flex justify-between text-sm font-semibold text-[var(--ink)]">
+                  <span>Pay on delivery</span><span>{formatINR(order.cod_balance_due ?? 0)}</span>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 

@@ -69,25 +69,31 @@ export interface RequestOptions {
  *
  * If a server component needs the token, pass it explicitly via `withToken()`.
  */
+// In-memory copy so login still works when localStorage is blocked or throws
+// (Safari private mode, in-app browsers such as Instagram / WhatsApp on mobile).
+let memoryToken: string | null = null;
+
 export const tokenStore = {
   get(): string | null {
     if (!isBrowser()) return null;
     try {
-      return window.localStorage.getItem(TOKEN_KEY);
+      return window.localStorage.getItem(TOKEN_KEY) || memoryToken;
     } catch {
-      return null;
+      return memoryToken;
     }
   },
   set(token: string): void {
     if (!isBrowser()) return;
+    memoryToken = token;
     try {
       window.localStorage.setItem(TOKEN_KEY, token);
     } catch {
-      /* private mode */
+      /* private mode — the in-memory copy is used instead */
     }
   },
   clear(): void {
     if (!isBrowser()) return;
+    memoryToken = null;
     try {
       window.localStorage.removeItem(TOKEN_KEY);
     } catch {

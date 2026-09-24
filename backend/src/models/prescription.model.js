@@ -154,6 +154,40 @@ async function remove(prescriptionId) {
   }
 }
 
+/**
+ * Admin correction: swap a wrongly uploaded file for a new one.
+ * - oldImage given  -> only that file is replaced (same position in the array)
+ * - oldImage empty  -> every existing file is replaced by the new one
+ * The replaced files are deleted from storage (best effort).
+ */
+async function replaceImage(prescriptionId, oldImage, newImage) {
+  const [[row]] = await db.query(`SELECT images FROM prescriptions WHERE prescription_id = ?`, [prescriptionId]);
+  if (!row) throw Object.assign(new Error('Prescription not found'), { status: 404 });
+
+  const current = parseJson(row.images, []);
+  let next;
+  let removed;
+  if (oldImage) {
+    if (!current.includes(oldImage)) {
+      throw Object.assign(new Error('The image to replace was not found on this prescription'), { status: 404 });
+    }
+    next = current.map((img) => (img === oldImage ? newImage : img));
+    removed = [oldImage];
+  } else {
+    next = [newImage];
+    removed = current;
+  }
+
+  await db.query(`UPDATE prescriptions SET images = ? WHERE prescription_id = ?`,
+    [JSON.stringify(next), prescriptionId]);
+
+  for (const url of removed) {
+    const key = keyFromUrl(url);
+    if (key) storage.remove(key).catch((e) => console.error('[prescription] s3 delete fail:', key, e.message));
+  }
+  return next;
+}
+
 /** Turn a stored image URL back into its S3 object key. */
 function keyFromUrl(url) {
   if (!url) return null;
@@ -174,5 +208,5 @@ async function countByStatus() {
 
 module.exports = {
   create, findById, findByReference, list, updateStatus, updateDetails,
-  addImages, removeImage, setMedicines, remove, countByStatus, hydrate,
+  addImages, removeImage, replaceImage, setMedicines, remove, countByStatus, hydrate,
 };

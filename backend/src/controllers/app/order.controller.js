@@ -75,9 +75,11 @@ const retryPayment = asyncHandler(async (req, res) => {
   const order = await orderModel.findById(req.params.orderId, { withItems: false, withHistory: false });
   if (!order || order.customer_id !== req.customer.customer_id) return fail(res, 'Order not found', 404);
   if (order.payment_status === 'Paid') return fail(res, 'This order is already paid', 409);
+  const isCodAdvance = order.payment_mode === 'cod' && Number(order.cod_advance_amount) > 0;
+  if (isCodAdvance && Number(order.cod_advance_paid) === 1) return fail(res, 'The advance is already paid', 409);
   if (order.status === 'Cancelled') return fail(res, 'A cancelled order cannot be paid for', 409);
 
-  const rzp = await razorpayService.createOrder(order.amount, `${order.databaseOrderID}-R`, {
+  const rzp = await razorpayService.createOrder(isCodAdvance ? order.cod_advance_amount : order.amount, `${order.databaseOrderID}-R`, {
     order_id: String(order.order_id),
   });
   await orderModel.updatePayment(order.order_id, {});

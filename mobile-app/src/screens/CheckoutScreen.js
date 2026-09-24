@@ -137,7 +137,9 @@ export default function CheckoutScreen({ route, navigation }) {
       const order = result?.order;
       const payment = result?.payment;
 
-      if (choice.payment_mode === 'cod') {
+      // COD without an advance needs no gateway; COD with an advance continues
+      // into the same payment gateway screen as an online order.
+      if (!payment) {
         await refresh();
         navigation.replace('OrderSuccess', { order });
         return;
@@ -167,6 +169,9 @@ export default function CheckoutScreen({ route, navigation }) {
   );
   const mrpDiscount = Math.max(totalMrp - num(quote?.subtotal, num(cart?.summary?.subtotal)), 0);
   const itemNames = (cart?.items || []).map((i) => i.product_name);
+  // COD: advance is paid online first, the rest on delivery.
+  const codAdvance = choice?.payment_mode === 'cod' ? Math.min(num(quote?.cod_advance), total) : 0;
+  const codBalance = Math.max(total - codAdvance, 0);
 
   return (
     <Screen>
@@ -259,6 +264,7 @@ export default function CheckoutScreen({ route, navigation }) {
             navigation.navigate('PaymentMethod', {
               amount: total,
               codAllowed: quote?.cod_allowed !== false,
+              codAdvance: num(quote?.cod_advance),
               selected: choice,
             })
           }
@@ -275,7 +281,9 @@ export default function CheckoutScreen({ route, navigation }) {
               {!choice
                 ? 'Choose how you want to pay'
                 : choice.payment_mode === 'cod'
-                  ? 'Cash on Delivery'
+                  ? codAdvance > 0
+                    ? `Cash on Delivery · ${money(codAdvance)} advance now`
+                    : 'Cash on Delivery'
                   : `Pay online · ${choice.payment_gateway}`}
             </Text>
           </Card>
@@ -297,13 +305,19 @@ export default function CheckoutScreen({ route, navigation }) {
           <Row left="Delivery" right={num(quote?.shipping_charge) > 0 ? money(quote?.shipping_charge) : 'Free'} />
           {num(quote?.cod_fee) > 0 ? <Row left="COD fee" right={money(quote?.cod_fee)} /> : null}
           <Divider />
-          <Row left="To pay" right={money(total)} bold />
+          <Row left={codAdvance > 0 ? 'Order total' : 'To pay'} right={money(total)} bold />
+          {codAdvance > 0 ? (
+            <>
+              <Row left="Pay now (advance)" right={money(codAdvance)} />
+              <Row left="Pay on delivery" right={money(codBalance)} bold />
+            </>
+          ) : null}
         </Card>
       </ScrollView>
 
       <StickyBottom>
         <PrimaryButton
-          title={`Place Order · ${money(total)}`}
+          title={codAdvance > 0 ? `Pay ${money(codAdvance)} & Place Order` : `Place Order · ${money(total)}`}
           onPress={place}
           loading={placing}
           disabled={!choice || !address || (requiresRx && !prescription)}

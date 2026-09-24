@@ -286,6 +286,9 @@ export interface Order {
   payment_status: string;
   payment_mode?: string;
   payment_gateway?: string;
+  cod_advance_amount?: number | string;
+  cod_advance_paid?: number | boolean;
+  cod_balance_due?: number;
   customer_name?: string;
   customer_phone?: string;
   customer_email?: string;

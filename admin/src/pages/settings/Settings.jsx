@@ -153,6 +153,11 @@ export default function Settings() {
             <Checkbox label="Cash on delivery allowed" checked={!!Number(form.is_cod)}
               onChange={(e) => set('is_cod', e.target.checked ? 1 : 0)} />
           </div>
+          <div className="grid sm:grid-cols-2 gap-3 items-end">
+            <Field label="COD advance payment (₹)" hint="Customers pay this online first when they choose COD; the rest is collected on delivery. Set 0 to turn the advance off.">
+              <Input type="number" min="0" value={form.cod_advance ?? ''} onChange={(e) => set('cod_advance', e.target.value)} />
+            </Field>
+          </div>
         </SettingsSection>
 
         <SettingsSection icon={CreditCard} title="Payment gateways">

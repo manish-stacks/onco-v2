@@ -7,7 +7,7 @@ const { pickDefined, money } = require('../utils/helpers');
 const SETTINGS_FIELDS = ['organization', 'contact_address', 'contact_phone', 'contact_email', 'logo',
   'header_code', 'footer_code', 'copyright', 'mini_banner_1', 'mini_link_1', 'mini_banner_2', 'mini_link_2',
   'event_ad_url', 'event_ad_image', 'facebook_link', 'twitter_link', 'printinterest_link', 'instagram_link',
-  'shipping_charge', 'shipping_threshold', 'is_cod', 'cod_fee', 'is_login_rules',
+  'shipping_charge', 'shipping_threshold', 'is_cod', 'cod_fee', 'cod_advance', 'is_login_rules',
   'default_gst', 'gst_override',
   'is_razorpay', 'is_payu',
   'login_start_time', 'login_end_time', 'status',
@@ -23,6 +23,8 @@ const SETTINGS_FIELDS = ['organization', 'contact_address', 'contact_phone', 'co
  * ourselves (idempotent, only once per process).
  */
 const LATE_COLUMNS = {
+  // Amount a customer must pay online up front when choosing COD (0 = no advance)
+  cod_advance: `DECIMAL(10,2) NOT NULL DEFAULT 200`,
   default_gst: `DECIMAL(5,2) NOT NULL DEFAULT 0`,
   gst_override: `TINYINT(1) NOT NULL DEFAULT 0`,
   is_razorpay: `TINYINT(1) NOT NULL DEFAULT 1`,
@@ -73,6 +75,7 @@ async function ensureColumns() {
 }
 
 async function get() {
+  await ensureColumns();
   const [[row]] = await db.query(`SELECT * FROM settings ORDER BY id ASC LIMIT 1`);
   return row || null;
 }
@@ -91,6 +94,10 @@ async function update(id, data) {
     }
   });
 
+  if (data.cod_advance !== undefined && data.cod_advance !== null && data.cod_advance !== '') {
+    payload.cod_advance = Math.max(0, parseFloat(data.cod_advance) || 0);
+  }
+
   if (data.default_gst !== undefined && data.default_gst !== null && data.default_gst !== '') {
     payload.default_gst = parseFloat(data.default_gst) || 0;
   }
@@ -106,7 +113,7 @@ async function update(id, data) {
  */
 async function calcCharges(subtotal, paymentMode = 'online') {
   const s = await get();
-  if (!s) return { shipping_charge: 0, cod_fee: 0 };
+  if (!s) return { shipping_charge: 0, cod_fee: 0, cod_advance: 0 };
 
   const threshold = parseFloat(s.shipping_threshold) || 0;
   const flat = parseFloat(s.shipping_charge) || 0;
@@ -114,7 +121,11 @@ async function calcCharges(subtotal, paymentMode = 'online') {
   const shipping = threshold > 0 && subtotal >= threshold ? 0 : flat;
   const codFee = paymentMode === 'cod' ? (parseInt(s.cod_fee, 10) || 0) : 0;
 
-  return { shipping_charge: money(shipping), cod_fee: money(codFee) };
+  // Online advance a COD customer must pay first. The admin can raise it or set it to 0.
+  const advanceSetting = s.cod_advance === undefined || s.cod_advance === null ? 200 : parseFloat(s.cod_advance) || 0;
+  const codAdvance = paymentMode === 'cod' ? Math.max(0, advanceSetting) : 0;
+
+  return { shipping_charge: money(shipping), cod_fee: money(codFee), cod_advance: money(codAdvance) };
 }
 
 /**

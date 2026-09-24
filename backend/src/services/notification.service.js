@@ -6,6 +6,7 @@ const events = require('./events.service');
 const settingsModel = require('../models/settings.model');
 const { inrPlain, formatItems } = require('../utils/notify-format');
 const { orderRef } = require('../utils/helpers');
+const mailTpl = require('../utils/mail-template');
 
 /**
  * Ek jagah se saare channels.
@@ -117,57 +118,60 @@ async function orderPlaced(order, items = []) {
 
   // Order confirmation email — customer + admin. Was missing entirely
   // (only WhatsApp/SMS/push were wired up for orderPlaced) — this is that.
-  const itemRows = items.map((it) =>
-    `<tr>
-       <td style="padding:6px 8px;border-bottom:1px solid #eee;">${String(it.product_name || 'Item')}</td>
-       <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center;">${it.unit_quantity}</td>
-       <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right;">₹${inrPlain(it.line_total)}</td>
-     </tr>`
-  ).join('');
-  const itemsTable = `
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0;">
-      <thead><tr>
-        <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #ddd;">Item</th>
-        <th style="text-align:center;padding:6px 8px;border-bottom:2px solid #ddd;">Qty</th>
-        <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #ddd;">Amount</th>
-      </tr></thead>
-      <tbody>${itemRows}</tbody>
-    </table>`;
-
-  if (order.customer_email) {
-    fireAndForget(
-      mail.send(
-        order.customer_email,
-        `Order Confirmed — ${orderRef(order)}`,
-        `<p>Hi ${order.customer_name || 'Customer'},</p>
-         <p>Thanks for your order! We've received <b>${orderRef(order)}</b> and it's being processed.</p>
-         ${itemsTable}
-         <p><b>Total: ₹${inrPlain(order.amount)}</b> (${values.payment_method})</p>
-         <p>Shipping to: ${values.ship_name}, ${shipAddress}${values.pincode ? ' - ' + values.pincode : ''}</p>
-         <p>We'll notify you as your order moves through processing, shipping and delivery.</p>`,
-        { customerId: order.customer_id, orderId: order.order_id }
-      ),
-      'orderPlaced customer email'
-    );
-  }
-
+  // Settings fetched once here (logo/org name for the header, contact_email
+  // for where the admin alert goes) and reused for both emails below.
   fireAndForget(
     (async () => {
       const settings = await settingsModel.get();
+      const shipTo = `${values.ship_name}, ${shipAddress}${values.pincode ? ' - ' + values.pincode : ''}`;
+      const siteUrl = process.env.PUBLIC_SITE_URL;
+
+      if (order.customer_email) {
+        const html = mailTpl.layout({
+          settings,
+          preheader: `Your order ${orderRef(order)} has been placed — total ₹${inrPlain(order.amount)}`,
+          bodyHtml: `
+            ${mailTpl.heading('Order Confirmed', `Hi <b>${mailTpl.esc(order.customer_name || 'Customer')}</b>, thanks for your order! We've received it and it's now being processed.`)}
+            ${mailTpl.infoRows([
+              ['Order ID', mailTpl.esc(orderRef(order))],
+              ['Order date', mailTpl.esc(values.order_date)],
+              ['Payment method', mailTpl.esc(values.payment_method)],
+              ['Shipping to', mailTpl.esc(shipTo)],
+            ])}
+            ${mailTpl.itemsTable(items)}
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
+              <tr><td align="right" style="font-size:16px;font-weight:700;color:${mailTpl.DARK};">Total: ₹${inrPlain(order.amount)}</td></tr>
+            </table>
+            ${mailTpl.button(siteUrl ? `${siteUrl}/orders/${order.order_id}` : '', 'View Order')}
+            <p style="margin:0;font-size:13px;color:#6b7680;">We'll email you again as your order moves through processing, shipping and delivery.</p>`,
+        });
+        await mail.send(order.customer_email, `Order Confirmed — ${orderRef(order)}`, html,
+          { customerId: order.customer_id, orderId: order.order_id });
+      }
+
       const adminEmail = settings?.contact_email;
       if (!adminEmail) return { success: false, error: 'no admin contact_email configured in settings' };
-      return mail.sendAdminAlert(
-        adminEmail,
-        `New Order — ${orderRef(order)} (₹${inrPlain(order.amount)})`,
-        `<p>New order placed on the website.</p>
-         <p><b>${orderRef(order)}</b> — ${order.customer_name} (${order.customer_phone || 'no phone'})</p>
-         ${itemsTable}
-         <p><b>Total: ₹${inrPlain(order.amount)}</b> (${values.payment_method}) — via ${order.orderFrom || 'web'}</p>
-         <p>Shipping to: ${values.ship_name}, ${shipAddress}${values.pincode ? ' - ' + values.pincode : ''}</p>`,
-        { orderId: order.order_id }
-      );
+      const adminHtml = mailTpl.layout({
+        settings,
+        preheader: `New order ${orderRef(order)} — ₹${inrPlain(order.amount)}`,
+        bodyHtml: `
+          ${mailTpl.heading('New Order Received', `A new order was placed via <b>${mailTpl.esc(order.orderFrom || 'web')}</b>.`)}
+          ${mailTpl.infoRows([
+            ['Order ID', mailTpl.esc(orderRef(order))],
+            ['Customer', mailTpl.esc(order.customer_name)],
+            ['Phone', mailTpl.esc(order.customer_phone || 'no phone')],
+            ['Payment method', mailTpl.esc(values.payment_method)],
+            ['Shipping to', mailTpl.esc(shipTo)],
+          ])}
+          ${mailTpl.itemsTable(items)}
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">
+            <tr><td align="right" style="font-size:16px;font-weight:700;color:${mailTpl.DARK};">Total: ₹${inrPlain(order.amount)}</td></tr>
+          </table>`,
+      });
+      return mail.sendAdminAlert(adminEmail, `New Order — ${orderRef(order)} (₹${inrPlain(order.amount)})`, adminHtml,
+        { orderId: order.order_id });
     })(),
-    'orderPlaced admin email'
+    'orderPlaced email'
   );
 }
 
@@ -257,13 +261,18 @@ async function orderStatusChanged(order, newStatus) {
 
   if (order.customer_email) {
     fireAndForget(
-      mail.send(
-        order.customer_email,
-        `Order ${orderRef(order)} — ${newStatus}`,
-        `<p>Hi ${order.customer_name || 'Customer'},</p>
-         <p>Your order <b>${orderRef(order)}</b> is now <b>${newStatus}</b>.</p>`,
-        { customerId: order.customer_id, orderId: order.order_id }
-      ),
+      (async () => {
+        const settings = await settingsModel.get();
+        const html = mailTpl.layout({
+          settings,
+          preheader: `Order ${orderRef(order)} is now ${newStatus}`,
+          bodyHtml: `
+            ${mailTpl.heading('Order Update', `Hi <b>${mailTpl.esc(order.customer_name || 'Customer')}</b>, here's an update on your order.`)}
+            ${mailTpl.infoRows([['Order ID', mailTpl.esc(orderRef(order))], ['Status', mailTpl.statusBadge(newStatus)]])}`,
+        });
+        return mail.send(order.customer_email, `Order ${orderRef(order)} — ${newStatus}`, html,
+          { customerId: order.customer_id, orderId: order.order_id });
+      })(),
       'orderStatus email'
     );
   }
@@ -301,16 +310,24 @@ async function orderShipped(order, { courier, awb, trackingUrl, notes }) {
 
   if (order.customer_email) {
     fireAndForget(
-      mail.send(
-        order.customer_email,
-        `Order Shipped — ${orderRef(order)}`,
-        `<p>Hi ${order.customer_shipping_name || order.customer_name || 'Customer'},</p>
-         <p>Your order <b>${orderRef(order)}</b> has been shipped via <b>${courier || 'DTDC'}</b>.</p>
-         <p>AWB: <b>${awb}</b></p>
-         ${trackingUrl ? `<p><a href="${trackingUrl}">Track your shipment</a></p>` : ''}
-         ${notes ? `<p>${String(notes)}</p>` : ''}`,
-        { customerId: order.customer_id, orderId: order.order_id }
-      ),
+      (async () => {
+        const settings = await settingsModel.get();
+        const html = mailTpl.layout({
+          settings,
+          preheader: `Order ${orderRef(order)} shipped via ${courier || 'DTDC'} — AWB ${awb}`,
+          bodyHtml: `
+            ${mailTpl.heading('Order Shipped', `Hi <b>${mailTpl.esc(order.customer_shipping_name || order.customer_name || 'Customer')}</b>, your order is on its way.`)}
+            ${mailTpl.infoRows([
+              ['Order ID', mailTpl.esc(orderRef(order))],
+              ['Courier', mailTpl.esc(courier || 'DTDC')],
+              ['AWB', mailTpl.esc(awb)],
+            ])}
+            ${mailTpl.button(trackingUrl, 'Track Shipment')}
+            ${notes ? `<p style="margin:0;font-size:13px;color:#6b7680;">${mailTpl.esc(notes)}</p>` : ''}`,
+        });
+        return mail.send(order.customer_email, `Order Shipped — ${orderRef(order)}`, html,
+          { customerId: order.customer_id, orderId: order.order_id });
+      })(),
       'orderShipped email'
     );
   }
@@ -344,14 +361,19 @@ async function orderCancelled(order, reason) {
 
   if (order.customer_email) {
     fireAndForget(
-      mail.send(
-        order.customer_email,
-        `Order Cancelled — ${orderRef(order)}`,
-        `<p>Hi ${order.customer_name || 'Customer'},</p>
-         <p>Your order <b>${orderRef(order)}</b> has been cancelled.</p>
-         ${reason ? `<p>Reason: ${String(reason)}</p>` : ''}`,
-        { customerId: order.customer_id, orderId: order.order_id }
-      ),
+      (async () => {
+        const settings = await settingsModel.get();
+        const html = mailTpl.layout({
+          settings,
+          preheader: `Order ${orderRef(order)} has been cancelled`,
+          bodyHtml: `
+            ${mailTpl.heading('Order Cancelled', `Hi <b>${mailTpl.esc(order.customer_name || 'Customer')}</b>, your order has been cancelled.`)}
+            ${mailTpl.infoRows([['Order ID', mailTpl.esc(orderRef(order))], ['Status', mailTpl.statusBadge('Cancelled')]])}
+            ${reason ? `<p style="margin:0;font-size:13px;color:#6b7680;">Reason: ${mailTpl.esc(reason)}</p>` : ''}`,
+        });
+        return mail.send(order.customer_email, `Order Cancelled — ${orderRef(order)}`, html,
+          { customerId: order.customer_id, orderId: order.order_id });
+      })(),
       'orderCancelled email'
     );
   }
@@ -407,15 +429,20 @@ async function prescriptionReviewed(prescription, customer) {
     const subject = isApproved
       ? `Prescription ${refCode} Approved`
       : `Prescription ${refCode} Rejected`;
-    const html = isApproved
-      ? `<p>Hi ${customer.customer_name || 'Customer'},</p>
-         <p>Your prescription <b>${refCode}</b> has been <b>approved</b>. You can now proceed to order the prescribed medicines.</p>`
-      : `<p>Hi ${customer.customer_name || 'Customer'},</p>
-         <p>Your prescription <b>${refCode}</b> has been <b>rejected</b>.</p>
-         ${prescription.rejection_reason ? `<p>Reason: ${String(prescription.rejection_reason)}</p>` : ''}
-         <p>Please upload a valid prescription and try again.</p>`;
     fireAndForget(
-      mail.send(customer.email_id, subject, html, { customerId: prescription.customer_id }),
+      (async () => {
+        const settings = await settingsModel.get();
+        const bodyHtml = isApproved
+          ? `${mailTpl.heading('Prescription Approved', `Hi <b>${mailTpl.esc(customer.customer_name || 'Customer')}</b>, good news — your prescription has been reviewed and approved.`)}
+             ${mailTpl.infoRows([['Reference', mailTpl.esc(refCode)], ['Status', mailTpl.statusBadge('Approved')]])}
+             <p style="margin:0;font-size:13px;color:#6b7680;">You can now proceed to order the prescribed medicines.</p>`
+          : `${mailTpl.heading('Prescription Rejected', `Hi <b>${mailTpl.esc(customer.customer_name || 'Customer')}</b>, your prescription could not be approved.`)}
+             ${mailTpl.infoRows([['Reference', mailTpl.esc(refCode)], ['Status', mailTpl.statusBadge('Rejected')]])}
+             ${prescription.rejection_reason ? `<p style="margin:0 0 8px;font-size:13px;color:#6b7680;">Reason: ${mailTpl.esc(prescription.rejection_reason)}</p>` : ''}
+             <p style="margin:0;font-size:13px;color:#6b7680;">Please upload a valid prescription and try again.</p>`;
+        const html = mailTpl.layout({ settings, preheader: subject, bodyHtml });
+        return mail.send(customer.email_id, subject, html, { customerId: prescription.customer_id });
+      })(),
       `prescriptionReviewed email (${prescription.status})`
     );
   }

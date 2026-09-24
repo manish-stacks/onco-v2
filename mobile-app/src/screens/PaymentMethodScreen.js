@@ -14,7 +14,7 @@ const LABELS = {
 };
 
 export default function PaymentMethodScreen({ route, navigation }) {
-  const { amount, codAllowed = true, selected } = route.params || {};
+  const { amount, codAllowed = true, codAdvance = 0, selected } = route.params || {};
   const [gateways, setGateways] = useState([]);
   const [codEnabled, setCodEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -93,6 +93,8 @@ export default function PaymentMethodScreen({ route, navigation }) {
                 ? 'Not available for some items in your cart'
                 : !codEnabled
                 ? 'Currently unavailable'
+                : codAdvance > 0
+                ? `Pay ${money(codAdvance)} online now, the rest when your order arrives`
                 : 'Pay when your order arrives'
             }
             icon="cash-outline"

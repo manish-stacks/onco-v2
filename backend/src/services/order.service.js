@@ -103,6 +103,7 @@ async function quote({ items, coupon_code, payment_mode, customerId }) {
   const discount = couponResult.valid ? couponResult.discount : 0;
   const charges = await settingsModel.calcCharges(pricing.subtotal, payment_mode);
   const total = money(pricing.subtotal + pricing.gst - discount + charges.shipping_charge + charges.cod_fee);
+  const codAdvance = payment_mode === PAYMENT_MODE.COD ? money(Math.min(charges.cod_advance || 0, total)) : 0;
 
   return {
     items: pricing.items,
@@ -116,6 +117,8 @@ async function quote({ items, coupon_code, payment_mode, customerId }) {
     } : null,
     shipping_charge: charges.shipping_charge,
     cod_fee: charges.cod_fee,
+    cod_advance: codAdvance,
+    cod_balance: payment_mode === PAYMENT_MODE.COD ? money(total - codAdvance) : 0,
     total,
     requires_prescription: pricing.requiresPrescription,
     cod_allowed: pricing.codAllowed,
@@ -133,6 +136,19 @@ async function placeOrder(p) {
   // POS (admin-created) orders are exempt — cash is always accepted at the counter.
   if (paymentMode === PAYMENT_MODE.COD && !p.isPos && !(await settingsModel.isCodEnabled())) {
     throw Object.assign(new Error('COD is not available right now'), { status: 409 });
+  }
+
+  // COD needs the advance columns (DDL must run outside the transaction).
+  // If an advance is configured, a payment gateway must be available for it.
+  if (paymentMode === PAYMENT_MODE.COD && !p.isPos) {
+    await orderModel.ensureCodColumns();
+    const advanceCfg = await settingsModel.calcCharges(0, PAYMENT_MODE.COD);
+    if (advanceCfg.cod_advance > 0) {
+      const { list } = await paymentService.availableGatewaysLive();
+      if (!list.length) {
+        throw Object.assign(new Error('The COD advance payment is not available right now'), { status: 409 });
+      }
+    }
   }
 
   const databaseOrderID = genRef('OHM');
@@ -178,6 +194,12 @@ async function placeOrder(p) {
     const amount = money(
       pricing.subtotal + pricing.gst - discount + charges.shipping_charge + charges.cod_fee
     );
+
+    // COD advance: paid online first, the rest is collected on delivery.
+    // Never more than the order total; POS orders are exempt.
+    const codAdvance = paymentMode === PAYMENT_MODE.COD && !p.isPos
+      ? money(Math.min(charges.cod_advance || 0, amount))
+      : 0;
 
     // 4. stock lock + decrement (this is where out-of-stock is caught)
     for (const item of pricing.items) {
@@ -229,8 +251,9 @@ async function placeOrder(p) {
       customer_shipping_state: p.shipping_same_as_billing ? p.customer_state : p.customer_shipping_state,
       customer_shipping_pincode: p.shipping_same_as_billing ? p.customer_pincode : p.customer_shipping_pincode,
       customer_shipping_country: p.shipping_same_as_billing ? p.customer_country : p.customer_shipping_country,
-      status: paymentMode === PAYMENT_MODE.COD ? ORDER_STATUS.NEW : ORDER_STATUS.PENDING,
+      status: paymentMode === PAYMENT_MODE.COD && codAdvance === 0 ? ORDER_STATUS.NEW : ORDER_STATUS.PENDING,
       orderFrom: p.platform,
+      cod_advance_amount: codAdvance,
     });
 
     // 6. items
@@ -250,14 +273,14 @@ async function placeOrder(p) {
     // 9. status log + invoice
     await orderModel.logStatus(
       conn, orderId, null,
-      paymentMode === PAYMENT_MODE.COD ? ORDER_STATUS.NEW : ORDER_STATUS.PENDING,
+      paymentMode === PAYMENT_MODE.COD && codAdvance === 0 ? ORDER_STATUS.NEW : ORDER_STATUS.PENDING,
       p.isPos ? `admin:${p.created_by || 'pos'}` : 'system',
       `Order placed — ${p.isPos ? 'POS' : p.platform} | ${paymentMode}`
     );
     await conn.query(`UPDATE orders SET invoice_number = ? WHERE order_id = ?`,
       [genInvoiceNumber(orderId), orderId]);
 
-    return { orderId, amount, pricing, discount, charges };
+    return { orderId, amount, pricing, discount, charges, codAdvance };
   });
 
   // ---- outside the transaction: create the payment session (external API, must not hold a DB lock) ----
@@ -272,7 +295,9 @@ async function placeOrder(p) {
         transaction_number: p.transaction_number || `POS-${databaseOrderID}`,
       });
     }
-  } else if (paymentMode === PAYMENT_MODE.ONLINE) {
+  } else if (paymentMode === PAYMENT_MODE.ONLINE || result.codAdvance > 0) {
+    // Online order: pay the full amount. COD order: pay only the advance.
+    const payAmount = paymentMode === PAYMENT_MODE.ONLINE ? result.amount : result.codAdvance;
     let gateway = paymentService.resolve(p.payment_gateway);
 
     // A gateway the admin has disabled is never allowed — whatever the client
@@ -290,7 +315,7 @@ async function placeOrder(p) {
         order_id: result.orderId,
         customer_id: p.customerId,
         databaseOrderID,
-        amount: result.amount,
+        amount: payAmount,
         customer_name: p.customer_name,
         customer_phone: p.customer_phone,
         customer_email: p.customer_email,
@@ -329,7 +354,7 @@ async function placeOrder(p) {
   // Online payment: keep the cart intact until the payment actually succeeds
   // (markOrderPaid clears it). Otherwise a failed/cancelled/abandoned payment
   // would leave the customer with an empty cart even though nothing was paid.
-  if (!p.isPos && paymentMode !== PAYMENT_MODE.ONLINE) await cartModel.clear(p.customerId);
+  if (!p.isPos && paymentMode !== PAYMENT_MODE.ONLINE && !(result.codAdvance > 0)) await cartModel.clear(p.customerId);
   await cache.invalidate.orders();
   await cache.invalidate.products();
 
@@ -357,7 +382,7 @@ async function placeOrder(p) {
   const order = await orderModel.findById(result.orderId);
 
   // A COD order is confirmed immediately. Online confirmation is sent after payment.
-  if (paymentMode === PAYMENT_MODE.COD) {
+  if (paymentMode === PAYMENT_MODE.COD && !(result.codAdvance > 0)) {
     notify.orderPlaced(order, order.items);
   }
 
@@ -373,6 +398,12 @@ async function placeOrder(p) {
 async function markOrderPaid(orderId, paymentId, changedBy = 'system') {
   const order = await orderModel.findById(orderId, { withItems: false, withHistory: false });
   if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
+
+  // COD with an online advance: this payment is only the advance, not the full amount.
+  if (order.payment_mode === PAYMENT_MODE.COD && Number(order.cod_advance_amount) > 0) {
+    return markCodAdvancePaid(order, paymentId, changedBy);
+  }
+
   if (order.payment_status === PAYMENT_STATUS.PAID) return order; // already paid, do not repeat
 
   await orderModel.updatePayment(orderId, {
@@ -399,7 +430,44 @@ async function markOrderPaid(orderId, paymentId, changedBy = 'system') {
   return full;
 }
 
+/** The advance of a COD order was paid. payment_status stays Unpaid — the balance is due on delivery. */
+async function markCodAdvancePaid(order, paymentId, changedBy = 'system') {
+  const orderId = order.order_id;
+  const advance = Number(order.cod_advance_amount) || 0;
+
+  // Atomic guard: the webhook and the client verify call can race — only one wins.
+  const [res] = await db.query(
+    `UPDATE orders SET cod_advance_paid = 1, transaction_number = COALESCE(?, transaction_number)
+     WHERE order_id = ? AND cod_advance_paid = 0`,
+    [paymentId || null, orderId]
+  );
+  if (!res.affectedRows) return orderModel.findById(orderId);
+
+  if (order.customer_id) await cartModel.clear(order.customer_id);
+
+  const balance = Math.max(0, money(Number(order.amount) - advance));
+  if (order.status === ORDER_STATUS.PENDING) {
+    await orderModel.updateStatus(orderId, ORDER_STATUS.NEW, changedBy,
+      `COD advance Rs ${advance} received — Rs ${balance} to be collected on delivery`);
+  }
+
+  await cache.invalidate.orders();
+  events.emit('order.paid', {
+    order_id: orderId, reference: order.databaseOrderID, amount: advance,
+  }, 'orders.view');
+
+  const full = await orderModel.findById(orderId);
+  notify.orderPlaced(full, full.items);
+  return full;
+}
+
 async function markOrderPaymentFailed(orderId, paymentId) {
+  const current = await orderModel.findById(orderId, { withItems: false, withHistory: false });
+  // A failed COD advance must not flip the order to 'Failed' — the customer can retry.
+  if (current && current.payment_mode === PAYMENT_MODE.COD && Number(current.cod_advance_amount) > 0) {
+    await cache.invalidate.orders();
+    return;
+  }
   await orderModel.updatePayment(orderId, {
     payment_status: PAYMENT_STATUS.FAILED,
     transaction_number: paymentId,
@@ -455,19 +523,24 @@ async function cancelOrder(orderId, { changedBy, reason, refundPayment = true })
 
   // 4. refund (outside the transaction — external API)
   let refundInfo = null;
-  if (refundPayment && order.payment_status === PAYMENT_STATUS.PAID && order.transaction_number) {
+  // A COD order whose advance was paid gets that advance refunded on cancel.
+  const advanceRefund = order.payment_mode === PAYMENT_MODE.COD
+    && Number(order.cod_advance_paid) === 1 && order.payment_status !== PAYMENT_STATUS.PAID
+    ? Number(order.cod_advance_amount) || 0 : 0;
+  const refundAmount = advanceRefund || order.amount;
+  if (refundPayment && (order.payment_status === PAYMENT_STATUS.PAID || advanceRefund > 0) && order.transaction_number) {
     try {
       const r = await paymentService.refund(order.payment_gateway, {
         paymentId: order.transaction_number,
-        amount: order.amount,
+        amount: refundAmount,
         txnid: order.gateway_order_id || order.databaseOrderID,
       });
       await orderModel.updatePayment(orderId, {
         payment_status: PAYMENT_STATUS.REFUNDED,
-        refund_amount: order.amount,
+        refund_amount: refundAmount,
         refund_reference: r.id,
       });
-      refundInfo = { refund_id: r.id, amount: order.amount, status: 'initiated' };
+      refundInfo = { refund_id: r.id, amount: refundAmount, status: 'initiated' };
       await orderModel.updateStatus(orderId, ORDER_STATUS.CANCELLED, 'system', `Refund started — ${r.id}`)
         .catch(() => {}); // status is already Cancelled, this is only for logging
     } catch (err) {

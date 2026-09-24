@@ -40,9 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const me = await authApi.me<Customer>();
       setUser(me);
-    } catch {
-      tokenStore.clear();
-      setUser(null);
+    } catch (err) {
+      // Only an invalid/expired token should log the user out — a network
+      // hiccup (common on mobile data) must not undo a successful login.
+      if (err instanceof ApiError && err.status === 401) {
+        tokenStore.clear();
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -69,8 +73,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyOtp = useCallback(async (customer_id: string | number, otp: string) => {
     const data = await authApi.verifyOtp({ customer_id, otp });
-    await refresh();
-    return (data?.customer as Customer) ?? null;
+    const customer = (data?.customer as Customer) ?? null;
+    // Use the customer from the verify response right away so the next step
+    // never depends on a second /auth/me request. Sync the full profile in
+    // the background afterwards.
+    if (customer) {
+      setUser(customer);
+      setLoading(false);
+      void refresh();
+    } else {
+      await refresh();
+    }
+    return customer;
   }, [refresh]);
 
   const loginPassword = useCallback(async (mobile: string, password: string) => {

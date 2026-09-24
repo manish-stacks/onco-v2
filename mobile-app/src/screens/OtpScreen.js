@@ -25,6 +25,7 @@ export default function OtpScreen({ route, navigation }) {
   const [loading, setLoading] = useState(false);
   const [seconds, setSeconds] = useState(30);
   const inputRef = useRef(null);
+  const submitting = useRef(false);
   const { signIn } = useAuth();
   const toast = useToast();
 
@@ -45,9 +46,15 @@ export default function OtpScreen({ route, navigation }) {
       toast.show('Please enter the code we sent you', 'error');
       return;
     }
+    if (submitting.current) return; // auto-submit + Verify button must not both fire
+    submitting.current = true;
     setLoading(true);
     try {
-      const fcm = await getPushToken();
+      // Push is optional: never let a slow/unavailable push token block login.
+      const fcm = await Promise.race([
+        getPushToken(),
+        new Promise((resolve) => setTimeout(() => resolve(null), 4000)),
+      ]);
       const data = await authApi.verifyOtp({
         customer_id,
         otp,
@@ -59,6 +66,7 @@ export default function OtpScreen({ route, navigation }) {
     } catch (e) {
       toast.show(e.message, 'error');
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };

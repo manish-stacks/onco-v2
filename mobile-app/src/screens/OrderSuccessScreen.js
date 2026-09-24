@@ -22,7 +22,9 @@ export default function OrderSuccessScreen({ route, navigation }) {
         </Text>
         <Text style={styles.note}>
           {String(order?.payment_mode).toLowerCase() === 'cod'
-            ? 'Pay in cash when your order arrives. We will confirm it shortly.'
+            ? Number(order?.cod_advance_amount) > 0
+              ? `Your advance is confirmed. Pay the remaining ${money(order?.cod_balance_due ?? 0)} in cash when your order arrives.`
+              : 'Pay in cash when your order arrives. We will confirm it shortly.'
             : 'Your payment is confirmed. We will start preparing your order right away.'}
         </Text>
 

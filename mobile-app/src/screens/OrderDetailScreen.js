@@ -156,7 +156,10 @@ export default function OrderDetailScreen({ route, navigation }) {
     );
   }
 
-  const unpaid = order.payment_status !== 'Paid' && String(order.payment_mode).toLowerCase() !== 'cod';
+  const hasCodAdvance = String(order.payment_mode).toLowerCase() === 'cod' && num(order.cod_advance_amount) > 0;
+  const codAdvancePaid = hasCodAdvance && Number(order.cod_advance_paid) === 1;
+  const unpaid = order.payment_status !== 'Paid'
+    && (String(order.payment_mode).toLowerCase() !== 'cod' || (hasCodAdvance && !codAdvancePaid));
   const minutesSinceOrder = order.order_date ? (Date.now() - new Date(order.order_date).getTime()) / 60000 : Infinity;
   const canRetryPayment = unpaid && minutesSinceOrder <= RETRY_PAYMENT_WINDOW_MINUTES;
   const retryExpired = unpaid && !canRetryPayment;
@@ -233,6 +236,12 @@ export default function OrderDetailScreen({ route, navigation }) {
           {num(order.additional_charge) > 0 ? <Row left="COD fee" right={money(order.additional_charge)} /> : null}
           <Divider />
           <Row left="Total" right={money(order.amount)} bold />
+          {hasCodAdvance ? (
+            <>
+              <Row left={codAdvancePaid ? 'Advance paid online' : 'Advance (payment pending)'} right={money(order.cod_advance_amount)} />
+              {codAdvancePaid ? <Row left="Pay on delivery" right={money(order.cod_balance_due ?? 0)} bold /> : null}
+            </>
+          ) : null}
         </Card>
 
         <View style={{ gap: 10, marginTop: 6 }}>

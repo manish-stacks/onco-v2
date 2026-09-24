@@ -140,6 +140,7 @@ const home = asyncHandler(async (req, res) => {
         shipping_threshold: settings.shipping_threshold,
         is_cod: settings.is_cod,
         cod_fee: settings.cod_fee,
+        cod_advance: settings.cod_advance,
       } : null,
     };
   });
@@ -161,7 +162,7 @@ const search = asyncHandler(async (req, res) => {
     return {
       products: products.rows.map((p) => ({
         product_id: p.product_id, product_name: p.product_name, slug: p.slug,
-        image_1: p.image_1, product_sp: p.product_sp, product_mrp: p.product_mrp,
+        image_1: p.image_1, product_sp: p.product_sp, product_mrp: p.product_mrp,stock_quantity: p.stock_quantity, allow_backorder: p.allow_backorder, stock: p.stock,
       })),
       categories: categories.rows.map((c) => ({
         category_id: c.category_id, category_name: c.category_name, slug: c.slug,

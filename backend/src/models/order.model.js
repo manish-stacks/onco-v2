@@ -10,6 +10,35 @@ const SORTABLE = ['order_id', 'order_date', 'amount', 'status', 'created_at'];
  * only the status is updated when payment arrives, no data moves anywhere.
  */
 
+// COD advance columns — added on first use so an older database keeps working.
+let codColsReady = null;
+async function ensureCodColumns() {
+  if (codColsReady) return codColsReady;
+  codColsReady = (async () => {
+    try {
+      const [cols] = await db.query(`SHOW COLUMNS FROM orders`);
+      const have = new Set(cols.map((c) => c.Field));
+      const wanted = {
+        cod_advance_amount: `DECIMAL(10,2) NOT NULL DEFAULT 0`,
+        cod_advance_paid: `TINYINT(1) NOT NULL DEFAULT 0`,
+      };
+      for (const [name, ddl] of Object.entries(wanted)) {
+        if (have.has(name)) continue;
+        try {
+          await db.query(`ALTER TABLE orders ADD COLUMN \`${name}\` ${ddl}`);
+          console.log(`[orders] column added: ${name}`);
+        } catch (e) {
+          console.warn(`[orders] could not add column ${name}:`, e.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[orders] ensureCodColumns skipped:', e.message);
+      codColsReady = null;
+    }
+  })();
+  return codColsReady;
+}
+
 async function create(conn, o) {
   const [result] = await conn.query(
     `INSERT INTO orders SET ?`,
@@ -53,6 +82,7 @@ async function create(conn, o) {
       customer_shipping_pincode: o.customer_shipping_pincode || null,
       status: o.status || 'Pending',
       orderFrom: o.orderFrom === 'app' ? 'app' : 'web',
+      ...(Number(o.cod_advance_amount) > 0 ? { cod_advance_amount: o.cod_advance_amount } : {}),
     }]
   );
   return result.insertId;
@@ -104,6 +134,12 @@ async function findById(orderId, { withItems = true, withHistory = true } = {}) 
     );
     if (presc) presc.images = parseJson(presc.images, []);
     order.prescription = presc || null;
+  }
+  // COD with an online advance: what is still to be collected at the door
+  if (Number(order.cod_advance_amount) > 0) {
+    order.cod_balance_due = Number(order.cod_advance_paid) === 1 && order.payment_status !== 'Paid'
+      ? Math.max(0, Math.round((Number(order.amount) - Number(order.cod_advance_amount)) * 100) / 100)
+      : order.payment_status === 'Paid' ? 0 : Number(order.amount);
   }
   return order;
 }
@@ -461,7 +497,7 @@ async function findActiveDtdcShipments() {
 }
 
 module.exports = {
-  create, addItems, logStatus, findById, findByRazorpayOrderId,
+  ensureCodColumns, create, addItems, logStatus, findById, findByRazorpayOrderId,
   list, listForExport, updateStatus, updateTracking, updatePayment,
   setInvoiceNumber, setOriginalInvoice, updateFields, getItems, customerHasPurchased, stats,
   buildFilters, SORTABLE, findByRefAndPhone,findByRef,

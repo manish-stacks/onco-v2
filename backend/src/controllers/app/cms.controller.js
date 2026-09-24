@@ -114,6 +114,7 @@ const publicSettings = asyncHandler(async (req, res) => {
       shipping_threshold: s.shipping_threshold,
       is_cod: s.is_cod,
       cod_fee: s.cod_fee,
+      cod_advance: s.cod_advance,
       maintenance_mode: !!s.maintenance_mode,
       maintenance_message: s.maintenance_message,
       // Header/footer script (GTM, analytics, meta pixel etc.) — admin-controlled,

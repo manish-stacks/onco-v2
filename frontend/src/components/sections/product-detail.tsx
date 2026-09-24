@@ -203,6 +203,18 @@ export function ProductDetail({
             </span>
           )}
 
+          {medicine.manufacturer && (
+            <p className="mb-1 text-sm font-semibold text-[var(--blue-600)]">
+              {medicine.brandId ? (
+                <Link href={`/shop?brand_id=${medicine.brandId}`} className="hover:underline">
+                  {medicine.manufacturer}
+                </Link>
+              ) : (
+                medicine.manufacturer
+              )}
+            </p>
+          )}
+
           <h1 className="mb-3 font-display text-2xl font-bold leading-tight text-[var(--ink)] sm:text-3xl">{medicine.name}</h1>
 
           <div className="mb-5 flex flex-wrap items-center gap-2 text-sm">

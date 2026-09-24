@@ -169,7 +169,7 @@ function CheckoutInner() {
   // Live shipping + COD fee — these depend on payment mode, so the cart's own
   // summary (subtotal + gst only) can't show them. /orders/quote mirrors
   // exactly what the server will charge when the order is actually placed.
-  const [charges, setCharges] = useState({ shipping_charge: 0, cod_fee: 0 });
+  const [charges, setCharges] = useState({ shipping_charge: 0, cod_fee: 0, cod_advance: 0 });
 
   // Which gateways are live — enabled/disabled from admin Settings.
   // Nothing here is hardcoded.
@@ -200,13 +200,16 @@ function CheckoutInner() {
   const mrpDiscount = Math.max(totalMrp - (summary?.subtotal ?? 0), 0);
   const orderTotal = Math.max((summary?.total ?? 0) - discount, 0) + charges.shipping_charge + (paymentMode === "cod" ? charges.cod_fee : 0);
   const totalSaved = mrpDiscount + discount;
+  // COD: the advance is paid online first, the rest on delivery.
+  const codAdvance = paymentMode === "cod" ? Math.min(charges.cod_advance, orderTotal) : 0;
+  const codBalance = Math.max(orderTotal - codAdvance, 0);
 
   // Refetch shipping + COD fee whenever the payment mode, cart, or coupon changes.
   useEffect(() => {
-    if (!cartItems.length) { setCharges({ shipping_charge: 0, cod_fee: 0 }); return; }
+    if (!cartItems.length) { setCharges({ shipping_charge: 0, cod_fee: 0, cod_advance: 0 }); return; }
     let cancelled = false;
     orderApi
-      .quote<{ shipping_charge?: number; cod_fee?: number }>({
+      .quote<{ shipping_charge?: number; cod_fee?: number; cod_advance?: number }>({
         payment_mode: paymentMode,
         coupon_code: appliedCoupon || undefined,
       })
@@ -215,9 +218,10 @@ function CheckoutInner() {
         setCharges({
           shipping_charge: Number(res?.shipping_charge) || 0,
           cod_fee: Number(res?.cod_fee) || 0,
+          cod_advance: Number(res?.cod_advance) || 0,
         });
       })
-      .catch(() => { if (!cancelled) setCharges({ shipping_charge: 0, cod_fee: 0 }); });
+      .catch(() => { if (!cancelled) setCharges({ shipping_charge: 0, cod_fee: 0, cod_advance: 0 }); });
     return () => { cancelled = true; };
   }, [paymentMode, appliedCoupon, cartItems.length, summary?.subtotal]);
 
@@ -476,6 +480,10 @@ function CheckoutInner() {
       setError("Online payment is not available right now. Please try Cash on Delivery.");
       return;
     }
+    if (paymentMode === "cod" && codAdvance > 0 && gateways.length === 0) {
+      setError("The COD advance payment is not available right now. Please try again later.");
+      return;
+    }
 
     setError(null);
     setPlacing(true);
@@ -509,7 +517,7 @@ function CheckoutInner() {
           }),
         coupon_code: appliedCoupon || undefined,
         payment_mode: paymentMode,
-        payment_gateway: paymentMode === "online" ? gateway : undefined,
+        payment_gateway: paymentMode === "online" || codAdvance > 0 ? gateway : undefined,
         prescription_id: selectedPrescriptionId ?? undefined,
         patient_name: patientName || undefined,
         doctor_name: doctorName || undefined,
@@ -524,7 +532,9 @@ function CheckoutInner() {
 
       clearAppliedCoupon();
 
-      if (paymentMode === "cod" || !payment) {
+      // COD without an advance (or an order that needs no gateway) is done here;
+      // COD with an advance continues into the same gateway flow as online payment.
+      if (!payment) {
         await refreshCart();
         router.push(`/order-success/${order.order_id}`);
         return;
@@ -1010,8 +1020,17 @@ function CheckoutInner() {
                       />
                       <Truck size={16} className="text-[var(--ink-soft)]" />
                       <span className="font-medium">Cash on Delivery</span>
-                      <span className="ml-auto text-xs text-[var(--ink-soft)]">Pay at your door</span>
+                      <span className="ml-auto text-xs text-[var(--ink-soft)]">
+                        {charges.cod_advance > 0 ? `${formatINR(charges.cod_advance)} now, rest at your door` : "Pay at your door"}
+                      </span>
                     </label>
+                  )}
+
+                  {paymentMode === "cod" && codAdvance > 0 && (
+                    <p className="rounded-[var(--radius-sm)] bg-[var(--blue-50)] px-4 py-3 text-xs text-[var(--ink-soft)]">
+                      To confirm a Cash on Delivery order, pay <span className="font-semibold text-[var(--ink)]">{formatINR(codAdvance)}</span> online
+                      now. The remaining <span className="font-semibold text-[var(--ink)]">{formatINR(codBalance)}</span> is paid in cash on delivery.
+                    </p>
                   )}
 
                   {!codEnabled && (
@@ -1133,6 +1152,12 @@ function CheckoutInner() {
               <span>Order Total</span>
               <span>{formatINR(orderTotal)}</span>
             </div>
+            {codAdvance > 0 && (
+              <>
+                <div className="flex justify-between text-[var(--ink-soft)]"><span>Pay now (advance)</span><span>{formatINR(codAdvance)}</span></div>
+                <div className="flex justify-between font-semibold text-[var(--ink)]"><span>Pay on delivery</span><span>{formatINR(codBalance)}</span></div>
+              </>
+            )}
             {totalSaved > 0 && (
               <p className="rounded-full bg-[var(--mint-600)]/10 px-3 py-1.5 text-center text-xs font-semibold text-[var(--mint-600)]">
                 You saved {formatINR(totalSaved)} on this order
@@ -1148,7 +1173,7 @@ function CheckoutInner() {
               onClick={placeOrder}
               icon={placing ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
             >
-              {placing ? "Placing order…" : "Place Order"}
+              {placing ? "Placing order…" : codAdvance > 0 ? `Pay ${formatINR(codAdvance)} & Place Order` : "Place Order"}
             </Button>
           ) : (
             <p className="mt-6 text-center text-xs text-[var(--ink-soft)]">

@@ -16,7 +16,7 @@ import {
 } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import ShippingPanel from './ShippingPanel';
-import { ReviewModal, MedicinesModal } from '@/pages/prescriptions/Prescriptions';
+import { ReviewModal, MedicinesModal, ReplaceFileButton } from '@/pages/prescriptions/Prescriptions';
 
 export default function OrderDetail() {
   const { orderId } = useParams();
@@ -224,12 +224,24 @@ function ItemsTable({ order }) {
           <div className="pt-1.5 border-t border-line">
             <Row label="Total" value={inr(order.amount)} bold />
           </div>
+          {Number(order.cod_advance_amount) > 0 && (
+            <>
+              <Row
+                label={Number(order.cod_advance_paid) === 1 ? 'COD advance paid' : 'COD advance (awaiting payment)'}
+                value={inr(order.cod_advance_amount)}
+                tone={Number(order.cod_advance_paid) === 1 ? 'ok' : undefined}
+              />
+              {Number(order.cod_advance_paid) === 1 && (
+                <Row label="Collect on delivery" value={inr(order.cod_balance_due ?? 0)} bold />
+              )}
+            </>
+          )}
           {Number(order.refund_amount) > 0 && (
             <Row label="Refunded" value={`− ${inr(order.refund_amount)}`} tone="danger" />
           )}
-          <div className="pt-1.5 border-t border-line">
+          {/* <div className="pt-1.5 border-t border-line">
             <Row label="Final amount" value={inr(order.amount - order.refund_amount)} bold />
-          </div>
+          </div> */}
         </dl>
           
       </div>
@@ -424,9 +436,10 @@ function PrescriptionBlock({ presc, order, onChanged }) {
         {images.length > 0 ? (
           <div className="grid grid-cols-3 gap-1.5">
             {images.slice(0, 6).map((img) => (
-              isPdfUrl(img) ? (
+              <div key={img} className="relative">
+              {isPdfUrl(img) ? (
                 <a
-                  key={img} href={mediaUrl(img)} target="_blank" rel="noreferrer"
+                  href={mediaUrl(img)} target="_blank" rel="noreferrer"
                   className="relative aspect-square rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors flex flex-col items-center justify-center gap-1"
                 >
                   <FileText size={16} className="text-ink-300" />
@@ -434,8 +447,7 @@ function PrescriptionBlock({ presc, order, onChanged }) {
                 </a>
               ) : (
                 <button
-                  key={img}
-                  type="button"
+                                    type="button"
                   onClick={() => setViewer(mediaUrl(img))}
                   className="relative aspect-square rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors group"
                 >
@@ -444,7 +456,9 @@ function PrescriptionBlock({ presc, order, onChanged }) {
                     <Eye size={16} className="text-white" />
                   </span>
                 </button>
-              )
+              )}
+              {canManage && <ReplaceFileButton prescriptionId={rx.prescription_id} image={img} onDone={refresh} />}
+              </div>
             ))}
           </div>
         ) : (

@@ -87,7 +87,8 @@ function LoginInner() {
     try {
       await verifyOtp(customerId, otp);
 
-      router.push(redirectTo);
+      // replace (not push) so Back does not return to the OTP screen.
+      router.replace(redirectTo);
     } catch (err) {
       setError(
         err instanceof ApiError

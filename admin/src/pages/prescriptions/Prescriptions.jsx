@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
-import { FileText, Check, X, Pill, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { FileText, Check, X, Pill, Plus, Trash2, ExternalLink, RefreshCw } from 'lucide-react';
 import { useList, useResource, useMutation, useDebounced } from '@/hooks/useApi';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -14,6 +14,47 @@ import {
 } from '@/components/ui';
 import { DataTable, Pagination, FilterBar, SearchInput, FilterSelect } from '@/components/ui/DataTable';
 import { Modal } from '@/components/ui/Modal';
+
+/* =========================================================================
+ * Replace a wrongly uploaded file (admin correction). The old file is
+ * deleted from storage by the backend.
+ * ======================================================================= */
+export function ReplaceFileButton({ prescriptionId, image, onDone }) {
+  const inputRef = useRef(null);
+  const replace = useMutation(
+    (file) => {
+      const fd = new FormData();
+      fd.append('prescription_image', file);
+      if (image) fd.append('old_image', image);
+      return api.form(`/admin/prescriptions/${prescriptionId}/replace-image`, fd);
+    },
+    { success: 'File replaced. The old file was deleted.', onSuccess: onDone }
+  );
+
+  const onPick = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!window.confirm('Replace this file? The old file will be permanently deleted.')) return;
+    replace.run(file);
+  };
+
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="image/*,application/pdf" hidden onChange={onPick} />
+      <button
+        type="button"
+        title="Replace file"
+        disabled={replace.loading}
+        onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
+        className="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded border border-line bg-white/90 px-1.5 py-0.5 text-2xs font-semibold text-ink shadow-sm hover:text-teal disabled:opacity-60"
+      >
+        <RefreshCw size={11} className={replace.loading ? 'animate-spin' : ''} />
+        {replace.loading ? 'Replacing' : 'Replace'}
+      </button>
+    </>
+  );
+}
 
 /* =========================================================================
  * LIST
@@ -238,9 +279,10 @@ export function PrescriptionDetail() {
             {images.length ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4">
                 {images.map((img, i) => (
-                  isPdfUrl(img) ? (
+                  <div key={img} className="relative">
+                  {isPdfUrl(img) ? (
                     <a
-                      key={img} href={mediaUrl(img)} target="_blank" rel="noreferrer"
+                      href={mediaUrl(img)} target="_blank" rel="noreferrer"
                       className="group relative aspect-[3/4] rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors flex flex-col items-center justify-center gap-1.5"
                     >
                       <FileText size={22} className="text-ink-300" />
@@ -251,7 +293,7 @@ export function PrescriptionDetail() {
                     </a>
                   ) : (
                     <button
-                      key={img} onClick={() => setLightbox(img)}
+                      onClick={() => setLightbox(img)}
                       className="group relative aspect-[3/4] rounded border border-line overflow-hidden bg-paper-sunk hover:border-teal transition-colors"
                     >
                       <img src={mediaUrl(img)} alt={`Prescription page ${i + 1}`}
@@ -260,7 +302,9 @@ export function PrescriptionDetail() {
                         {i + 1}
                       </span>
                     </button>
-                  )
+                  )}
+                  {canManage && <ReplaceFileButton prescriptionId={presc.prescription_id} image={img} onDone={reload} />}
+                  </div>
                 ))}
               </div>
             ) : (

@@ -176,7 +176,9 @@ async function findById(productId) {
 
 async function findBySlug(slug) {
   const [[product]] = await db.query(
-    `SELECT * FROM products WHERE slug = ? AND status = 'Active' LIMIT 1`, [slug]
+    `SELECT p.*, b.title AS brand_name FROM products p
+     LEFT JOIN brands b ON b.id = p.brand_id
+     WHERE p.slug = ? AND p.status = 'Active' LIMIT 1`, [slug]
   );
   if (!product) return null;
 

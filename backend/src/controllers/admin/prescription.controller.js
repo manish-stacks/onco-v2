@@ -4,6 +4,8 @@ const customerModel = require('../../models/customer.model');
 const notify = require('../../services/notification.service');
 const { ok, fail, paginated, asyncHandler } = require('../../utils/response');
 const { getPagination } = require('../../utils/helpers');
+const { storeFile } = require('../../middleware/upload');
+const cache = require('../../utils/cache');
 const { PRESCRIPTION_STATUSES } = require('../../config/constants');
 
 /**
@@ -92,6 +94,36 @@ const setMedicines = asyncHandler(async (req, res) => {
   return ok(res, await prescriptionModel.findById(req.params.id), 'Medicines set');
 });
 
+/**
+ * POST /admin/prescriptions/:id/replace-image   (multipart)
+ * fields: prescription_image (file), old_image (optional URL of the file to replace)
+ * Used when a wrong prescription was uploaded — the old file is deleted.
+ */
+const replaceImage = asyncHandler(async (req, res) => {
+  if (!req.file) return fail(res, 'A replacement file is required', 422);
+
+  const presc = await prescriptionModel.findById(req.params.id);
+  if (!presc) return fail(res, 'Prescription not found', 404);
+
+  const oldImage = req.body.old_image || null;
+  if (oldImage && !presc.images.includes(oldImage)) {
+    return fail(res, 'The image to replace was not found on this prescription', 404);
+  }
+
+  const url = await storeFile(req.file, 'prescriptions');
+  await prescriptionModel.replaceImage(req.params.id, oldImage, url);
+
+  await adminModel.logActivity({
+    admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
+    action: 'update', module: 'prescriptions', record_id: req.params.id,
+    description: oldImage ? 'Prescription file replaced' : 'All prescription files replaced', ip_address: req.ip,
+  });
+
+  try { await cache.invalidate.orders(); } catch { /* cache is best effort */ }
+
+  return ok(res, await prescriptionModel.findById(req.params.id), 'Prescription replaced');
+});
+
 /** DELETE /admin/prescriptions/:id */
 const remove = asyncHandler(async (req, res) => {
   await prescriptionModel.remove(req.params.id);
@@ -102,4 +134,4 @@ const remove = asyncHandler(async (req, res) => {
   return ok(res, null, 'Prescription deleted');
 });
 
-module.exports = { list, stats, detail, updateStatus, setMedicines, remove };
+module.exports = { list, stats, detail, updateStatus, setMedicines, replaceImage, remove };

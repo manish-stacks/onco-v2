@@ -116,8 +116,11 @@ async function bookShipment(order, opts = {}) {
   }
 
   const serviceType = SERVICE_TYPES[opts.serviceType] || SERVICE_TYPES[2];
+  // For COD with a paid online advance, DTDC must collect only the balance.
+  const advancePaid = Number(order.cod_advance_paid) === 1 ? Number(order.cod_advance_amount) || 0 : 0;
+  const codDue = Math.max(0, Math.round((Number(order.amount) - advancePaid) * 100) / 100);
   const isCod = String(order.payment_mode).toLowerCase() === 'cod'
-    && order.payment_status !== 'Paid';
+    && order.payment_status !== 'Paid' && codDue > 0;
 
   const dest = destinationFrom(order);
   console.log("DTDC booking", { orderId: order.order_id, serviceType, isCod, dest, opts });
@@ -146,7 +149,7 @@ async function bookShipment(order, opts = {}) {
     declared_value: order.amount,
     num_pieces: String(opts.numPieces || 1),
     cod_collection_mode: isCod ? 'CASH' : '',
-    cod_amount: isCod ? order.amount : '',
+    cod_amount: isCod ? codDue : '',
     origin_details: originDetails(),
     destination_details: dest,
     customer_reference_number: orderRef(order),

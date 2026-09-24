@@ -40,7 +40,7 @@ const contactItems = [
 ];
 
 const socials = [
-  { Icon: FaWhatsapp, href: "https://wa.me/919289008182" },
+  { Icon: FaWhatsapp, href: "https://wa.me/919212292778" },
   { Icon: FaFacebookF, href: "#" },
   { Icon: FaXTwitter, href: "#" },
   { Icon: FaLinkedinIn, href: "#" },

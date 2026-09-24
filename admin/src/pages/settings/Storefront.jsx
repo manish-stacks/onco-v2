@@ -123,6 +123,9 @@ function General() {
               <Field label="COD fee (₹)">
                 <Input type="number" value={form.cod_fee || ''} onChange={(e) => set('cod_fee', e.target.value)} />
               </Field>
+              <Field label="COD advance payment (₹)" hint="Paid online first when the customer chooses COD; the rest is collected on delivery. Set 0 to turn the advance off.">
+                <Input type="number" min="0" value={form.cod_advance ?? ''} onChange={(e) => set('cod_advance', e.target.value)} />
+              </Field>
             </div>
 
             <h3 className="text-sm font-semibold text-ink pt-3 mb-1">Social links</h3>

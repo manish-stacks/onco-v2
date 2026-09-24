@@ -63,12 +63,11 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async ({ token, customer: cust }) => {
     if (token) await tokenStore.set(token);
     setCustomer(cust || null);
-    try {
-      const push = await getPushToken();
-      if (push) await authApi.registerDevice(push);
-    } catch {
-      /* push is optional */
-    }
+    // Push registration runs in the background so it can never block the
+    // navigation that follows a successful login.
+    getPushToken()
+      .then((push) => (push ? authApi.registerDevice(push) : null))
+      .catch(() => { /* push is optional */ });
     if (!cust) {
       try {
         setCustomer(await authApi.me());

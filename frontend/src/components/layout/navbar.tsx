@@ -118,8 +118,8 @@ export function Navbar() {
           <Image src="/logo.png" alt="Onco Health Mart" width={200} height={63} className="h-12 w-auto object-contain md:h-14" priority />
         </Link>
 
-        <div className="ml-6 hidden max-w-xl flex-1 items-center lg:flex">
-          <div className="flex h-12 w-full items-stretch rounded-full border border-line">
+        <div className="ml-6 hidden max-w-2xl flex-1 items-center lg:flex">
+          <div className="relative flex h-12 w-full items-stretch rounded-full border border-line">
             {/* ---- Category dropdown ---- */}
             <div ref={catRef} className="relative shrink-0">
               <button
@@ -172,7 +172,7 @@ export function Navbar() {
               </AnimatePresence>
             </div>
 
-            <div className="relative flex-1">
+            <div className="flex-1">
               <SearchSuggest
                 value={query}
                 onChange={setQuery}
@@ -252,7 +252,7 @@ export function Navbar() {
       </div>
 
       {/* Mobile search row */}
-      <div className="border-t border-line bg-white px-4 py-2.5 sm:px-6 lg:hidden">
+      <div className="relative border-t border-line bg-white px-4 py-2.5 sm:px-6 lg:hidden">
         <div className="flex h-10 items-center gap-2 rounded-full border border-line px-4 text-ink-soft">
           <Search size={16} />
           <SearchSuggest
