@@ -2,7 +2,7 @@
 
 import { FaWhatsapp } from "react-icons/fa6";
 
-const WHATSAPP_NUMBER = "919289008182"; // country code + number, no + or spaces
+const WHATSAPP_NUMBER = "919212292778"; // country code + number, no + or spaces
 
 export function WhatsappFloat() {
   return (
