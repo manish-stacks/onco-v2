@@ -5,7 +5,7 @@ import Screen from '../components/Screen';
 import { AppHeader, Card, Chip, EmptyState, Loader, StatusPill } from '../components/ui';
 import { colors } from '../theme';
 import { orderApi } from '../api';
-import { formatDate, money } from '../utils/format';
+import { formatDate, money, orderRef } from '../utils/format';
 import { useAuth } from '../store/AuthContext';
 import { goTab, TABS } from '../utils/nav';
 
@@ -95,7 +95,7 @@ export default function OrdersScreen({ navigation }) {
             <Pressable onPress={() => navigation.navigate('OrderDetail', { orderId: item.order_id })}>
               <Card>
                 <View style={styles.top}>
-                  <Text style={styles.ref}>#{item.databaseOrderID || item.order_id}</Text>
+                  <Text style={styles.ref}>#{orderRef(item)}</Text>
                   <StatusPill status={item.status} />
                 </View>
                 <Text style={styles.meta}>
@@ -125,7 +125,7 @@ export default function OrdersScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  filters: { paddingHorizontal: 18, paddingBottom: 12, gap: 8 },
+  filters: { paddingHorizontal: 18, paddingBottom: 12, gap: 8, height: 45 },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   ref: { fontSize: 12.5, fontWeight: '700', color: colors.text },
   meta: { fontSize: 11, color: colors.muted, marginTop: 5 },

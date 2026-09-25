@@ -465,7 +465,7 @@ function parseWebhook(body) {
 
 function trackingUrl(awb) {
   const base = process.env.PUBLIC_SITE_URL || '';
-  return `${base}/tracking?awb=${awb}`;
+  return `${base}/track-shipment?awb=${awb}`;
 }
 
 /** Loosely maps a DTDC status/description string to one of the 4 stages used

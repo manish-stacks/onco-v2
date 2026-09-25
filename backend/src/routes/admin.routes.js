@@ -226,6 +226,8 @@ router.patch('/prescriptions/:id/status', requirePermission(P.PRESCRIPTIONS_MANA
 router.put('/prescriptions/:id/medicines', requirePermission(P.PRESCRIPTIONS_MANAGE), prescription.setMedicines);
 router.post('/prescriptions/:id/replace-image', requirePermission(P.PRESCRIPTIONS_MANAGE),
   uploadPrescription.single('prescription_image'), prescription.replaceImage);
+router.post('/prescriptions/:id/add-images', requirePermission(P.PRESCRIPTIONS_MANAGE),
+  uploadPrescription.array('prescription_images', 10), prescription.addImages);
 router.delete('/prescriptions/:id', requirePermission(P.PRESCRIPTIONS_MANAGE), prescription.remove);
 
 // ===========================================================================

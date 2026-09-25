@@ -62,9 +62,24 @@ const TEMPLATES = {
     name: 'otp',
     params: ['otp'],
   },
+  // Customer ko — COD order with an online advance: what was paid now and
+  // what is due on delivery. Sent right after the normal order-success
+  // template, only when the order actually has an advance.
+  // NOTE: new template — must be created and approved on the BuzWap/WhatsApp
+  // Business dashboard before this will deliver. Suggested content:
+  // "Hi {{1}}, your Cash on Delivery order {{2}} is confirmed. You paid Rs {{3}}
+  //  online as advance. Please keep Rs {{4}} ready to pay on delivery. - Onco Healthmart"
+  COD_ADVANCE_INFO: {
+    name: 'cod_advance_info',
+    params: ['customer_name', 'order_id', 'advance_paid', 'balance_due'],
+  },
   // Customer ko — prescription approve
   // NOTE: 'prescription_approved' template must be pre-approved on the BuzWap/WhatsApp
   // Business dashboard before this will actually deliver (same as every other template here).
+  // Suggested content (matches the email copy):
+  // "Dear Customer, your prescription {{2}} has been successfully reviewed and
+  //  approved. Your order will now be processed further and dispatched shortly.
+  //  Thank you for choosing Onco Healthmart."
   PRESCRIPTION_APPROVED: {
     name: 'prescription_approved',
     params: ['customer_name', 'reference_code'],

@@ -95,6 +95,35 @@ const setMedicines = asyncHandler(async (req, res) => {
 });
 
 /**
+ * POST /admin/prescriptions/:id/add-images   (multipart)
+ * fields: prescription_images (multiple files)
+ * Lets the admin attach extra pages to an existing prescription — e.g. the
+ * customer sent more pages after the order was placed — same as adding
+ * multiple pages at POS create time.
+ */
+const addImages = asyncHandler(async (req, res) => {
+  const files = req.files || [];
+  if (!files.length) return fail(res, 'At least one file is required', 422);
+
+  const presc = await prescriptionModel.findById(req.params.id);
+  if (!presc) return fail(res, 'Prescription not found', 404);
+
+  const urls = [];
+  for (const f of files) urls.push(await storeFile(f, 'prescriptions'));
+  await prescriptionModel.addImages(req.params.id, urls);
+
+  await adminModel.logActivity({
+    admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,
+    action: 'update', module: 'prescriptions', record_id: req.params.id,
+    description: `${urls.length} page(s) added to prescription`, ip_address: req.ip,
+  });
+
+  try { await cache.invalidate.orders(); } catch { /* cache is best effort */ }
+
+  return ok(res, await prescriptionModel.findById(req.params.id), 'Pages added');
+});
+
+/**
  * POST /admin/prescriptions/:id/replace-image   (multipart)
  * fields: prescription_image (file), old_image (optional URL of the file to replace)
  * Used when a wrong prescription was uploaded — the old file is deleted.
@@ -134,4 +163,4 @@ const remove = asyncHandler(async (req, res) => {
   return ok(res, null, 'Prescription deleted');
 });
 
-module.exports = { list, stats, detail, updateStatus, setMedicines, replaceImage, remove };
+module.exports = { list, stats, detail, updateStatus, setMedicines, replaceImage, addImages, remove };

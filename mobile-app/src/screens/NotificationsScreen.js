@@ -6,7 +6,7 @@ import Screen from '../components/Screen';
 import { AppHeader, Card, EmptyState, Loader } from '../components/ui';
 import { colors, radius } from '../theme';
 import { orderApi, prescriptionApi } from '../api';
-import { formatDate, money } from '../utils/format';
+import { formatDate, money, orderRef } from '../utils/format';
 import { useAuth } from '../store/AuthContext';
 
 /**
@@ -35,7 +35,7 @@ export default function NotificationsScreen({ navigation }) {
         ...(orders.data || []).map((o) => ({
           id: `order-${o.order_id}`,
           icon: o.status === 'Delivered' ? 'checkmark-done-outline' : 'cube-outline',
-          title: `Order #${o.databaseOrderID || o.order_id} · ${o.status}`,
+          title: `Order #${orderRef(o)} · ${o.status}`,
           body: `${money(o.amount)} · ${o.payment_status}`,
           at: o.updated_at || o.order_date,
           onPress: () => navigation.navigate('OrderDetail', { orderId: o.order_id }),

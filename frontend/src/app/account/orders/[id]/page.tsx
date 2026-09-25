@@ -72,6 +72,7 @@ export default function OrderDetailPage() {
     return <div className="flex min-h-[50vh] items-center justify-center text-[var(--ink-soft)]"><Loader2 className="animate-spin" /></div>;
   }
 
+  console.log("order", order);
   if (!order) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-24 text-center sm:px-6">
@@ -177,6 +178,8 @@ export default function OrderDetailPage() {
         <div className="mt-4 space-y-1.5 border-t border-[var(--line)] pt-4 text-sm font-mono-nums">
           <div className="flex justify-between text-[var(--ink-soft)]"><span>Subtotal</span><span>{formatINR(order.subtotal ?? 0)}</span></div>
           {!!order.shipping_charge && <div className="flex justify-between text-[var(--ink-soft)]"><span>Shipping</span><span>{formatINR(order.shipping_charge)}</span></div>}
+          {!!order.additional_charge && <div className="flex justify-between text-[var(--ink-soft)]"><span>COD fee</span><span>{formatINR(order.additional_charge)}</span></div>}
+          
           <div className="flex justify-between border-t border-[var(--line)] pt-2 text-base font-bold text-[var(--ink)]"><span>Total</span><span>{formatINR(order.amount)}</span></div>
           {Number(order.cod_advance_amount) > 0 && (
             <>

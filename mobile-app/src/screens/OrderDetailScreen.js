@@ -17,7 +17,7 @@ import {
 import { colors, radius } from '../theme';
 import { orderApi } from '../api';
 import { mediaUrl } from '../api/client';
-import { formatDate, money, num } from '../utils/format';
+import { formatDate, money, num, orderRef } from '../utils/format';
 import { useCart } from '../store/CartContext';
 import { useToast } from '../store/ToastContext';
 import { goTab, TABS } from '../utils/nav';
@@ -166,7 +166,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   return (
     <Screen>
-      <AppHeader title={`#${order.databaseOrderID || order.order_id}`} back />
+      <AppHeader title={`#${orderRef(order)}`} back />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
         <Card>
           <View style={styles.top}>

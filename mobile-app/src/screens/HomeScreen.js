@@ -18,7 +18,7 @@ import { Card, Loader, SectionTitle } from '../components/ui';
 import { colors, radius, shadow } from '../theme';
 import { catalogApi, orderApi } from '../api';
 import { mediaUrl } from '../api/client';
-import { money } from '../utils/format';
+import { money, orderRef } from '../utils/format';
 import { getRecentViews } from '../utils/recentViews';
 import { useAuth } from '../store/AuthContext';
 import { useCart } from '../store/CartContext';
@@ -285,7 +285,7 @@ export default function HomeScreen({ navigation }) {
             <Pressable onPress={() => navigation.navigate('OrderDetail', { orderId: lastOrder.order_id })}>
               <Card style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Text style={{ fontSize: 12, color: colors.text }}>
-                  Order #{lastOrder.databaseOrderID} · {money(lastOrder.amount)}
+                  Order #{orderRef(lastOrder)} · {money(lastOrder.amount)}
                 </Text>
                 <View style={styles.rxChip}>
                   <Text style={styles.rxChipText}>Reorder</Text>

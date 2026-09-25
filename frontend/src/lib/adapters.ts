@@ -37,7 +37,8 @@ export function productToMedicine(p: ApiProduct): Medicine {
     id: String(p.product_id),
     slug: p.slug,
     name: p.product_name,
-    manufacturer: p.brand_name || "",
+    // Brand first; many products only have the company name filled in.
+    manufacturer: p.brand_name || p.company_name || "",
     brandId: p.brand_id !== undefined ? String(p.brand_id) : "",
     categoryId: p.categories?.[0] ? String(p.categories[0].category_id) : "",
     image: images[0] || "/placeholder.png",

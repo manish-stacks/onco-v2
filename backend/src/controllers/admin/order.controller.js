@@ -261,6 +261,11 @@ const invoice = asyncHandler(async (req, res) => {
       additional: order.additional_charge,
       total: order.amount,
       refund_amount: order.refund_amount || 0,
+      // COD with an online advance: split so the printed bill shows what was
+      // already paid online vs what's still due on delivery.
+      cod_advance: order.cod_advance_amount || 0,
+      cod_advance_paid: Number(order.cod_advance_paid) === 1,
+      cod_balance_due: order.cod_balance_due ?? 0,
       // What the customer is actually left having paid, after any refund —
       // this is the number the printed bill needs, not just the original total.
       net_paid: Math.max(0, Number(order.amount || 0) - Number(order.refund_amount || 0)),

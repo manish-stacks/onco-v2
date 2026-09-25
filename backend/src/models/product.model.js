@@ -332,28 +332,21 @@ async function setCategories(productId, categoryIds = [], conn = db) {
  * to same category when the product has no salt on file or no salt-matches exist.
  */
 async function related(productId, limit = 8) {
+  // "Similar products" = same salt / composition only. No category fallback —
+  // a product with no salt (or no other product with that salt) shows nothing.
   const [[current]] = await db.query(`SELECT salt FROM products WHERE product_id = ?`, [productId]);
   const salt = current?.salt?.trim();
+  if (!salt) return [];
 
-  if (salt) {
-    const [bySalt] = await db.query(
-      `SELECT DISTINCT p.* FROM products p
-       WHERE p.salt = ? AND p.product_id != ? AND p.status = 'Active'
-       LIMIT ?`,
-      [salt, productId, limit]
-    );
-    if (bySalt.length) return bySalt;
-  }
-
-  const [byCategory] = await db.query(
-    `SELECT DISTINCT p.* FROM products p
-     INNER JOIN product_categories pc ON pc.product_id = p.product_id
-     WHERE pc.category_id IN (SELECT category_id FROM product_categories WHERE product_id = ?)
-       AND p.product_id != ? AND p.status = 'Active'
+  const [bySalt] = await db.query(
+    `SELECT p.*, (SELECT b.title FROM brands b WHERE b.id = p.brand_id LIMIT 1) AS brand_name
+     FROM products p
+     WHERE TRIM(p.salt) = ? AND p.product_id != ? AND p.status = 'Active'
+     ORDER BY p.product_name ASC
      LIMIT ?`,
-    [productId, productId, limit]
+    [salt, productId, limit]
   );
-  return byCategory;
+  return bySalt;
 }
 
 async function incrementSold(productId, qty, conn = db) {

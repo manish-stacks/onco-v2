@@ -162,7 +162,10 @@ const search = asyncHandler(async (req, res) => {
     return {
       products: products.rows.map((p) => ({
         product_id: p.product_id, product_name: p.product_name, slug: p.slug,
-        image_1: p.image_1, product_sp: p.product_sp, product_mrp: p.product_mrp,stock_quantity: p.stock_quantity, allow_backorder: p.allow_backorder, stock: p.stock,
+        image_1: p.image_1, product_sp: p.product_sp, product_mrp: p.product_mrp,
+        stock: p.stock, stock_quantity: p.stock_quantity, allow_backorder: p.allow_backorder,
+        presciption_required: p.presciption_required, weight_quantity: p.weight_quantity,
+        salt: p.salt, brand_id: p.brand_id, brand_name: p.brand_name, company_name: p.company_name,
       })),
       categories: categories.rows.map((c) => ({
         category_id: c.category_id, category_name: c.category_name, slug: c.slug,

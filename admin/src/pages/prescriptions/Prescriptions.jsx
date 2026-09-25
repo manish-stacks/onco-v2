@@ -57,6 +57,44 @@ export function ReplaceFileButton({ prescriptionId, image, onDone }) {
 }
 
 /* =========================================================================
+ * Attach extra pages to an existing prescription — same multi-file picker
+ * as at POS create time, for when the customer sends more pages later.
+ * ======================================================================= */
+export function AddPagesButton({ prescriptionId, onDone, className }) {
+  const inputRef = useRef(null);
+  const add = useMutation(
+    (files) => {
+      const fd = new FormData();
+      files.forEach((f) => fd.append('prescription_images', f));
+      return api.form(`/admin/prescriptions/${prescriptionId}/add-images`, fd);
+    },
+    { success: 'Page(s) added', onSuccess: onDone }
+  );
+
+  const onPick = (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length) add.run(files);
+  };
+
+  return (
+    <>
+      <input ref={inputRef} type="file" accept="image/*,application/pdf" multiple hidden onChange={onPick} />
+      <Button
+        type="button"
+        variant="outline"
+        icon={Plus}
+        loading={add.loading}
+        onClick={() => inputRef.current?.click()}
+        className={className}
+      >
+        {add.loading ? 'Adding' : 'Add pages'}
+      </Button>
+    </>
+  );
+}
+
+/* =========================================================================
  * LIST
  * ======================================================================= */
 const SOURCE_TABS = [
@@ -275,6 +313,7 @@ export function PrescriptionDetail() {
             title="Uploaded images"
             subtitle="Images are stored in a JSON array — as many as you need"
             dense
+            action={canManage && <AddPagesButton prescriptionId={presc.prescription_id} onDone={reload} />}
           >
             {images.length ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4">

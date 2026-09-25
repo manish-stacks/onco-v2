@@ -190,6 +190,18 @@ export default function Invoice() {
                 <dd className="text-base font-semibold tabular-nums text-ink">{inr(totals.total)}</dd>
               </div>
             </div>
+            {Number(totals.cod_advance) > 0 && (
+              <>
+                <TotalRow
+                  label={totals.cod_advance_paid ? 'Advance paid online' : 'Advance (pending)'}
+                  value={inr(totals.cod_advance)}
+                  tone={totals.cod_advance_paid ? 'ok' : undefined}
+                />
+                {totals.cod_advance_paid && (
+                  <TotalRow label="Collect on delivery" value={inr(totals.cod_balance_due)} />
+                )}
+              </>
+            )}
             {Number(totals.refund_amount) > 0 && (
               <>
                 <TotalRow label="Refunded" value={`− ${inr(totals.refund_amount)}`} tone="danger" />

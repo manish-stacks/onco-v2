@@ -1,13 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Eye,
-  EyeOff,
-  LogIn,
-  ShieldCheck,
-  LockKeyhole,
-  ArrowRight,
-} from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
 import { Button, Field, Input, PageLoader } from '@/components/ui';
@@ -118,314 +111,169 @@ export default function Login() {
     setInfo('');
   };
 
-  return (
-    <main className="min-h-screen bg-[#f7f9fc] flex items-center justify-center p-4 sm:p-6">
-
-      {/* Background decoration */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-blue-100/50 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-teal-100/40 blur-3xl" />
+  const ErrorBanner = ({ title }) =>
+    error ? (
+      <div role="alert" className="rounded-md border border-signal-danger/25 bg-signal-dangerBg px-3.5 py-3">
+        <p className="text-sm font-medium text-signal-danger">{title}</p>
+        <p className="mt-0.5 text-xs text-signal-danger/80">{error}</p>
       </div>
+    ) : null;
 
-      <div className="relative w-full max-w-[1050px] min-h-[650px] bg-white rounded-3xl shadow-[0_25px_80px_rgba(15,23,42,0.10)] overflow-hidden border border-slate-200/70 grid lg:grid-cols-2">
+  return (
+    <main className="min-h-screen grid lg:grid-cols-[5fr_4fr] bg-paper">
+      {/* Brand panel — a blister-pack grid is the one memorable element; everything else stays quiet */}
+      <section className="relative hidden lg:flex flex-col justify-between overflow-hidden bg-teal-dark p-14 text-white">
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-[0.18]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #fff 0 8px, transparent 9px)',
+            backgroundSize: '40px 40px',
+            WebkitMaskImage: 'linear-gradient(150deg, transparent 15%, #000 85%)',
+            maskImage: 'linear-gradient(150deg, transparent 15%, #000 85%)',
+          }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-[0.10]"
+          style={{
+            backgroundImage: 'radial-gradient(circle, #fff 0 8px, transparent 9px)',
+            backgroundSize: '40px 40px',
+            backgroundPosition: '20px 20px',
+            WebkitMaskImage: 'linear-gradient(150deg, transparent 15%, #000 85%)',
+            maskImage: 'linear-gradient(150deg, transparent 15%, #000 85%)',
+          }}
+        />
 
-        {/* ================= LEFT BRAND PANEL ================= */}
-        <section className="hidden lg:flex relative bg-[#0b1220] p-12 xl:p-16 flex-col justify-between overflow-hidden">
+        <div className="relative inline-flex w-fit rounded-md bg-white px-3 py-2">
+          <img src="/logo.png" alt="Onco Health Mart" className="h-9 w-auto" />
+        </div>
 
-          {/* Decorative shapes */}
-          <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-blue-500/10 blur-2xl" />
-          <div className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-teal-400/10 blur-3xl" />
+        <div className="relative max-w-lg">
+          <h1 className="text-[2.6rem] font-semibold leading-[1.1] tracking-tight">
+            Orders, prescriptions and stock, handled in one place.
+          </h1>
+          <p className="mt-5 max-w-sm text-[0.95rem] leading-7 text-white/70">
+            Sign in with your staff account to review new orders, check prescriptions and keep the catalogue up to date.
+          </p>
+        </div>
 
-          <div className="relative z-10">
+        <p className="relative flex items-center gap-2 text-xs text-white/60">
+          <ShieldCheck className="h-4 w-4 shrink-0" />
+          Authorised staff only. Every sign-in is recorded.
+        </p>
+      </section>
 
-            {/* Logo */}
-            <div className="flex items-center gap-3 mb-16">
-              <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-lg">
-                <img
-                  src="/favicon.ico"
-                  alt="logo"
-                  className="w-6 h-6"
+      {/* Form panel */}
+      <section className="flex items-center justify-center px-6 py-12 sm:px-12">
+        <div className="w-full max-w-sm">
+          <div className="mb-10 inline-flex rounded-md border border-line bg-white px-3 py-2 lg:hidden">
+            <img src="/logo.png" alt="Onco Health Mart" className="h-8 w-auto" />
+          </div>
+
+          <h2 className="text-[1.75rem] font-semibold tracking-tight text-ink">
+            {otpStage ? 'Enter your code' : 'Sign in'}
+          </h2>
+          <p className="mt-1.5 mb-8 text-sm text-ink-500">
+            {otpStage ? 'One more step to confirm it is you.' : 'Use your admin username and password.'}
+          </p>
+
+          {otpStage ? (
+            <form onSubmit={submitOtp} className="space-y-5">
+              {info && <p className="text-xs text-ink-500">{info} Enter the 6-digit code to continue.</p>}
+
+              <Field label="One-time password" required>
+                <Input
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  required
+                  placeholder="6-digit code"
+                  className="h-12 text-center font-mono text-lg tracking-[0.5em]"
                 />
-              </div>
+              </Field>
 
-              <div>
-                <div className="leading-none">
-                  <span className="font-mono text-xl font-bold text-white">
-                    Onco
-                  </span>
-                  <span className="text-xl font-bold text-teal-400">
-                    Healthmart
-                  </span>
-                </div>
+              <ErrorBanner title="Verification failed" />
 
-                <p className="text-[11px] text-slate-400 mt-1 tracking-wide">
-                  ADMINISTRATION PORTAL
-                </p>
-              </div>
-            </div>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                icon={busy ? undefined : ArrowRight}
+                loading={busy}
+                className="h-12 w-full !text-sm font-semibold"
+              >
+                {busy ? 'Verifying...' : 'Verify and sign in'}
+              </Button>
 
-            {/* Heading */}
-            <div className="max-w-md">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-slate-300 mb-6">
-                <ShieldCheck className="w-4 h-4 text-teal-400" />
-                Secure Admin Access
-              </div>
-
-              <h1 className="text-4xl xl:text-5xl font-bold leading-[1.08] tracking-tight text-white">
-                Manage your
-                <span className="block text-teal-400">
-                  healthcare platform.
-                </span>
-              </h1>
-
-              <p className="mt-6 text-base leading-7 text-slate-400 max-w-sm">
-                Access your administration dashboard to manage
-                products, orders, customers and your entire
-                healthcare marketplace.
-              </p>
-            </div>
-          </div>
-
-          {/* Bottom security info */}
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 text-slate-400">
-              <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                <LockKeyhole className="w-4 h-4 text-teal-400" />
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-slate-300">
-                  Protected environment
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Every login attempt is securely recorded.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ================= RIGHT LOGIN PANEL ================= */}
-        <section className="flex items-center justify-center p-7 sm:p-10 lg:p-14">
-
-          <div className="w-full max-w-[420px]">
-
-            {/* Mobile logo */}
-            <div className="lg:hidden flex items-center justify-center mb-10">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-[#0b1220] flex items-center justify-center">
-                  <img
-                    src="/favicon.ico"
-                    alt="logo"
-                    className="w-6 h-6"
-                  />
-                </div>
-
-                <div>
-                  <span className="font-mono text-xl font-bold text-slate-900">
-                    Onco
-                  </span>
-                  <span className="text-xl font-bold text-teal-600">
-                    Healthmart
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Header */}
-            <div className="mb-9">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-50 mb-5">
-                <LockKeyhole className="w-5 h-5 text-blue-600" />
-              </div>
-
-              <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-                Welcome back
-              </h2>
-
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Sign in to access your admin dashboard.
-              </p>
-            </div>
-
-            {/* OTP step */}
-            {otpStage ? (
-              <form onSubmit={submitOtp}>
-                <div className="space-y-5">
-                  {info && (
-                    <p className="text-xs text-slate-500">
-                      {info} Enter the 6-digit code to continue.
-                    </p>
-                  )}
-
-                  <Field label="One-time password" required error={error}>
-                    <Input
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      autoFocus
-                      required
-                      placeholder="Enter the OTP"
-                      className="h-12 rounded-xl tracking-[0.4em] text-center"
-                    />
-                  </Field>
-
-                  {error && (
-                    <div className="flex items-start gap-3 p-3.5 rounded-xl border border-red-200 bg-red-50">
-                      <div className="w-5 h-5 shrink-0 rounded-full bg-red-100 flex items-center justify-center mt-0.5">
-                        <span className="text-xs font-bold text-red-600">!</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-red-800">Verification failed</p>
-                        <p className="text-xs text-red-600 mt-0.5">{error}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    icon={busy ? undefined : ArrowRight}
-                    loading={busy}
-                    className="w-full h-12 rounded-xl !text-sm font-semibold shadow-lg shadow-blue-500/10"
-                  >
-                    {busy ? 'Verifying...' : 'Verify & sign in'}
-                  </Button>
-
-                  <div className="flex items-center justify-between text-xs">
-                    <button type="button" onClick={backToLogin}
-                      className="text-slate-500 hover:text-slate-800 transition">
-                      ← Back
-                    </button>
-                    <button type="button" onClick={resend}
-                      className="font-semibold text-blue-600 hover:text-blue-800 transition">
-                      Resend OTP
-                    </button>
-                  </div>
-                </div>
-              </form>
-            ) : (
-            /* Form */
-            <form onSubmit={submit}>
-              <div className="space-y-5">
-
-                {/* Username */}
-                <Field
-                  label="Username"
-                  required
-                >
-                  <Input
-                    value={form.username}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        username: e.target.value,
-                      })
-                    }
-                    autoComplete="username"
-                    autoFocus
-                    required
-                    placeholder="Enter your username"
-                    className="h-12 rounded-xl"
-                  />
-                </Field>
-
-                {/* Password */}
-                <Field
-                  label="Password"
-                  required
-                  error={error}
-                >
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={form.password}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          password: e.target.value,
-                        })
-                      }
-                      autoComplete="current-password"
-                      required
-                      placeholder="Enter your password"
-                      className="h-12 rounded-xl pr-12"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowPassword((value) => !value)
-                      }
-                      className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                      aria-label={
-                        showPassword
-                          ? 'Hide password'
-                          : 'Show password'
-                      }
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </Field>
-
-                {/* Error */}
-                {error && (
-                  <div className="flex items-start gap-3 p-3.5 rounded-xl border border-red-200 bg-red-50">
-                    <div className="w-5 h-5 shrink-0 rounded-full bg-red-100 flex items-center justify-center mt-0.5">
-                      <span className="text-xs font-bold text-red-600">
-                        !
-                      </span>
-                    </div>
-
-                    <div>
-                      <p className="text-sm font-medium text-red-800">
-                        Sign in failed
-                      </p>
-                      <p className="text-xs text-red-600 mt-0.5">
-                        {error}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Login button */}
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  icon={busy ? undefined : ArrowRight}
-                  loading={busy}
-                  className="w-full h-12 rounded-xl !text-sm font-semibold shadow-lg shadow-blue-500/10"
-                >
-                  {busy ? 'Signing in...' : 'Sign in to dashboard'}
-                </Button>
+              <div className="flex items-center justify-between text-xs">
+                <button type="button" onClick={backToLogin} className="text-ink-500 hover:text-ink transition">
+                  Back to sign in
+                </button>
+                <button type="button" onClick={resend} className="font-semibold text-teal hover:text-teal-dark transition">
+                  Resend code
+                </button>
               </div>
             </form>
-            )}
+          ) : (
+            <form onSubmit={submit} className="space-y-5">
+              <Field label="Username" required>
+                <Input
+                  value={form.username}
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
+                  autoComplete="username"
+                  autoFocus
+                  required
+                  placeholder="Your username"
+                  className="h-12"
+                />
+              </Field>
 
-            {/* Security footer */}
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
-                <ShieldCheck className="w-4 h-4 text-teal-500" />
-                <span>
-                  Authorised staff only
-                </span>
-              </div>
+              <Field label="Password" required>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    autoComplete="current-password"
+                    required
+                    placeholder="Your password"
+                    className="h-12 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-2 text-ink-300 transition hover:bg-paper-sunk hover:text-ink"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
 
-              <p className="text-center text-[11px] text-slate-400 mt-2">
-                All login activity is securely recorded.
-              </p>
-            </div>
+              <ErrorBanner title="Sign in failed" />
 
-          </div>
-        </section>
-      </div>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                icon={busy ? undefined : ArrowRight}
+                loading={busy}
+                className="h-12 w-full !text-sm font-semibold"
+              >
+                {busy ? 'Signing in...' : 'Sign in'}
+              </Button>
+            </form>
+          )}
+
+          <p className="mt-10 flex items-center gap-2 text-xs text-ink-300 lg:hidden">
+            <ShieldCheck className="h-4 w-4 shrink-0" />
+            Authorised staff only. Every sign-in is recorded.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

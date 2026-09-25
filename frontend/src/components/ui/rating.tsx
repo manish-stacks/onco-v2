@@ -6,11 +6,13 @@ export function Rating({
   count,
   size = 14,
   className,
+  hideCount = false,
 }: {
   value: number;
   count?: number;
   size?: number;
   className?: string;
+  hideCount?: boolean;
 }) {
   return (
     <div className={cn("flex items-center gap-1", className)}>
@@ -28,7 +30,7 @@ export function Rating({
         ))}
       </div>
       <span className="text-xs font-semibold text-[var(--ink)]">{value.toFixed(1)}</span>
-      {count !== undefined && (
+      {!hideCount && count !== undefined && (
         <span className="text-xs text-[var(--ink-soft)]">({count})</span>
       )}
     </div>

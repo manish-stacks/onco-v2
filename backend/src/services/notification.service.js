@@ -29,6 +29,10 @@ const SMS = {
   ORDER_SHIPPED: 'OrderShipped',
   ORDER_DELIVERED: 'OrderDelivered',
   ORDER_CANCELLED: 'OrderCanceled',
+  // NOTE: new DLT template — must be registered/approved before this delivers.
+  // Suggested content: "Your COD order {#var#} is confirmed. Advance paid: Rs
+  // {#var#}. Please keep Rs {#var#} ready on delivery. - Onco Healthmart"
+  COD_ADVANCE_INFO: 'CODAdvanceInfo',
   PRESCRIPTION_APPROVED: 'PrescriptionApproved',
   // NOTE: new DLT template — must be registered/approved on the 2Factor/DLT
   // portal (see notes given to the client) before this will actually deliver.
@@ -81,7 +85,12 @@ async function orderPlaced(order, items = []) {
     total: inrPlain(order.amount),
     payment_method: String(order.payment_mode || '').toUpperCase() === 'COD'
       ? 'Cash on Delivery' : 'Online',
+    // COD advance: paid online first, rest collected on delivery.
+    cod_advance: inrPlain(order.cod_advance_amount),
+    cod_balance: inrPlain(Number(order.cod_advance_amount) > 0
+      ? Number(order.amount) - Number(order.cod_advance_amount) : order.amount),
   };
+  const hasCodAdvance = Number(order.cod_advance_amount) > 0;
 
   fireAndForget(
     wa.sendTemplate(order.customer_phone, template, values, {
@@ -95,6 +104,25 @@ async function orderPlaced(order, items = []) {
     sms.sendTransactional(order.customer_phone, SMS.ORDER_PLACED, [orderRef(order)]),
     'orderPlaced sms'
   );
+
+  // COD with an online advance — one extra message with what's paid vs due,
+  // right after the normal order-success message.
+  if (hasCodAdvance) {
+    fireAndForget(
+      wa.sendTemplate(order.customer_phone, wa.TEMPLATES.COD_ADVANCE_INFO, {
+        customer_name: order.customer_name,
+        order_id: orderRef(order),
+        advance_paid: values.cod_advance,
+        balance_due: values.cod_balance,
+      }, { customerId: order.customer_id, orderId: order.order_id }),
+      'orderPlaced cod-advance whatsapp'
+    );
+    fireAndForget(
+      sms.sendTransactional(order.customer_phone, SMS.COD_ADVANCE_INFO,
+        [orderRef(order), values.cod_advance, values.cod_balance]),
+      'orderPlaced cod-advance sms'
+    );
+  }
 
   fireAndForget(
     push.sendToCustomer(order.customer_id, {
@@ -139,9 +167,16 @@ async function orderPlaced(order, items = []) {
               ['Shipping to', mailTpl.esc(shipTo)],
             ])}
             ${mailTpl.itemsTable(items)}
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
-              <tr><td align="right" style="font-size:16px;font-weight:700;color:${mailTpl.DARK};">Total: ₹${inrPlain(order.amount)}</td></tr>
-            </table>
+            ${mailTpl.totalsTable([
+              ['Item total', `₹${inrPlain(order.subtotal)}`],
+              order.coupon_discount > 0 ? ['Discount', `-₹${inrPlain(order.coupon_discount)}`] : null,
+              order.order_gst > 0 ? ['GST', `₹${inrPlain(order.order_gst)}`] : null,
+              order.shipping_charge > 0 ? ['Delivery', `₹${inrPlain(order.shipping_charge)}`] : null,
+              order.additional_charge > 0 ? ['COD fee', `₹${inrPlain(order.additional_charge)}`] : null,
+              ['Total', `₹${inrPlain(order.amount)}`, true],
+              hasCodAdvance ? ['Paid now (advance)', `₹${values.cod_advance}`] : null,
+              hasCodAdvance ? ['Pay on delivery', `₹${values.cod_balance}`, true] : null,
+            ])}
             ${mailTpl.button(siteUrl ? `${siteUrl}/orders/${order.order_id}` : '', 'View Order')}
             <p style="margin:0;font-size:13px;color:#6b7680;">We'll email you again as your order moves through processing, shipping and delivery.</p>`,
         });
@@ -164,9 +199,16 @@ async function orderPlaced(order, items = []) {
             ['Shipping to', mailTpl.esc(shipTo)],
           ])}
           ${mailTpl.itemsTable(items)}
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">
-            <tr><td align="right" style="font-size:16px;font-weight:700;color:${mailTpl.DARK};">Total: ₹${inrPlain(order.amount)}</td></tr>
-          </table>`,
+          ${mailTpl.totalsTable([
+            ['Item total', `₹${inrPlain(order.subtotal)}`],
+            order.coupon_discount > 0 ? ['Discount', `-₹${inrPlain(order.coupon_discount)}`] : null,
+            order.order_gst > 0 ? ['GST', `₹${inrPlain(order.order_gst)}`] : null,
+            order.shipping_charge > 0 ? ['Delivery', `₹${inrPlain(order.shipping_charge)}`] : null,
+            order.additional_charge > 0 ? ['COD fee', `₹${inrPlain(order.additional_charge)}`] : null,
+            ['Total', `₹${inrPlain(order.amount)}`, true],
+            hasCodAdvance ? ['Paid now (advance)', `₹${values.cod_advance}`] : null,
+            hasCodAdvance ? ['Pay on delivery', `₹${values.cod_balance}`, true] : null,
+          ])}`,
       });
       return mail.sendAdminAlert(adminEmail, `New Order — ${orderRef(order)} (₹${inrPlain(order.amount)})`, adminHtml,
         { orderId: order.order_id });
@@ -433,9 +475,8 @@ async function prescriptionReviewed(prescription, customer) {
       (async () => {
         const settings = await settingsModel.get();
         const bodyHtml = isApproved
-          ? `${mailTpl.heading('Prescription Approved', `Hi <b>${mailTpl.esc(customer.customer_name || 'Customer')}</b>, good news — your prescription has been reviewed and approved.`)}
-             ${mailTpl.infoRows([['Reference', mailTpl.esc(refCode)], ['Status', mailTpl.statusBadge('Approved')]])}
-             <p style="margin:0;font-size:13px;color:#6b7680;">You can now proceed to order the prescribed medicines.</p>`
+          ? `${mailTpl.heading('Prescription Approved', `Dear Customer,<br><br>Your prescription has been successfully reviewed and approved. Your order will now be processed further and dispatched shortly.<br><br>Thank you for choosing Onco Healthmart.`)}
+             ${mailTpl.infoRows([['Reference', mailTpl.esc(refCode)], ['Status', mailTpl.statusBadge('Approved')]])}`
           : `${mailTpl.heading('Prescription Rejected', `Hi <b>${mailTpl.esc(customer.customer_name || 'Customer')}</b>, your prescription could not be approved.`)}
              ${mailTpl.infoRows([['Reference', mailTpl.esc(refCode)], ['Status', mailTpl.statusBadge('Rejected')]])}
              ${prescription.rejection_reason ? `<p style="margin:0 0 8px;font-size:13px;color:#6b7680;">Reason: ${mailTpl.esc(prescription.rejection_reason)}</p>` : ''}
@@ -450,9 +491,11 @@ async function prescriptionReviewed(prescription, customer) {
   fireAndForget(
     push.sendToCustomer(prescription.customer_id, {
       title: `Prescription ${prescription.status.toLowerCase()}`,
-      body: prescription.status === 'Rejected' && prescription.rejection_reason
-        ? String(prescription.rejection_reason).slice(0, 100)
-        : `${refCode} has been reviewed.`,
+      body: isApproved
+        ? 'Reviewed and approved. Your order will be processed and dispatched shortly.'
+        : (prescription.rejection_reason
+          ? String(prescription.rejection_reason).slice(0, 100)
+          : `${refCode} has been reviewed.`),
     }, { type: 'prescription', prescription_id: prescription.prescription_id }),
     'prescriptionReviewed push'
   );

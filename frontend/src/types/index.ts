@@ -180,6 +180,7 @@ export interface ApiProduct {
   total_sold?: number;
   brand_id?: number | string;
   brand_name?: string;
+  company_name?: string;
   presciption_required?: 'Yes' | 'No' | string;
   isCOD?: number | string;
   is_featured?: string;

@@ -287,7 +287,7 @@ function InvoiceUpload({ order, canManage, onChanged }) {
 
 function BookModal({ open, onClose, order, config, onDone }) {
   const [form, setForm] = useState({
-    service_type: '2',
+    service_type: '1',
     weight: '0.5',
     length: '10',
     width: '15',
@@ -304,7 +304,12 @@ function BookModal({ open, onClose, order, config, onDone }) {
   );
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const isCod = String(order.payment_mode).toLowerCase() === 'cod' && order.payment_status !== 'Paid';
+  const codAdvancePaid = Number(order.cod_advance_amount) > 0 && Number(order.cod_advance_paid) === 1;
+  const isCod = String(order.payment_mode).toLowerCase() === 'cod'
+    && order.payment_status !== 'Paid'
+    && (!codAdvancePaid || Number(order.cod_balance_due) > 0);
+  // The customer already paid the advance online — DTDC must collect only the rest.
+  const codCollect = codAdvancePaid ? Number(order.cod_balance_due) || 0 : Number(order.amount);
 
   return (
     <Modal
@@ -334,7 +339,12 @@ function BookModal({ open, onClose, order, config, onDone }) {
           </p>
           {isCod && (
             <p className="text-signal-warn font-medium pt-1.5 mt-1.5 border-t border-line">
-              COD — the courier will collect {inr(order.amount)}
+              COD — the courier will collect {inr(codCollect)}
+              {codAdvancePaid && (
+                <span className="block font-normal text-ink-500">
+                  ({inr(order.cod_advance_amount)} advance already paid online)
+                </span>
+              )}
             </p>
           )}
         </div>

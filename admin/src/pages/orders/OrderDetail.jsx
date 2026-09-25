@@ -16,7 +16,7 @@ import {
 } from '@/components/ui';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import ShippingPanel from './ShippingPanel';
-import { ReviewModal, MedicinesModal, ReplaceFileButton } from '@/pages/prescriptions/Prescriptions';
+import { ReviewModal, MedicinesModal, ReplaceFileButton, AddPagesButton } from '@/pages/prescriptions/Prescriptions';
 
 export default function OrderDetail() {
   const { orderId } = useParams();
@@ -431,6 +431,12 @@ function PrescriptionBlock({ presc, order, onChanged }) {
           <p className="mb-3 rounded border border-rose-200 bg-rose-50 px-2.5 py-2 text-2xs text-rose-700">
             Rejected: {rx.rejection_reason}
           </p>
+        )}
+
+        {canManage && (
+          <div className="mb-2">
+            <AddPagesButton prescriptionId={rx.prescription_id} onDone={refresh} className="!h-8 !text-2xs" />
+          </div>
         )}
 
         {images.length > 0 ? (

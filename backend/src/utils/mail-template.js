@@ -109,4 +109,20 @@ function button(url, label) {
   </td></tr></table>`;
 }
 
-module.exports = { layout, heading, itemsTable, infoRows, button, statusBadge, esc, BRAND, DARK };
+/**
+ * Charge breakdown block — subtotal, discount, shipping, COD fee, COD advance
+ * split, GST, total. Only non-zero/relevant rows are shown. Used so an order
+ * email shows exactly what the customer sees in the app/website, not just
+ * the final total.
+ */
+function totalsTable(rows) {
+  const trs = rows.filter((r) => r && r[1] !== undefined && r[1] !== null && r[1] !== '')
+    .map(([label, value, bold]) => `
+    <tr>
+      <td style="padding:5px 0;font-size:${bold ? '15px' : '13px'};color:${bold ? DARK : '#6b7680'};font-weight:${bold ? '700' : '400'};">${esc(label)}</td>
+      <td style="padding:5px 0;font-size:${bold ? '15px' : '13px'};color:${DARK};font-weight:${bold ? '700' : '600'};text-align:right;">${value}</td>
+    </tr>`).join('');
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border-top:1px solid ${BORDER};padding-top:10px;">${trs}</table>`;
+}
+
+module.exports = { layout, heading, itemsTable, infoRows, totalsTable, button, statusBadge, esc, BRAND, DARK };

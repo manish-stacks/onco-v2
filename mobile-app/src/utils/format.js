@@ -3,6 +3,20 @@ export function num(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * Same "ORD/<year>/<order_id padded to 6>" format the website and admin
+ * panel show — the app used to show the raw databaseOrderID (OHM-xxxx-xxxx)
+ * instead, which looked like a different order to the customer.
+ */
+export function orderRef(o) {
+  if (!o) return '';
+  const id = o.order_id;
+  if (!id) return o.databaseOrderID || '';
+  const d = o.order_date || o.created_at;
+  const year = d ? new Date(String(d).replace(' ', 'T')).getFullYear() : new Date().getFullYear();
+  return `ORD/${year}/${String(id).padStart(6, '0')}`;
+}
+
 export function money(v) {
   const n = num(v, 0);
   return `\u20B9${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)}`;

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Screen from '../components/Screen';
 import { OutlineButton, PrimaryButton } from '../components/ui';
 import { colors } from '../theme';
-import { money } from '../utils/format';
+import { money, orderRef } from '../utils/format';
 import { goTab, TABS } from '../utils/nav';
 
 export default function OrderSuccessScreen({ route, navigation }) {
@@ -18,7 +18,7 @@ export default function OrderSuccessScreen({ route, navigation }) {
         </View>
         <Text style={styles.title}>Order placed!</Text>
         <Text style={styles.sub}>
-          Order #{order?.databaseOrderID || order?.order_id} · {money(order?.amount)}
+          Order #{orderRef(order)} · {money(order?.amount)}
         </Text>
         <Text style={styles.note}>
           {String(order?.payment_mode).toLowerCase() === 'cod'

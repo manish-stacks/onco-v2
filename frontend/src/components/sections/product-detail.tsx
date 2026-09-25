@@ -224,9 +224,10 @@ export function ProductDetail({
               </button>
             ) : (
               <>
-                <span className="flex items-center gap-1 text-[var(--ink-soft)]">
-                  <Star size={13} className="text-[var(--amber-500)]" /> No reviews yet
-                </span>
+                {/* No reviews yet: shown as a 5-star rating with no count. */}
+                <button onClick={goToReviews} className="hover:opacity-80">
+                  <Rating value={5} count={0} hideCount />
+                </button>
                 <span className="text-[var(--line)]">|</span>
                 <button onClick={goToReviews} className="font-semibold text-[var(--blue-600)] hover:underline">
                   Be the first to review this product

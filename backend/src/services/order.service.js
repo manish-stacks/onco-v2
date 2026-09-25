@@ -5,6 +5,7 @@ const inventoryModel = require('../models/inventory.model');
 const couponModel = require('../models/coupon.model');
 const cartModel = require('../models/cart.model');
 const settingsModel = require('../models/settings.model');
+const customerModel = require('../models/customer.model');
 const paymentService = require('./payment.service');
 const razorpayService = require('./razorpay.service');
 const notify = require('./notification.service');
@@ -130,6 +131,18 @@ async function quote({ items, coupon_code, payment_mode, customerId }) {
  * @param {object} p  { customerId, platform, items, address fields, coupon_code, payment_mode, ... }
  */
 async function placeOrder(p) {
+  // Account has no name/email saved yet (e.g. signed up with mobile only) —
+  // save whatever was entered at checkout so order emails have somewhere to go.
+  if (!p.isPos && p.customerId) {
+    const existing = await customerModel.findById(p.customerId);
+    if (existing) {
+      const patch = {};
+      if (!existing.customer_name && p.customer_name) patch.customer_name = p.customer_name;
+      if (!existing.email_id && p.customer_email) patch.email_id = p.customer_email;
+      if (Object.keys(patch).length) await customerModel.update(p.customerId, patch);
+    }
+  }
+
   const paymentMode = p.payment_mode === PAYMENT_MODE.COD ? PAYMENT_MODE.COD : PAYMENT_MODE.ONLINE;
 
   // If COD is disabled globally, stop right here.
@@ -382,7 +395,9 @@ async function placeOrder(p) {
   const order = await orderModel.findById(result.orderId);
 
   // A COD order is confirmed immediately. Online confirmation is sent after payment.
-  if (paymentMode === PAYMENT_MODE.COD && !(result.codAdvance > 0)) {
+  // A POS order is confirmed the moment it's created either way — the admin is at
+  // the counter, so there is no separate "payment succeeded" step to wait for.
+  if (p.isPos || (paymentMode === PAYMENT_MODE.COD && !(result.codAdvance > 0))) {
     notify.orderPlaced(order, order.items);
   }
 
