@@ -288,10 +288,10 @@ function BrandModal({ open, onClose, brand, categories, onDone }) {
           <Input type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0])}
             className="py-1.5 text-2xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-paper-sunk file:text-2xs" />
         </Field>
-        <Field label="Homepage pe dikhaye">
+        <Field label="Shop by brand" hint="Show this brand in the homepage section">
           <div className="pt-1">
             <Checkbox
-              label='"Shop by brand" section me dikhao'
+              label='"Shop by brand" section'
               checked={!!Number(form.is_featured)}
               onChange={(e) => setForm({ ...form, is_featured: e.target.checked ? 1 : 0 })}
             />

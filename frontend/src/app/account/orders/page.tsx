@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Package, Loader2, FileText, RotateCcw } from "lucide-react";
+import { Package, Loader2, FileText, RotateCcw, Truck } from "lucide-react";
 import { orderApi, ApiError } from "@/lib/api";
 import { formatINR, cn, orderRef } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
@@ -116,6 +116,12 @@ export default function OrdersListPage() {
               </span>
               <p className="font-mono-nums font-semibold text-[var(--ink)]">{formatINR(o.amount)}</p>
               <div className="flex items-center gap-2">
+                <Link
+                  href={`/account/orders/${o.order_id}#tracking`}
+                  className="flex items-center gap-1 rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:bg-[var(--paper)]"
+                >
+                  <Truck size={13} /> Track
+                </Link>
                 <Link
                   href={`/account/orders/${o.order_id}/invoice`}
                   className="flex items-center gap-1 rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-semibold text-[var(--ink)] hover:bg-[var(--paper)]"

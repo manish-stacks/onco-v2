@@ -130,7 +130,7 @@ export default function OrderDetailPage() {
 
       {/* Tracking timeline */}
       {order.history && order.history.length > 0 && (
-        <div className="mb-6 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
+        <div id="tracking" className="mb-6 rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
           <p className="mb-4 flex items-center gap-2 font-semibold text-[var(--ink)]">
             <Truck size={17} className="text-[var(--blue-500)]" /> Order Tracking
           </p>

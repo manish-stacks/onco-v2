@@ -220,7 +220,7 @@ export default function ProductList() {
     <>
       <PageHeader
         title="Products"
-        subtitle={`${num(pagination.total)} products catalog me`}
+        subtitle={`${num(pagination.total)} products catalog`}
         actions={
           <>
             {can(P.PRODUCTS_VIEW) && <Button icon={Download} onClick={exportCsv} loading={exporting}>Export</Button>}
@@ -288,7 +288,7 @@ export default function ProductList() {
             label="Brand" value={filters.brand_id} placeholder="All"
             options={(brands || []).map((b) => ({
               value: b.id,
-              label: `${b.title} (${b.live_product_count ?? 0})`,
+              label: `${b.title} `,
             }))}
             onChange={(v) => setFilter('brand_id', v)}
           />

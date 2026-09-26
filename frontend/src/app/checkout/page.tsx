@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   MapPin, Plus, Minus, CreditCard, Wallet, Truck, FileWarning, Loader2, CheckCircle2, Stethoscope,
-  Pencil, Trash2, X, AlertCircle, Tag,
+  Pencil, Trash2, X, AlertCircle, Tag, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CouponSidebar } from "@/components/CouponSidebar";
@@ -146,6 +146,9 @@ function CheckoutInner() {
 
   // Coupon — the code applied on the cart page has to travel with the order,
   // otherwise the backend creates the order without any discount.
+  const [emailInput, setEmailInput] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+
   const [couponInput, setCouponInput] = useState("");
   const [showCouponList, setShowCouponList] = useState(false);
   const [couponList, setCouponList] = useState<Array<{
@@ -476,6 +479,12 @@ function CheckoutInner() {
           .catch(() => { /* non-critical — the order still carries these details either way */ });
       }
     }
+    if (!user?.email_id) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.trim())) {
+        setEmailError("Please enter a valid email — needed to send your order updates.");
+        return;
+      }
+    }
     if (paymentMode === "online" && gateways.length === 0) {
       setError("Online payment is not available right now. Please try Cash on Delivery.");
       return;
@@ -503,6 +512,7 @@ function CheckoutInner() {
         customer_state: selectedAddress.state,
         customer_pincode: selectedAddress.pincode,
         customer_country: "India",
+        customer_email: !user?.email_id ? emailInput.trim() : undefined,
         shipping_same_as_billing: shippingSame,
         ...(shippingSame
           ? {}
@@ -766,6 +776,24 @@ function CheckoutInner() {
                   </form>
                 )}
               </div>
+
+              {/* Email — only asked when the account doesn't already have one saved,
+                  so order confirmation / invoice emails have somewhere to go. */}
+              {!user?.email_id && (
+                <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6">
+                  <p className="mb-4 flex items-center gap-2 font-semibold text-[var(--ink)]">
+                    <Mail size={17} className="text-[var(--blue-500)]" /> Email for order updates
+                  </p>
+                  <FieldInput
+                    label="Email address"
+                    type="email"
+                    value={emailInput}
+                    error={emailError ?? undefined}
+                    placeholder="you@example.com"
+                    onChange={(v) => { setEmailInput(v); setEmailError(null); }}
+                  />
+                </div>
+              )}
 
               {/* Shipping address toggle */}
               <div className="rounded-[var(--radius-md)] border border-[var(--line)] bg-white p-6 hidden">

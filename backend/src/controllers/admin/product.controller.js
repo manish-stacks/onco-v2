@@ -142,6 +142,10 @@ const create = asyncHandler(async (req, res) => {
 
   const productId = await productModel.create(productData);
 
+  if (productData.brand_id) {
+    await productModel.recalcBrandProductCounts([productData.brand_id]);
+  }
+
   if (Array.isArray(categories) && categories.length) {
     await productModel.setCategories(productId, categories);
   }
@@ -187,6 +191,10 @@ const update = asyncHandler(async (req, res) => {
   // do not change stock here — use the inventory endpoint (for the audit trail)
   await productModel.update(productId, productData);
 
+  if ('brand_id' in productData && String(productData.brand_id || '') !== String(existing.brand_id || '')) {
+    await productModel.recalcBrandProductCounts([existing.brand_id, productData.brand_id]);
+  }
+
   if (Array.isArray(categories)) {
     await productModel.setCategories(productId, categories);
   }
@@ -228,6 +236,9 @@ const remove = asyncHandler(async (req, res) => {
   if (!product) return fail(res, 'Product not found', 404);
 
   await productModel.remove(req.params.productId);
+  if (product.brand_id) {
+    await productModel.recalcBrandProductCounts([product.brand_id]);
+  }
   await cache.invalidate.products();
   await adminModel.logActivity({
     admin_id: req.admin.admin_id, admin_username: req.admin.admin_username,

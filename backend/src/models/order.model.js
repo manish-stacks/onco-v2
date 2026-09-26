@@ -294,7 +294,24 @@ async function updateFields(orderId, data) {
   const payload = {};
   allowed.forEach((k) => { if (data[k] !== undefined) payload[k] = data[k]; });
   if (!Object.keys(payload).length) return false;
-await db.query(`UPDATE orders SET ? WHERE order_id = ?`, [payload, orderId]);
+
+  // "Ship to a different address" is currently hidden at checkout, so every
+  // order's shipping fields are meant to mirror the billing ones. When the
+  // admin's "Delivery address" edit only sends customer_shipping_*, the
+  // billing customer_* columns (which the Orders list, search and CSV export
+  // actually read) were left stale, showing the old phone/address forever.
+  // Mirror the edit onto both so they can't drift apart again.
+  const mirror = {
+    customer_shipping_phone: 'customer_phone',
+    customer_shipping_address: 'customer_address',
+  };
+  Object.entries(mirror).forEach(([shipKey, billKey]) => {
+    if (payload[shipKey] !== undefined && payload[billKey] === undefined) {
+      payload[billKey] = payload[shipKey];
+    }
+  });
+
+  await db.query(`UPDATE orders SET ? WHERE order_id = ?`, [payload, orderId]);
   return true;
 }
 

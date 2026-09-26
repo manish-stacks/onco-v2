@@ -418,6 +418,22 @@ async function createBrand(data) {
   return result.insertId;
 }
 
+/**
+ * Case/whitespace-insensitive check used before creating a brand, so the
+ * same manufacturer doesn't end up as two separate rows (e.g. "Natco Pharma
+ * Ltd" created once from the Brands page and again — with no duplicate
+ * check — from a product's "add new brand" flow). Returns the existing
+ * brand row if a match is found, else null.
+ */
+async function findBrandByTitle(title) {
+  if (!title || !title.trim()) return null;
+  const [rows] = await db.query(
+    `SELECT * FROM brands WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) LIMIT 1`,
+    [title]
+  );
+  return rows[0] || null;
+}
+
 async function updateBrand(id, data) {
   const payload = pickDefined(data, BRAND_FIELDS);
   if (!Object.keys(payload).length) return false;
@@ -597,7 +613,7 @@ module.exports = {
   getTaxConfig, resolveGstPercent, ensureColumns, getPaymentConfig,
   get, update, calcCharges, isCodEnabled,
   listBanners, createBanner, updateBanner, removeBanner,
-  listBrands, listPublicBrands, createBrand, updateBrand, removeBrand,
+  listBrands, listPublicBrands, createBrand, findBrandByTitle, updateBrand, removeBrand,
   listDeals, createDeal, updateDeal, removeDeal,
   listOffers, createOffer, updateOffer, removeOffer,
   listCities, checkCity, createCity, updateCity, removeCity,

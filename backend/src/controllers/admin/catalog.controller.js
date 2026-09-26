@@ -92,15 +92,21 @@ const listBrands = asyncHandler(async (req, res) => {
     title = '',
     status = '',
     page = 1,
-    limit = 10,
+    // Dropdowns (product edit "Brand", product-list "Brand" filter) call this
+    // same endpoint with no limit at all, expecting the full list — the old
+    // default of 10 silently truncated them to the first 10 brands. Raise the
+    // default (and the cap) high enough that a plain, un-paginated call
+    // returns effectively every brand; an explicit ?limit=20 from the
+    // Brands management table's own pagination still works as before.
+    limit = 1000,
     is_featured = '',
   } = req.query;
 
   const currentPage = Math.max(Number(page) || 1, 1);
 
   const perPage = Math.min(
-    Math.max(Number(limit) || 10, 1),
-    100
+    Math.max(Number(limit) || 1000, 1),
+    1000
   );
 
   const result = await settingsModel.listBrands({
@@ -113,8 +119,6 @@ const listBrands = asyncHandler(async (req, res) => {
         ? ''
         : Number(is_featured),
   });
-
-  console.log('BRAND RESULT:', result);
 
   return paginated(
     res,
@@ -164,6 +168,12 @@ const mergeBrands = asyncHandler(async (req, res) => {
 
 const createBrand = asyncHandler(async (req, res) => {
   const data = { ...req.body };
+  // Same manufacturer getting added twice (once from the Brands page, once
+  // from a product's inline "add brand") is exactly what caused the
+  // duplicate "Natco Pharma" entries with product counts split across them —
+  // block it here instead of quietly creating a second row.
+  const dupe = await settingsModel.findBrandByTitle(data.title);
+  if (dupe) return fail(res, `A brand named "${dupe.title}" already exists`, 409);
   if (req.file) data.image_url = await storeFile(req.file, 'brands');
   const id = await settingsModel.createBrand(data);
   await cache.invalidate.brands();

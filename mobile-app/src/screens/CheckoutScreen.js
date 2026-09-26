@@ -29,6 +29,9 @@ export default function CheckoutScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [choice, setChoice] = useState(paymentChoice || null);
+  const [emailInput, setEmailInput] = useState('');
+  const [emailError, setEmailError] = useState(null);
+
   const [rxFields, setRxFields] = useState({
     patient_name: prescription?.patient_name || '',
     doctor_name: prescription?.doctor_name || '',
@@ -93,6 +96,12 @@ export default function CheckoutScreen({ route, navigation }) {
   const place = async () => {
     if (!address) return toast.show('Please select a delivery address', 'error');
     if (!choice) return toast.show('Please choose a payment method', 'error');
+    if (!customer?.email_id) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.trim())) {
+        setEmailError('Please enter a valid email — needed to send your order updates.');
+        return toast.show('Please enter a valid email for order updates', 'error');
+      }
+    }
     if (requiresRx) {
       if (!prescription) return toast.show('Please attach a prescription for this order', 'error');
       if (!rxFields.patient_name.trim() || !rxFields.doctor_name.trim() || !rxFields.hospital_name.trim()) {
@@ -117,7 +126,7 @@ export default function CheckoutScreen({ route, navigation }) {
       const payload = {
         customer_name: address.full_name || customer?.customer_name,
         customer_phone: address.phone || customer?.mobile,
-        customer_email: customer?.email_id || undefined,
+        customer_email: customer?.email_id || emailInput.trim(),
         customer_address: [address.house_no, address.stree_address, address.landmark].filter(Boolean).join(', '),
         customer_city: address.city,
         customer_state: address.state,
@@ -195,6 +204,25 @@ export default function CheckoutScreen({ route, navigation }) {
             - {address?.pincode}
           </Text>
         </Card>
+
+        {/* Email — only asked when the account doesn't already have one, so
+            order confirmation / invoice emails have somewhere to go. Mirrors
+            the same fix on the website checkout. */}
+        {!customer?.email_id ? (
+          <Card>
+            <View style={styles.cardHead}>
+              <Text style={styles.cardTitle}>Email for order updates</Text>
+            </View>
+            <Field
+              value={emailInput}
+              onChangeText={(v) => { setEmailInput(v); setEmailError(null); }}
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+          </Card>
+        ) : null}
 
         {/* Items */}
         <Pressable onPress={() => navigation.goBack()}>
@@ -334,4 +362,5 @@ const styles = StyleSheet.create({
   change: { fontSize: 11.5, color: colors.primary, fontWeight: '700' },
   rxCard: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm },
   rxWarn: { fontSize: 11.5, color: colors.warn, marginTop: 4, lineHeight: 17 },
+  errorText: { fontSize: 11, color: colors.accent, marginTop: 4 },
 });

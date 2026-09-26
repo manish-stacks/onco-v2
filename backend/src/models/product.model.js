@@ -252,6 +252,24 @@ async function update(productId, data, conn = db) {
   return true;
 }
 
+/**
+ * Recompute brands.product_count for one or more brand ids.
+ * bulk-brand already recalculates every brand after a bulk move, but a
+ * single product edit (change "Brand / Manufacturer" on one product) never
+ * touched this column, so the Brands page / brand dropdown counts silently
+ * went stale (stuck at 0) for any brand only ever assigned one product at a
+ * time. Called with the old and new brand_id whenever a product's brand
+ * changes, so this stays correct without a full-table recalculation.
+ */
+async function recalcBrandProductCounts(brandIds = []) {
+  const ids = [...new Set(brandIds.filter((id) => id !== null && id !== undefined && id !== ''))];
+  if (!ids.length) return;
+  await db.query(
+    `UPDATE brands b SET product_count = (SELECT COUNT(*) FROM products p WHERE p.brand_id = b.id) WHERE b.id IN (${ids.map(() => '?').join(',')})`,
+    ids
+  );
+}
+
 async function remove(productId) {
   await db.query(`DELETE FROM product_categories WHERE product_id = ?`, [productId]);
   await db.query(`DELETE FROM products WHERE product_id = ?`, [productId]);
@@ -357,6 +375,6 @@ module.exports = {
   list, listAllByCategory, findById, findBySlug, findByIds, getPricingInfo,
   create, update, remove, setStatus, bulkSetStatus, setCategories,
   generateUniqueSlug, slugExists, related, incrementSold,
-  bulkSetFlags, toggleFlag, flagCounts,
+  bulkSetFlags, toggleFlag, flagCounts, recalcBrandProductCounts,
   SORTABLE, WRITABLE, FLAGS,
 };
