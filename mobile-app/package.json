@@ -1,6 +1,6 @@
 {
   "name": "onco-health-mart",
-  "version": "1.0.4",
+  "version": "1.2.4",
   "main": "index.js",
   "scripts": {
     "start": "expo start",

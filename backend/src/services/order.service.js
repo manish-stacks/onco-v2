@@ -494,7 +494,7 @@ async function markOrderPaymentFailed(orderId, paymentId) {
  * Cancel — used by both the customer and the admin.
  * Restore stock, restore the coupon use, and refund via Razorpay if it was paid.
  */
-async function cancelOrder(orderId, { changedBy, reason, refundPayment = true }) {
+async function cancelOrder(orderId, { changedBy, reason, refundPayment = false }) {
   const order = await orderModel.findById(orderId);
   if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
 

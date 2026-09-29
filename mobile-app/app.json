@@ -2,7 +2,7 @@
   "expo": {
     "name": "Onco Health Mart",
     "slug": "Onco-Health-Mart",
-    "version": "1.0.4",
+    "version": "1.2.4",
     "orientation": "portrait",
     "icon": "./assets/logo/ic_launcher.png",
     "userInterfaceStyle": "light",

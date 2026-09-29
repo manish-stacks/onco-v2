@@ -103,7 +103,7 @@ const cancelOrder = asyncHandler(async (req, res) => {
   const result = await orderService.cancelOrder(req.params.orderId, {
     changedBy: req.admin.admin_username,
     reason: req.body.reason,
-    refundPayment: req.body.refund !== false,
+    refundPayment: req.body.refund === true,
   });
 
   await adminModel.logActivity({
