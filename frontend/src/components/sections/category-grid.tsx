@@ -126,9 +126,9 @@ export function CategoryGrid() {
     <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <Reveal className="mb-10 flex items-end justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-3xl">
+          <h1 className="font-display text-2xl font-bold text-[var(--ink)] sm:text-3xl">
             Top Category
-          </h2>
+          </h1>
           <span className="mt-2 block h-1 w-10 rounded-full bg-[var(--blue-500)]" />
         </div>
 
