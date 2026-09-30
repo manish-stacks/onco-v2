@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
 import { StoreProvider } from "@/hooks/use-store";
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
   // without it Next.js emits a build-time warning and the social preview
   // the image sometimes fails to load.
   metadataBase: new URL(SITE_URL),
+  verification: { google: "KEomxu3Rew_ns8m1HE-yPB31ejcyzwjOKGrpcrlwI5U" },
   title: "Onco Healthmart: Online Medicine Supplier in Delhi, India",
   description:
     "Buy online medicines from the best emergency & anti-cancer medicine supplier in Delhi, India. ✓70% OFF ✓Free-Fast-Delivery ✓100% Original Medicines.",
@@ -75,11 +77,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" className="h-full antialiased">
+      <head>
+        <Script id="gtm" strategy="afterInteractive">{`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-KQ4GPHBC');`}</Script>
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-XDKQNEDG6H" strategy="afterInteractive" />
+        <Script id="gtag" strategy="afterInteractive">{`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-XDKQNEDG6H');`}</Script>
+      </head>
       <body className="flex min-h-full flex-col overflow-x-clip">
+        <noscript>
+          <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KQ4GPHBC" height="0" width="0" style={{ display: "none", visibility: "hidden" }} />
+        </noscript>
         <AuthProvider>
           <StoreProvider>
             <Navbar />
-            {/* pb-16: mobile bottom nav ke peeche content na chhupe */}
+            
             <main className="flex-1 bg-white pb-16 lg:pb-0">{children}</main>
             <Footer />
             <MobileBottomNav />

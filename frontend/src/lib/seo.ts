@@ -2,7 +2,7 @@
  * SEO helpers — shared across pages that use `generateMetadata`.
  */
 
-export const SITE_URL = "https://oncohealthmart.com";
+export const SITE_URL = "https://www.oncohealthmart.com";
 export const SITE_NAME = "Onco Health Mart";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 
