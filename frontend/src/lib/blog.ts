@@ -18,7 +18,14 @@ export interface ApiNews {
   content?: string | null;
   date?: string | null;
   status?: string | null;
+  slug?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  keywords?: string | null;
+  image_alt?: string | null;
 }
+
+export type SeoBlogPost = BlogPost & { metaTitle: string; metaDescription: string; keywords: string[]; imageAlt: string };
 
 export function slugify(text: string): string {
   return String(text || "")
@@ -43,11 +50,11 @@ function readTimeOf(content: string | null | undefined): string {
 }
 
 /** Backend news row -> UI BlogPost shape */
-export function newsToBlog(n: ApiNews): BlogPost {
+export function newsToBlog(n: ApiNews): SeoBlogPost {
   const plain = stripHtml(n.content);
   return {
     id: String(n.id),
-    slug: `${slugify(n.title) || "post"}-${n.id}`,
+    slug: `${slugify(n.slug || n.title) || "post"}-${n.id}`,
     title: n.title || "Untitled",
     excerpt: (n.excerpt && stripHtml(n.excerpt)) || plain.slice(0, 180),
     content: n.content || "",
@@ -56,6 +63,10 @@ export function newsToBlog(n: ApiNews): BlogPost {
     author: "Onco Health Mart",
     date: n.date || new Date().toISOString(),
     readTime: readTimeOf(n.content),
+    metaTitle: (n.meta_title || n.title || "").trim(),
+    metaDescription: (n.meta_description || (n.excerpt && stripHtml(n.excerpt)) || plain.slice(0, 160)).trim(),
+    keywords: String(n.keywords || "").split(",").map((k) => k.trim()).filter(Boolean),
+    imageAlt: (n.image_alt || n.title || "").trim(),
   };
 }
 
@@ -67,7 +78,7 @@ export function idFromSlug(slug: string): string | null {
 
 export async function getBlogs(
   { page = 1, limit = 12, category }: { page?: number; limit?: number; category?: string } = {}
-): Promise<{ posts: BlogPost[]; total: number; totalPages: number }> {
+): Promise<{ posts: SeoBlogPost[]; total: number; totalPages: number }> {
   try {
     const res = await contentApi.news<ApiNews[]>({ page, limit, category });
     const rows = res?.data ?? [];
@@ -87,7 +98,7 @@ export async function getBlogs(
   }
 }
 
-export async function getBlogBySlug(slug: string): Promise<BlogPost | null> {
+export async function getBlogBySlug(slug: string): Promise<SeoBlogPost | null> {
   const id = idFromSlug(slug);
   if (id) {
     try {

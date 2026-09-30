@@ -106,7 +106,7 @@ function StockTab({ onChanged }) {
   const [adjusting, setAdjusting] = useState(null);
   const [mode, setMode] = useState('set');
 
-  const { rows, pagination, filters, setFilter, resetFilters, loading, reload } = useList('/admin/products');
+  const { rows, pagination, filters, setFilter, resetFilters, loading, reload } = useList('/admin/products', {}, { syncUrl: true });
   if (filters.search !== debounced) setFilter('search', debounced);
 
   const canManage = can(P.INVENTORY_MANAGE);

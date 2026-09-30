@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Tag, Plus, Pencil, Trash2, ExternalLink } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
+import { useClientList } from '@/hooks/useClientList';
+import { ClientToolbar } from '@/components/ui/ClientToolbar';
 import { useAuth } from '@/context/AuthContext';
 import { api, mediaUrl } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Button, StatusPill } from '@/components/ui';
-import { DataTable } from '@/components/ui/DataTable';
+import { DataTable, Pagination } from '@/components/ui/DataTable';
 import { SimpleFormModal } from '@/components/ui/SimpleFormModal';
 import { ConfirmDialog } from '@/components/ui/Modal';
 
@@ -19,6 +21,7 @@ export default function Deals() {
     loading,
     reload,
   } = useResource('/admin/deals');
+  const list = useClientList(rows, { pageSize: 10 });
 
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
@@ -55,9 +58,10 @@ export default function Deals() {
       />
 
       <Card dense>
+        <ClientToolbar list={list} placeholder="Search…" />
         <DataTable
           rowKey="id"
-          rows={rows || []}
+          rows={list.view}
           loading={loading}
           rowTone={(d) =>
             Number(d.active_status) ? 'ok' : 'idle'
@@ -190,6 +194,7 @@ export default function Deals() {
             )
           }
         />
+      <Pagination pagination={list.pagination} onPage={list.setPage} />
       </Card>
 
       <SimpleFormModal

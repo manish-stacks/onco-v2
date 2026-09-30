@@ -6,6 +6,8 @@ import {
   Phone, MapPin, Mail, Clock3, ChevronRight, ShieldCheck, ClipboardCheck,
   Truck, RotateCcw, Headphones,
 } from "lucide-react";
+import { useState } from "react";
+import { contentApi } from "@/lib/api";
 import { useCategories } from "@/hooks/use-categories";
 import { BackToTop } from "@/components/ui/back-to-top";
 import { WhatsappFloat } from "@/components/ui/whatsapp-float";
@@ -50,12 +52,42 @@ const socials = [
 
 const paymentIcons = ["visa", "mastercard", "amex", "discover"];
 
+function NewsletterStrip() {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setState("sending");
+    try { await contentApi.subscribe(email.trim()); setState("done"); } catch { setState("error"); }
+  }
+  return (
+    <div className="mb-12 flex flex-col gap-4 rounded-2xl border border-[var(--line)] bg-white p-5 md:flex-row md:items-center md:justify-between">
+      <div>
+        <p className="font-display text-lg font-bold text-[var(--ink)]">Subscribe to our newsletter</p>
+        <p className="text-sm text-[var(--ink-soft)]">Health tips, refill reminders and exclusive offers. No spam.</p>
+      </div>
+      {state === "done" ? (
+        <p className="text-sm font-semibold text-emerald-600">You&apos;re subscribed. Thank you!</p>
+      ) : (
+        <form onSubmit={submit} className="flex w-full max-w-md gap-2">
+          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" className="h-11 flex-1 rounded-lg border border-[var(--line)] px-3 text-sm outline-none focus:border-[var(--blue-500)]" />
+          <button type="submit" disabled={state === "sending"} className="h-11 rounded-lg bg-[var(--blue-500)] px-5 text-sm font-semibold text-white hover:bg-[var(--blue-600)] disabled:opacity-60">
+            {state === "sending" ? "..." : "Subscribe"}
+          </button>
+        </form>
+      )}
+      {state === "error" && <p className="text-xs text-red-500">Could not subscribe. Please try again.</p>}
+    </div>
+  );
+}
+
 export function Footer() {
   const { categories } = useCategories();
 
   return (
     <footer className="border-t border-[var(--line)] bg-[#F7F9FC]">
       <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+        <NewsletterStrip />
         <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-4 lg:grid-cols-5">
           {/* Brand + contact */}
           <div className="col-span-2 md:col-span-2 lg:col-span-1">

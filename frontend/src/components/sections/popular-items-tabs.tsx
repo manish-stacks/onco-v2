@@ -49,7 +49,7 @@ export function PopularItemsTabs({
       <Reveal className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="font-display text-3xl font-bold text-[#063b67] lg:text-4xl">
-            Popular Items
+            Popular Medicines
           </h2>
 
           <div className="mt-3 h-1 w-12 rounded-full bg-black" />

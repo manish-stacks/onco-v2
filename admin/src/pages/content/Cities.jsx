@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { MapPin, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
+import { useClientList } from '@/hooks/useClientList';
+import { ClientToolbar } from '@/components/ui/ClientToolbar';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { num } from '@/lib/format';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Button, StatusPill } from '@/components/ui';
-import { DataTable } from '@/components/ui/DataTable';
+import { DataTable, Pagination } from '@/components/ui/DataTable';
 import { SimpleFormModal } from '@/components/ui/SimpleFormModal';
 import { ConfirmDialog } from '@/components/ui/Modal';
 
@@ -19,6 +21,7 @@ import { ConfirmDialog } from '@/components/ui/Modal';
 export default function Cities() {
   const { can } = useAuth();
   const { data: rows, loading, reload } = useResource('/admin/cities');
+  const list = useClientList(rows, { pageSize: 10 });
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
 
@@ -43,8 +46,9 @@ export default function Cities() {
       />
 
       <Card dense>
+        <ClientToolbar list={list} placeholder="Search…" />
         <DataTable
-          rowKey="id" rows={rows || []} loading={loading}
+          rowKey="id" rows={list.view} loading={loading}
           rowTone={(c) => (Number(c.status) ? 'ok' : 'idle')}
           columns={[
             {
@@ -75,6 +79,7 @@ export default function Cities() {
             <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add city</Button>
           )}
         />
+      <Pagination pagination={list.pagination} onPage={list.setPage} />
       </Card>
 
       <SimpleFormModal

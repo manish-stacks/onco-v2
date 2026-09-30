@@ -45,7 +45,9 @@ export function Brands({ brands }: { brands: BrandTag[] }) {
                 unoptimized
                 className="h-14 w-auto object-contain transition duration-300 hover:scale-110"
               />
+              <p className="line-clamp-2 text-sm font-semibold text-[#063b67]">{brand.name}</p>
             </Link>
+
           </Reveal>
         ))}
       </div>

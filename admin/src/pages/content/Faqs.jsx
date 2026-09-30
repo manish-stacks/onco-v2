@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { HelpCircle, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
+import { useClientList } from '@/hooks/useClientList';
+import { ClientToolbar } from '@/components/ui/ClientToolbar';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Button, StatusPill } from '@/components/ui';
-import { DataTable } from '@/components/ui/DataTable';
+import { DataTable, Pagination } from '@/components/ui/DataTable';
 import { SimpleFormModal } from '@/components/ui/SimpleFormModal';
 import { ConfirmDialog } from '@/components/ui/Modal';
 
@@ -14,6 +16,7 @@ import { ConfirmDialog } from '@/components/ui/Modal';
 export default function Faqs() {
   const { can } = useAuth();
   const { data: rows, loading, reload } = useResource('/admin/faqs');
+  const list = useClientList(rows, { pageSize: 10 });
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
 
@@ -35,8 +38,9 @@ export default function Faqs() {
       />
 
       <Card dense>
+        <ClientToolbar list={list} placeholder="Search…" />
         <DataTable
-          rowKey="faq_id" rows={rows || []} loading={loading}
+          rowKey="faq_id" rows={list.view} loading={loading}
           rowTone={(f) => (f.status === 'active' ? 'ok' : 'idle')}
           columns={[
             {
@@ -76,6 +80,7 @@ export default function Faqs() {
             <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add FAQ</Button>
           )}
         />
+      <Pagination pagination={list.pagination} onPage={list.setPage} />
       </Card>
 
       <SimpleFormModal

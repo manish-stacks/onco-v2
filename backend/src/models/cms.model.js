@@ -46,7 +46,7 @@ async function removePage(id) {
 // ---------------------------------------------------------------------------
 // NEWS / BLOG
 // ---------------------------------------------------------------------------
-const NEWS_FIELDS = ['title', 'category', 'excerpt', 'image', 'content', 'date', 'status'];
+const NEWS_FIELDS = ['title', 'category', 'excerpt', 'image', 'content', 'date', 'status', 'slug', 'meta_title', 'meta_description', 'keywords', 'image_alt'];
 
 async function listNews(filters = {}, { limit = 20, offset = 0 } = {}) {
   const qb = new QueryBuilder('n');

@@ -40,7 +40,7 @@ export function FlashSale({ medicines }: { medicines: Medicine[] }) {
           <div className="flex items-center gap-3">
             
             <div>
-              <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">Today&apos;s Flash Sale</h2>
+              <h2 className="font-display text-2xl font-bold text-white sm:text-3xl">Today&apos;s Medicine Deals</h2>
               <p className="text-sm text-white/60">Deals refresh daily — grab them before midnight.</p>
             </div>
           </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Printer, Loader2 } from "lucide-react";
 import { orderApi, ApiError, mediaUrl } from "@/lib/api";
-import { formatINR } from "@/lib/utils";
+import { formatINR, orderRef } from "@/lib/utils";
 
 interface InvoiceItem { product_name?: string; unit_quantity?: number; quantity?: number; unit_price?: number; line_total?: number; }
 interface Invoice {
@@ -12,6 +12,7 @@ interface Invoice {
   invoice_date: string;
   original_invoice_url?: string | null;
   reference?: string;
+  order_id?: string | number;
   status?: string;
   seller?: { name?: string; address?: string; phone?: string; email?: string; logo?: string } | null;
   buyer?: { name?: string; phone?: string; email?: string; shipping_address?: string; city?: string; state?: string; pincode?: string };
@@ -43,6 +44,7 @@ export default function InvoicePage() {
   }
 
   const t = inv.totals || {};
+  const orderId = orderRef({ order_id: inv.order_id, order_date: inv.invoice_date, databaseOrderID: inv.reference });
   const qtyOf = (it: InvoiceItem) => it.unit_quantity ?? it.quantity ?? 0;
 
   // Once the pharmacy uploads the real invoice (right after it ships),
@@ -98,7 +100,7 @@ export default function InvoicePage() {
           </div>
           <div className="text-right">
             <p className="font-display text-xl font-bold text-[var(--ink)]">INVOICE</p>
-            <p className="text-sm font-semibold text-[var(--ink)]">{inv.invoice_number}</p>
+            <p className="text-sm font-semibold text-[var(--ink)]">{orderId}</p>
             <p className="text-xs text-[var(--ink-soft)]">{inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : ""}</p>
             {inv.status && <p className="mt-1 text-xs text-[var(--ink-soft)]">Status: {inv.status}</p>}
           </div>
@@ -161,6 +163,7 @@ export default function InvoicePage() {
 
         {inv.payment && (
           <p className="mt-6 text-xs text-[var(--ink-soft)]">
+            Order ID: {orderId}<br />
             Payment: {inv.payment.mode === "cod" ? "Cash on Delivery" : "Online"} · {inv.payment.status}
             {inv.payment.transaction ? ` · Txn ${inv.payment.transaction}` : ""}
           </p>

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Quote, Plus, Pencil, Trash2, Star } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
+import { useClientList } from '@/hooks/useClientList';
+import { ClientToolbar } from '@/components/ui/ClientToolbar';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Button, StatusPill } from '@/components/ui';
-import { DataTable } from '@/components/ui/DataTable';
+import { DataTable, Pagination } from '@/components/ui/DataTable';
 import { SimpleFormModal } from '@/components/ui/SimpleFormModal';
 import { ConfirmDialog } from '@/components/ui/Modal';
 
@@ -14,6 +16,7 @@ import { ConfirmDialog } from '@/components/ui/Modal';
 export default function Testimonials() {
   const { can } = useAuth();
   const { data: rows, loading, reload } = useResource('/admin/testimonials');
+  const list = useClientList(rows, { pageSize: 10 });
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
 
@@ -35,8 +38,9 @@ export default function Testimonials() {
       />
 
       <Card dense>
+        <ClientToolbar list={list} placeholder="Search…" />
         <DataTable
-          rowKey="review_id" rows={rows || []} loading={loading}
+          rowKey="review_id" rows={list.view} loading={loading}
           rowTone={(t) => (t.status === 'active' ? 'ok' : 'idle')}
           columns={[
             {
@@ -82,6 +86,7 @@ export default function Testimonials() {
             <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>Add testimonial</Button>
           )}
         />
+      <Pagination pagination={list.pagination} onPage={list.setPage} />
       </Card>
 
       <SimpleFormModal

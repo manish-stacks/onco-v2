@@ -1,19 +1,22 @@
 import { useState } from 'react';
 import { FileText, Plus, Pencil, Trash2 } from 'lucide-react';
 import { useResource, useMutation } from '@/hooks/useApi';
+import { useClientList } from '@/hooks/useClientList';
+import { ClientToolbar } from '@/components/ui/ClientToolbar';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { PERMISSIONS as P } from '@/lib/constants';
 import { PageHeader } from '@/components/layout/Layout';
 import { Card, Button, StatusPill, Code, Field, Input, Select } from '@/components/ui';
 import RichTextEditor from '@/components/ui/RichTextEditor';
-import { DataTable } from '@/components/ui/DataTable';
+import { DataTable, Pagination } from '@/components/ui/DataTable';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 
 /** Static pages — about us, privacy policy, terms wagairah */
 export default function Pages() {
   const { can } = useAuth();
   const { data: rows, loading, reload } = useResource('/admin/pages');
+  const list = useClientList(rows, { pageSize: 10 });
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
 
@@ -33,8 +36,9 @@ export default function Pages() {
       />
 
       <Card dense>
+        <ClientToolbar list={list} placeholder="Search…" />
       <DataTable
-        rowKey="page_id" rows={rows || []} loading={loading}
+        rowKey="page_id" rows={list.view} loading={loading}
         rowTone={(p) => (p.status === 'Active' ? 'ok' : 'idle')}
         columns={[
           {
@@ -73,6 +77,7 @@ export default function Pages() {
         emptyDescription="About us, privacy policy, terms — all of these are created here."
         emptyAction={canManage && <Button variant="primary" icon={Plus} onClick={() => setEditing({})}>New page</Button>}
       />
+      <Pagination pagination={list.pagination} onPage={list.setPage} />
       </Card>
 
       <PageModal open={!!editing} onClose={() => setEditing(null)} page={editing} onDone={reload} />
