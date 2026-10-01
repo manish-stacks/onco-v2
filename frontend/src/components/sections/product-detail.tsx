@@ -271,7 +271,7 @@ export function ProductDetail({
                   </div>
                 </div>
               )}
-              {medicine.storage && (
+              {/* {medicine.storage && (
                 <div className="flex gap-3 rounded-[var(--radius-sm)] border border-[var(--line)] p-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--blue-50)] text-[var(--blue-600)]">
                     <Snowflake size={16} />
@@ -281,7 +281,7 @@ export function ProductDetail({
                     <p className="text-sm text-[var(--ink-soft)]">{medicine.storage}</p>
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
           )}
 
