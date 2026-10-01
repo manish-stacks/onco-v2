@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronsRight } from "lucide-react";
+import { Building2, ChevronsRight } from "lucide-react";
 import { Reveal } from "@/components/ui/reveal";
 import type { BrandTag } from "@/types";
 
@@ -30,27 +30,49 @@ export function Brands({ brands }: { brands: BrandTag[] }) {
       </Reveal>
 
       {/* Logos */}
-      <div className="grid grid-cols-2 items-center gap-8 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 items-stretch gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-6">
         {brands.slice(0, 6).map((brand, index) => (
-          <Reveal key={index} delay={index * 0.05}>
+          <Reveal key={brand.id} delay={index * 0.05}>
             <Link
               href={`/shop?brand_id=${brand.id}`}
-              className="flex h-24 items-center justify-center rounded-2xl border border-[#e0e0e0] bg-white p-4 transition hover:scale-105 hover:shadow-lg"
+              className="group flex h-full flex-col items-center justify-between rounded-2xl border border-[#e0e0e0] bg-white p-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#1e90ff] hover:shadow-lg"
             >
-              <Image
-                src={brand.logo}
-                alt={brand.name}
-                width={150}
-                height={70}
-                unoptimized
-                className="h-14 w-auto object-contain transition duration-300 hover:scale-110"
-              />
-              <p className="line-clamp-2 text-sm font-semibold text-[#063b67]">{brand.name}</p>
-            </Link>
+              <div className="flex h-20 w-full items-center justify-center">
+                {brand.logo ? (
+                  <Image
+                    src={brand.logo}
+                    alt={`${brand.name} logo`}
+                    width={150}
+                    height={70}
+                    unoptimized
+                    className="max-h-20 w-auto object-contain transition-transform duration-200 group-hover:scale-105"
+                  />
+                ) : (
+                  <Building2
+                    size={32}
+                    className="text-[var(--ink-soft)] transition-colors group-hover:text-[#1e90ff]"
+                  />
+                )}
+              </div>
 
+              {/* <div className="mt-3 w-full text-center"> */}
+              {/* <p className="line-clamp-2 text-sm font-semibold text-[#063b67]">
+                  {brand.name}
+                </p> */}
+
+              {/* {typeof brand.productCount === "number" &&
+            brand.productCount > 0 && (
+              <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
+                {brand.productCount} product
+                {brand.productCount === 1 ? "" : "s"}
+              </p>
+            )} */}
+              {/* </div> */}
+            </Link>
           </Reveal>
         ))}
       </div>
+
     </section>
   );
 }

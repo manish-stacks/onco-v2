@@ -103,11 +103,11 @@ export function BrandsDirectory({ brands }: { brands: BrandTag[] }) {
                     </div>
                     <div className="text-center">
                       <p className="line-clamp-2 text-sm font-semibold text-[#063b67]">{brand.name}</p>
-                      {typeof brand.productCount === "number" && brand.productCount > 0 && (
+                      {/* {typeof brand.productCount === "number" && brand.productCount > 0 && (
                         <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
                           {brand.productCount} product{brand.productCount === 1 ? "" : "s"}
                         </p>
-                      )}
+                      )} */}
                     </div>
                   </Link>
                 ))}
