@@ -199,13 +199,14 @@ function CheckoutInner() {
 
   // Simple bill breakup for the summary card: Total MRP -> product-level
   // discount (MRP vs selling price) -> coupon -> shipping/COD fee -> Order Total.
-  const totalMrp = cartItems.reduce((s, i) => s + (Number(i.product_mrp) || Number(i.product_sp) || 0) * i.product_quantity, 0);
-  const mrpDiscount = Math.max(totalMrp - (summary?.subtotal ?? 0), 0);
-  const orderTotal = Math.max((summary?.total ?? 0) - discount, 0) + charges.shipping_charge + (paymentMode === "cod" ? charges.cod_fee : 0);
-  const totalSaved = mrpDiscount + discount;
+  const roundMoney = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+  const totalMrp = roundMoney(cartItems.reduce((s, i) => s + (Number(i.product_mrp) || Number(i.product_sp) || 0) * i.product_quantity, 0));
+  const mrpDiscount = roundMoney(Math.max(totalMrp - (summary?.subtotal ?? 0), 0));
+  const orderTotal = roundMoney(Math.max((summary?.total ?? 0) - discount, 0) + charges.shipping_charge + (paymentMode === "cod" ? charges.cod_fee : 0));
+  const totalSaved = roundMoney(mrpDiscount + discount);
   // COD: the advance is paid online first, the rest on delivery.
-  const codAdvance = paymentMode === "cod" ? Math.min(charges.cod_advance, orderTotal) : 0;
-  const codBalance = Math.max(orderTotal - codAdvance, 0);
+  const codAdvance = paymentMode === "cod" ? roundMoney(Math.min(charges.cod_advance, orderTotal)) : 0;
+  const codBalance = roundMoney(Math.max(orderTotal - codAdvance, 0));
 
   // Refetch shipping + COD fee whenever the payment mode, cart, or coupon changes.
   useEffect(() => {

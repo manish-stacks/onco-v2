@@ -119,7 +119,7 @@ async function calcCharges(subtotal, paymentMode = 'online') {
   const flat = parseFloat(s.shipping_charge) || 0;
 
   const shipping = threshold > 0 && subtotal >= threshold ? 0 : flat;
-  const codFee = paymentMode === 'cod' ? (parseInt(s.cod_fee, 10) || 0) : 0;
+  const codFee = paymentMode === 'cod' ? (parseFloat(s.cod_fee) || 0) : 0;
 
   // Online advance a COD customer must pay first. The admin can raise it or set it to 0.
   const advanceSetting = s.cod_advance === undefined || s.cod_advance === null ? 200 : parseFloat(s.cod_advance) || 0;

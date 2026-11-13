@@ -34,7 +34,8 @@ async function getCartWithTotals(customerId) {
   let codAllowed = true;
 
   const detailed = items.map((it) => {
-    const lineSubtotal = money(it.product_sp * it.product_quantity);
+    const unitPrice = Number(it.product_sp) > 0 ? Number(it.product_sp) : Number(it.product_mrp || 0);
+    const lineSubtotal = money(unitPrice * it.product_quantity);
     const taxPercent = settingsModel.resolveGstPercent(it.product_gst, taxConfig);
     const taxAmount = money((lineSubtotal * taxPercent) / 100);
 
@@ -94,7 +95,8 @@ async function addItem(customerId, { product_id, quantity = 1 }) {
     throw Object.assign(new Error(`Only ${product.stock_quantity} pieces are available`), { status: 409 });
   }
 
-  const subTotal = money(product.product_sp * newQty);
+  const unitPrice = Number(product.product_sp) > 0 ? Number(product.product_sp) : Number(product.product_mrp || 0);
+  const subTotal = money(unitPrice * newQty);
   const taxConfig = await settingsModel.getTaxConfig();
   const gst = money((subTotal * settingsModel.resolveGstPercent(product.product_gst, taxConfig)) / 100);
 
@@ -102,7 +104,7 @@ async function addItem(customerId, { product_id, quantity = 1 }) {
     await db.query(
       `UPDATE cart_items SET product_quantity = ?, product_price = ?, sub_total = ?, gst = ?,
          total_price = ?, updated = NOW() WHERE cart_id = ?`,
-      [newQty, product.product_sp, subTotal, gst, money(subTotal + gst), existing.cart_id]
+      [newQty, unitPrice, subTotal, gst, money(subTotal + gst), existing.cart_id]
     );
     return existing.cart_id;
   }
@@ -111,14 +113,14 @@ async function addItem(customerId, { product_id, quantity = 1 }) {
     `INSERT INTO cart_items
       (customer_id, product_id, product_price, product_quantity, sub_total, gst, total_price, added, updated)
      VALUES (?,?,?,?,?,?,?, NOW(), NOW())`,
-    [String(customerId), product_id, product.product_sp, newQty, subTotal, gst, money(subTotal + gst)]
+    [String(customerId), product_id, unitPrice, newQty, subTotal, gst, money(subTotal + gst)]
   );
   return result.insertId;
 }
 
 async function updateQuantity(cartId, customerId, quantity) {
   const [[item]] = await db.query(
-    `SELECT ci.cart_id, ci.product_id, p.product_sp, p.product_gst, p.stock_quantity
+    `SELECT ci.cart_id, ci.product_id, p.product_sp, p.product_mrp, p.product_gst, p.stock_quantity
      FROM cart_items ci INNER JOIN products p ON p.product_id = ci.product_id
      WHERE ci.cart_id = ? AND ci.customer_id = ?`,
     [cartId, String(customerId)]
@@ -133,14 +135,15 @@ async function updateQuantity(cartId, customerId, quantity) {
     throw Object.assign(new Error(`Only ${item.stock_quantity} pieces are available`), { status: 409 });
   }
 
-  const subTotal = money(item.product_sp * quantity);
+  const unitPrice = Number(item.product_sp) > 0 ? Number(item.product_sp) : Number(item.product_mrp || 0);
+  const subTotal = money(unitPrice * quantity);
   const taxConfig = await settingsModel.getTaxConfig();
   const gst = money((subTotal * settingsModel.resolveGstPercent(item.product_gst, taxConfig)) / 100);
 
   await db.query(
     `UPDATE cart_items SET product_quantity = ?, product_price = ?, sub_total = ?, gst = ?,
        total_price = ?, updated = NOW() WHERE cart_id = ?`,
-    [quantity, item.product_sp, subTotal, gst, money(subTotal + gst), cartId]
+    [quantity, unitPrice, subTotal, gst, money(subTotal + gst), cartId]
   );
   return true;
 }

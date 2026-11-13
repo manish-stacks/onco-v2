@@ -238,14 +238,18 @@ export function ProductDetail({
 
           <div className="mb-1 flex flex-wrap items-baseline gap-3 font-mono-nums">
             <span className="text-3xl font-bold text-[var(--ink)]">{formatINR(medicine.price)}</span>
-            {medicine.mrp > medicine.price && (
+            {medicine.mrp > medicine.price ? (
               <>
                 <span className="text-base font-medium text-[var(--ink-soft)]">
                   MRP <span className="line-through">{formatINR(medicine.mrp)}</span>
                 </span>
                 <Badge tone="coral">Save {medicine.discountPercent}%</Badge>
               </>
-            )}
+            ) : medicine.mrp > 0 ? (
+              <span className="text-base font-medium text-[var(--ink-soft)]">
+                MRP {formatINR(medicine.mrp)}
+              </span>
+            ) : null}
           </div>
           <p className="mb-6 text-xs text-[var(--ink-soft)]">Inclusive of all taxes</p>
 

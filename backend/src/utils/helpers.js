@@ -44,7 +44,9 @@ function genOtp(length = 6) {
 
 /** Float rounding errors se bachne ke liye — hamesha 2 decimals */
 function money(value) {
-  return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
 /** 10-digit -> 91XXXXXXXXXX */

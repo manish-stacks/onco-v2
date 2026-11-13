@@ -7,7 +7,8 @@ import { SITE_NAME, absoluteUrl, toMetaDescription } from "@/lib/seo";
 import { ProductDetail } from "@/components/sections/product-detail";
 import type { ApiProduct } from "@/types";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // Both `generateMetadata` and the page component call this same function
 // — `cache()` lets both share one result within a single request, so the network

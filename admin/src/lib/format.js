@@ -1,6 +1,6 @@
 export const inr = (n) => {
   const num = Number(n || 0);
-  return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 /** Shorten large numbers — for the dashboard cards */

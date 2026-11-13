@@ -28,9 +28,10 @@ export default function CartPage() {
   const [couponListLoading, setCouponListLoading] = useState(false);
 
   // Simple bill breakup: Total MRP -> product-level discount -> coupon -> Cart Total.
-  const totalMrp = cartItems.reduce((s, i) => s + (Number(i.product_mrp) || Number(i.product_sp) || 0) * i.product_quantity, 0);
-  const mrpDiscount = Math.max(totalMrp - (summary?.subtotal ?? 0), 0);
-  const totalSaved = mrpDiscount + discount;
+  const roundMoney = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+  const totalMrp = roundMoney(cartItems.reduce((s, i) => s + (Number(i.product_mrp) || Number(i.product_sp) || 0) * i.product_quantity, 0));
+  const mrpDiscount = roundMoney(Math.max(totalMrp - (summary?.subtotal ?? 0), 0));
+  const totalSaved = roundMoney(mrpDiscount + discount);
 
   // Restore a coupon that was applied earlier in this session
   useEffect(() => {

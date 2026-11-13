@@ -493,7 +493,7 @@ export const catalogApi = {
     api.get<T>('/products', filters as QueryParams, opts),
 
   product: <T = unknown>(slug: string, opts?: RequestOptions) =>
-    api.data<T>(`/products/${slug}`, undefined, { revalidate: 300, ...opts }),
+    api.data<T>(`/products/${slug}`, undefined, { revalidate: 0, cache: "no-store", ...opts }),
 
   productReviews: <T = unknown>(
     productId: string | number,

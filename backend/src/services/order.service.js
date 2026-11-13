@@ -51,7 +51,8 @@ async function priceItems(conn, items) {
     if (product.presciption_required === 'Yes') requiresPrescription = true;
     if (!isProductCodEligible(product)) codAllowed = false;
 
-    const unitPrice = product.product_sp;
+    const unitPrice = Number(product.product_sp) > 0 ? Number(product.product_sp) : Number(product.product_mrp || 0);
+    const unitMrp = Number(product.product_mrp) > 0 ? Math.max(Number(product.product_mrp), unitPrice) : unitPrice;
     const lineSubtotal = money(unitPrice * quantity);
     const taxPercent = settingsModel.resolveGstPercent(product.product_gst, taxConfig);
     const taxAmount = money((lineSubtotal * taxPercent) / 100);
@@ -66,7 +67,7 @@ async function priceItems(conn, items) {
       sku: product.sku,
       hsn_code: product.hsn_code,
       unit_price: unitPrice,
-      unit_mrp: product.product_mrp,
+      unit_mrp: unitMrp,
       unit_quantity: quantity,
       line_subtotal: lineSubtotal,
       tax_percent: taxPercent,

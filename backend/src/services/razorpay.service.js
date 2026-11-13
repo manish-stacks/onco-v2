@@ -17,8 +17,9 @@ function getInstance() {
 
 /** amount in rupees — converted to paise before sending */
 async function createOrder(amount, receipt, notes = {}) {
+  const paise = Math.round((Number(amount) || 0) * 100);
   return getInstance().orders.create({
-    amount: Math.round(amount * 100),
+    amount: paise,
     currency: 'INR',
     receipt: String(receipt).slice(0, 40),
     payment_capture: 1,
@@ -51,7 +52,7 @@ function verifyWebhookSignature(rawBody, signatureHeader) {
 
 /** amount na do to full refund */
 async function refund(paymentId, amount) {
-  const payload = amount ? { amount: Math.round(amount * 100), speed: 'normal' } : { speed: 'normal' };
+  const payload = amount ? { amount: Math.round((Number(amount) || 0) * 100), speed: 'normal' } : { speed: 'normal' };
   return getInstance().payments.refund(paymentId, payload);
 }
 

@@ -8,11 +8,10 @@ export function cn(...inputs: ClassValue[]) {
 export function formatINR(amount: number | string | undefined | null) {
   const num = typeof amount === "number" ? amount : parseFloat(String(amount || 0));
   const valid = Number.isFinite(num) ? num : 0;
-  const hasDecimals = valid % 1 !== 0;
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    minimumFractionDigits: hasDecimals ? 2 : 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(valid);
 }
