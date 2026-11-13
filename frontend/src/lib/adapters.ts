@@ -20,8 +20,10 @@ function num(v: unknown, fallback = 0): number {
 
 /** Backend Product -> UI Medicine shape used by ProductCard / rails / listing / detail */
 export function productToMedicine(p: ApiProduct): Medicine {
-  const mrp = num(p.product_mrp);
-  const price = num(p.product_sp, mrp);
+  const rawMrp = num(p.product_mrp);
+  const rawSp = num(p.product_sp);
+  const price = rawSp > 0 ? rawSp : rawMrp;
+  const mrp = rawMrp > 0 ? Math.max(rawMrp, price) : price;
   const discountPercent = mrp > price && mrp > 0 ? Math.round(((mrp - price) / mrp) * 100) : 0;
 
   const images = [p.image_1, p.image_2, p.image_3, p.image_4, p.image_5]

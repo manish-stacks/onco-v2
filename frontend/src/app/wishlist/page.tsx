@@ -101,7 +101,14 @@ export default function WishlistPage() {
               <p className="mb-2 text-xs text-[var(--ink-soft)]">{m.manufacturer} · {m.packSize}</p>
               <Rating value={m.rating} count={m.reviewCount} />
             </div>
-            <p className="font-mono-nums font-bold text-[var(--ink)]">{formatINR(m.price)}</p>
+            <div className="font-mono-nums text-right sm:text-left">
+              <p className="font-bold text-[var(--ink)]">{formatINR(m.price)}</p>
+              {m.mrp > m.price && (
+                <p className="text-xs text-[var(--ink-soft)]">
+                  MRP <span className="line-through">{formatINR(m.mrp)}</span>
+                </p>
+              )}
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={() => handleMoveToCart(m)}

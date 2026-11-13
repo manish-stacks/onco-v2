@@ -5,12 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatINR(amount: number) {
+export function formatINR(amount: number | string | undefined | null) {
+  const num = typeof amount === "number" ? amount : parseFloat(String(amount || 0));
+  const valid = Number.isFinite(num) ? num : 0;
+  const hasDecimals = valid % 1 !== 0;
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+    minimumFractionDigits: hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(valid);
 }
 
 // The one canonical order reference shown across the user dashboard, admin panel

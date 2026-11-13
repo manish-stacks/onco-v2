@@ -404,7 +404,11 @@ function ListRow({ medicine }: { medicine: Medicine }) {
       <div className="flex shrink-0 flex-col items-end justify-between">
         <div className="text-right font-mono-nums">
           <p className="font-bold text-[var(--ink)]">{formatINR(medicine.price)}</p>
-          {medicine.mrp > medicine.price && <p className="text-xs text-[var(--ink-soft)] line-through">{formatINR(medicine.mrp)}</p>}
+          {medicine.mrp > medicine.price && (
+            <p className="text-xs text-[var(--ink-soft)]">
+              MRP <span className="line-through">{formatINR(medicine.mrp)}</span>
+            </p>
+          )}
         </div>
         <button
           onClick={() => addToCart(medicine)}

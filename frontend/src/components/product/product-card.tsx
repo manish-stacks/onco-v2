@@ -60,10 +60,12 @@ export function ProductCard({ medicine }: { medicine: Medicine }) {
       </Link>
 
       <div className="mt-auto flex items-center justify-between pt-1">
-        <div className="flex items-baseline gap-2 font-mono-nums">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-mono-nums">
           <span className="text-lg font-bold text-ink">{formatINR(medicine.price)}</span>
           {medicine.mrp > medicine.price && (
-            <span className="text-xs text-ink-soft line-through">{formatINR(medicine.mrp)}</span>
+            <span className="text-xs text-ink-soft">
+              MRP <span className="line-through">{formatINR(medicine.mrp)}</span>
+            </span>
           )}
         </div>
         <button

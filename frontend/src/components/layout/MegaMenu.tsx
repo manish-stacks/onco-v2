@@ -154,7 +154,12 @@ export function MegaMenu() {
                           <Image src={p.image} alt={p.name} fill className="object-contain p-1.5" />
                         </div>
                         <p className="line-clamp-2 text-xs font-medium text-ink group-hover:text-blue-600">{p.name}</p>
-                        <p className="mt-0.5 text-xs font-semibold text-ink">{formatINR(p.price)}</p>
+                        <div className="mt-0.5 flex items-baseline gap-1.5 font-mono-nums">
+                          <span className="text-xs font-semibold text-ink">{formatINR(p.price)}</span>
+                          {p.mrp > p.price && (
+                            <span className="text-[10px] text-ink-soft line-through">{formatINR(p.mrp)}</span>
+                          )}
+                        </div>
                       </Link>
                     ))}
                   </div>

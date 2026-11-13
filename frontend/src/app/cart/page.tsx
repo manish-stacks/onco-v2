@@ -181,7 +181,14 @@ export default function CartPage() {
                   <button onClick={() => removeFromCart(item.cart_id)} className="text-[var(--ink-soft)] hover:text-[var(--coral-500)]">
                     <Trash2 size={17} />
                   </button>
-                  <p className="font-mono-nums font-bold text-[var(--ink)]">{formatINR(item.line_total)}</p>
+                  <div className="text-right font-mono-nums">
+                    <p className="font-bold text-[var(--ink)]">{formatINR(item.line_total)}</p>
+                    {Number(item.product_mrp) > Number(item.product_sp) && (
+                      <p className="text-2xs text-[var(--ink-soft)]">
+                        MRP <span className="line-through">{formatINR(Number(item.product_mrp) * Number(item.product_quantity))}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             ))}

@@ -240,7 +240,9 @@ export function ProductDetail({
             <span className="text-3xl font-bold text-[var(--ink)]">{formatINR(medicine.price)}</span>
             {medicine.mrp > medicine.price && (
               <>
-                <span className="text-lg text-[var(--ink-soft)] line-through">{formatINR(medicine.mrp)}</span>
+                <span className="text-base font-medium text-[var(--ink-soft)]">
+                  MRP <span className="line-through">{formatINR(medicine.mrp)}</span>
+                </span>
                 <Badge tone="coral">Save {medicine.discountPercent}%</Badge>
               </>
             )}

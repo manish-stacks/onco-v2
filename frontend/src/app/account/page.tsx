@@ -316,7 +316,14 @@ export default function AccountPage() {
                           <div key={m.id} className="flex items-center gap-3 rounded-xl border border-[var(--line)] p-3">
                             <Image src={m.image} alt={m.name} width={48} height={48} className="rounded-lg object-cover" />
                             <Link href={`/product-details/${m.id}/${m.slug}`} className="flex-1 text-sm font-medium text-[var(--ink)] hover:underline">{m.name}</Link>
-                            <p className="font-mono-nums text-sm font-semibold">{formatINR(m.price)}</p>
+                            <div className="text-right font-mono-nums">
+                              <p className="text-sm font-semibold">{formatINR(m.price)}</p>
+                              {m.mrp > m.price && (
+                                <p className="text-2xs text-[var(--ink-soft)]">
+                                  MRP <span className="line-through">{formatINR(m.mrp)}</span>
+                                </p>
+                              )}
+                            </div>
                             <button onClick={() => handleRemoveWishlist(m.id)} className="text-xs font-medium text-[var(--coral-500)]">Remove</button>
                           </div>
                         ))}
