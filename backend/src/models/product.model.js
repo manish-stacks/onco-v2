@@ -83,9 +83,11 @@ async function list(
     'p'
   );
 
+  const distinctClause = join ? 'DISTINCT' : '';
+
   const [rows] = await db.query(
     `
-    SELECT DISTINCT
+    SELECT ${distinctClause}
       p.*,
 
       (
@@ -110,19 +112,12 @@ async function list(
 
   const [[{ total }]] = await db.query(
     `
-    SELECT COUNT(DISTINCT p.product_id) AS total
+    SELECT COUNT(${distinctClause} p.product_id) AS total
     FROM products p
     ${join}
     ${whereSql}
     `,
     params
-  );
-
-  console.log('PRODUCT LIST SQL PARAMS:', params);
-  console.log('PRODUCT LIST ROW COUNT:', rows.length);
-  console.log(
-    'PRODUCT IDS:',
-    rows.map(r => r.product_id)
   );
 
   return {

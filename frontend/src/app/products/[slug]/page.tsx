@@ -3,10 +3,9 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { catalogApi, mediaUrl } from "@/lib/api";
 import { productToMedicine, categoryToTag, brandToTag } from "@/lib/adapters";
-import { getHomeData } from "@/lib/home";
 import { toMetaDescription, absoluteUrl, SITE_NAME } from "@/lib/seo";
 import { CategoryListing } from "@/components/sections/category-listing";
-import type { ApiProduct, Category } from "@/types";
+import type { ApiProduct, ApiBrand, Category } from "@/types";
 
 export const revalidate = 60; // category name/position/status can be edited from admin
 
@@ -48,17 +47,17 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
   const category = await getCategory(slug);
   if (!category) notFound();
 
-  const [categoryProductsRes, home] = await Promise.all([
+  const [categoryProductsRes, brandsRes] = await Promise.all([
     // Dedicated endpoint — every Active product in this category, no
     // page-size cap (a category here can run into the hundreds of products,
     // and CategoryListing's price/brand filters need the full set to work
     // correctly across the whole category, not just one server page).
     catalogApi.categoryProducts<{ products: ApiProduct[] }>(slug),
-    getHomeData(),
+    catalogApi.brands<ApiBrand[]>().catch(() => []),
   ]);
 
   const medicines = (categoryProductsRes?.products ?? []).map(productToMedicine);
-  const brands = home.brands.map(brandToTag);
+  const brands = (brandsRes ?? []).map(brandToTag);
 
   return <CategoryListing category={categoryToTag(category)} medicines={medicines} brands={brands} />;
 }

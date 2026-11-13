@@ -9,18 +9,30 @@ import { Deals } from "@/types";
 
 
 
-export function PromoBanners() {
-  const [dealsBanner, setDealsBanner] = useState<Deals[]>([]);
-  const [loading, setLoading] = useState(true);
+interface PromoBannersProps {
+  deals?: Deals[];
+}
+
+export function PromoBanners({ deals: initialDeals }: PromoBannersProps = {}) {
+  const [dealsBanner, setDealsBanner] = useState<Deals[]>(() => {
+    if (initialDeals && initialDeals.length > 0) {
+      return initialDeals
+        .filter((deal: Deals) => deal.active_status === 1)
+        .sort((a: Deals, b: Deals) => a.position - b.position);
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(!initialDeals || initialDeals.length === 0);
 
   useEffect(() => {
+    if (initialDeals && initialDeals.length > 0) return;
     let mounted = true;
 
     const fetchDeals = async () => {
       try {
         setLoading(true);
 
-        const response = await api.get("/home");
+        const response = (await api.get("/home")) as { data?: { deals?: Deals[] } };
         let deals: Deals[] = [];
         if (response?.data?.deals) {
           deals = response?.data?.deals || [];

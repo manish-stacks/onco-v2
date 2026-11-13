@@ -35,6 +35,7 @@ export default function OrdersListPage() {
     try {
       // 1) Preview current stock so we can warn before touching the cart.
       const preview = await orderApi.reorder<{ items: { name: string; available: boolean; reason?: string }[]; any_out_of_stock: boolean; all_out_of_stock: boolean }>(id, false);
+      if (!preview) return;
       if (preview.all_out_of_stock) {
         alert("None of the items in this order are in stock right now.");
         return;
@@ -46,7 +47,7 @@ export default function OrdersListPage() {
       }
       // 2) Confirmed — add the in-stock items and go to the cart.
       const res = await orderApi.reorder<{ added_count: number }>(id, true);
-      if (res.added_count > 0) router.push("/cart");
+      if (res && res.added_count > 0) router.push("/cart");
       else alert("None of these items are in stock right now.");
     } catch (err) {
       alert(err instanceof ApiError ? err.message : "Could not reorder this order.");

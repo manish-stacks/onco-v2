@@ -58,8 +58,8 @@ function PrescriptionUploadInner() {
       });
       setResult(data);
       const qs = new URLSearchParams({ count: String(files.length) });
-      if (data.reference_code) qs.set("ref", data.reference_code);
-      if (data.prescription_id) qs.set("pid", String(data.prescription_id));
+      if (data?.reference_code) qs.set("ref", data.reference_code);
+      if (data?.prescription_id) qs.set("pid", String(data.prescription_id));
       if (redirectTo) qs.set("redirect", redirectTo);
       router.push(`/prescription-upload/success?${qs.toString()}`);
     } catch (err) {

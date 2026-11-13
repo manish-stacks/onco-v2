@@ -147,7 +147,7 @@ export function MegaMenu() {
                     {products.map((p) => (
                       <Link
                         key={p.id}
-                        href={`/product-details/${p.product_id}/${p.slug}`}
+                        href={`/product-details/${p.id}/${p.slug}`}
                         className="group rounded-lg border border-line/60 p-2 transition-colors hover:border-blue-500 hover:bg-blue-50/40"
                       >
                         <div className="relative mb-2 aspect-square overflow-hidden rounded-md bg-blue-50">

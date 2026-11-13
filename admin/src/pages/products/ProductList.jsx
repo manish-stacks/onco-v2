@@ -159,15 +159,31 @@ export default function ProductList() {
       ),
     },
     {
-      key: 'product_sp', label: 'Price', align: 'right', sortable: true,
-      render: (p) => (
-        <div>
-          <p className="text-[0.8125rem] font-medium tabular-nums text-ink">{inr(p.product_sp)}</p>
-          {Number(p.product_mrp) > Number(p.product_sp) && (
-            <p className="text-2xs text-ink-300 line-through tabular-nums">{inr(p.product_mrp)}</p>
-          )}
-        </div>
-      ),
+      key: 'product_sp', label: 'Price / MRP', align: 'right', sortable: true,
+      render: (p) => {
+        const hasMrp = p.product_mrp !== null && p.product_mrp !== undefined && p.product_mrp !== '';
+        const mrpNum = Number(p.product_mrp);
+        const spNum = Number(p.product_sp);
+        const hasDiscount = hasMrp && mrpNum > spNum && mrpNum > 0;
+        const discount = hasDiscount ? Math.round(((mrpNum - spNum) / mrpNum) * 100) : null;
+
+        return (
+          <div className="text-right">
+            <p className="text-[0.8125rem] font-semibold tabular-nums text-ink">{inr(p.product_sp)}</p>
+            {hasMrp ? (
+              <p className="text-2xs tabular-nums text-ink-500 mt-0.5">
+                <span className="text-ink-400">MRP: </span>
+                <span className={hasDiscount ? 'line-through text-ink-400' : 'text-ink-600'}>
+                  {inr(p.product_mrp)}
+                </span>
+                {discount ? <span className="ml-1 text-signal-ok font-medium">({discount}% off)</span> : null}
+              </p>
+            ) : (
+              <p className="text-2xs text-ink-300 tabular-nums mt-0.5">MRP: —</p>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'stock_quantity', label: 'Stock', align: 'right', sortable: true,

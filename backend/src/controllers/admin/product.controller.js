@@ -18,6 +18,15 @@ async function mergeImages(body, files) {
   if (typeof data.categories === 'string') {
     try { data.categories = JSON.parse(data.categories); } catch { data.categories = []; }
   }
+
+  // Ensure decimal and numeric pricing fields parse correctly (support comma decimals and strip bad input)
+  ['product_mrp', 'product_sp', 'product_gst'].forEach((f) => {
+    if (data[f] !== undefined && data[f] !== null && data[f] !== '') {
+      const parsed = parseFloat(String(data[f]).replace(',', '.'));
+      data[f] = Number.isFinite(parsed) ? parsed : null;
+    }
+  });
+
   return data;
 }
 

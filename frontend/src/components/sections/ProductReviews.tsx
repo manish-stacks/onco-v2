@@ -35,7 +35,7 @@ const PAGE_SIZE = 5;
  * (used to find the order_id tagged with the review row), security
  * the boundary lives on the backend.
  */
-type Eligibility = { checked: false } | { checked: true; eligible: true; orderId: number } | { checked: true; eligible: false };
+type Eligibility = { checked: false } | { checked: true; eligible: true; orderId: number | string } | { checked: true; eligible: false };
 
 export function ProductReviews({ productId, slug }: { productId: string; slug: string }) {
   const { isLoggedIn } = useAuth();

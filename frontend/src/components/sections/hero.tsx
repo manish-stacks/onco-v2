@@ -58,26 +58,39 @@ const fallbackSlides: Banner[] = [
   },
 ];
 
-export function Hero() {
+interface HeroProps {
+  banners?: Banner[];
+}
+
+export function Hero({ banners: initialBanners }: HeroProps = {}) {
   const [active, setActive] = useState(0);
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [banners, setBanners] = useState<Banner[]>(() => {
+    if (initialBanners && initialBanners.length > 0) {
+      const activeBanners = initialBanners.filter(
+        (banner) => String(banner.status || "").toLowerCase() === "active"
+      );
+      return activeBanners.length ? activeBanners : fallbackSlides;
+    }
+    return fallbackSlides;
+  });
+  const [loading, setLoading] = useState(!initialBanners || initialBanners.length === 0);
 
   const timer = useRef<NodeJS.Timeout | null>(null);
 
   /*
    * ============================================================
-   * FETCH BANNERS
+   * FETCH BANNERS (only if not provided by server component)
    * ============================================================
    */
 
   useEffect(() => {
+    if (initialBanners && initialBanners.length > 0) return;
     let mounted = true;
 
     const fetchBanners = async () => {
       try {
         setLoading(true);
-        const response = await api.get("/home");
+        const response = (await api.get("/home")) as { data?: { banners?: Banner[] } };
         const apiBanners: Banner[] =
           response?.data?.banners || [];
         /*

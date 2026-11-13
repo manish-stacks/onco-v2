@@ -3,6 +3,7 @@ import { stripInlineFormatting } from "@/lib/html";
 import type {
   ApiProduct,
   Category,
+  CategoryTreeNode,
   ApiBrand,
   BrandTag,
   CategoryTag,
@@ -28,7 +29,7 @@ export function productToMedicine(p: ApiProduct): Medicine {
     .map((img) => mediaUrl(img));
 
   const stockQty = num(p.stock_quantity, 0);
-  const backorder = String(p.allow_backorder) === "1" || p.allow_backorder === true;
+  const backorder = String(p.allow_backorder) === "1" || String(p.allow_backorder) === "true";
   const inStock = stockQty > 0 || backorder || String(p.stock || "").toLowerCase() === "in stock";
 
   const reviews: Review[] = [];
@@ -87,7 +88,7 @@ export function categoryToTag(c: Category): CategoryTag {
  * are nested (the backend builds the full tree; here we only
  * adapt the shape).
  */
-export function categoryTreeToNode(c: Category & { children?: (Category & { children?: unknown[] })[] }): CategoryTreeNode {
+export function categoryTreeToNode(c: any): CategoryTreeNode {
   return {
     id: String(c.category_id),
     name: c.category_name,
@@ -96,7 +97,7 @@ export function categoryTreeToNode(c: Category & { children?: (Category & { chil
     productCount: c.product_count ?? 0,
     description: c.footer_description || undefined,
     blurb: c.meta_description || undefined,
-    children: (c.children ?? []).map((child) => categoryTreeToNode(child as Category & { children?: (Category & { children?: unknown[] })[] })),
+    children: (c.children ?? []).map((child: any) => categoryTreeToNode(child)),
   };
 }
 

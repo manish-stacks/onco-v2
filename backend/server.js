@@ -56,7 +56,7 @@ app.use(
 app.use(
   cors({
     origin: process.env.CORS_ORIGINS
-      ? process.env.CORS_ORIGINS.split(',')
+      ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
       : '*',
     credentials: true,
   })

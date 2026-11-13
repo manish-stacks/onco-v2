@@ -407,7 +407,9 @@ export default function AccountPage() {
                               <p className="text-sm font-medium text-[var(--ink)]">{p.reference_code || `Prescription #${p.prescription_id}`}</p>
                               <p className="text-xs text-[var(--ink-soft)]">{p.doctor_name || "—"}</p>
                             </div>
-                            <a href={mediaUrl(p.images[0])} target="_blank" rel="noopener noreferrer" className={cn("rounded-full px-3 py-1 text-xs font-semibold capitalize")}>View</a>
+                            {p.images?.[0] && (
+                              <a href={mediaUrl(p.images[0])} target="_blank" rel="noopener noreferrer" className={cn("rounded-full px-3 py-1 text-xs font-semibold capitalize")}>View</a>
+                            )}
                             <span className={cn("rounded-full px-3 py-1 text-xs font-semibold capitalize", statusTone(p.status))}>{p.status}</span>
                             {p.prescription_id != null && !usedPrescriptionIds.has(String(p.prescription_id)) && (
                               <button onClick={() => handleDeletePrescription(p.prescription_id!)} className="text-xs font-medium text-[var(--coral-500)]">Delete</button>

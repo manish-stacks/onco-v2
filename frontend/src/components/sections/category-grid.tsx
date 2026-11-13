@@ -12,9 +12,20 @@ const AUTOPLAY_INTERVAL = 3000;
 const GAP = 20; 
 const ITEM_WIDTH_CLASS = "w-[45%] sm:w-[31%] lg:w-[16%]"; // ~ 2 / 3 / 6 per view
 
-export function CategoryGrid() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+interface CategoryGridProps {
+  categories?: Category[];
+}
+
+export function CategoryGrid({ categories: initialCategories }: CategoryGridProps = {}) {
+  const [categories, setCategories] = useState<Category[]>(() => {
+    if (initialCategories && initialCategories.length > 0) {
+      return initialCategories
+        .filter((category) => String(category.status || "").toLowerCase() === "active")
+        .filter((category) => Number(category.parent_id || 0) === 0);
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(!initialCategories || initialCategories.length === 0);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -26,14 +37,15 @@ export function CategoryGrid() {
   const isHoveringRef = useRef(false);
   const isDraggingRef = useRef(false);
 
-  // ---- fetch categories -----------------------------------------------
+  // ---- fetch categories (only if not provided by server component) -------------------
   useEffect(() => {
+    if (initialCategories && initialCategories.length > 0) return;
     let mounted = true;
 
     const fetchCategories = async () => {
       try {
         setLoading(true);
-        const response = await api.get("/home");
+        const response = (await api.get("/home")) as { data?: { categories?: Category[] } };
         const apiCategories: Category[] = response?.data?.categories || [];
 
         const activeCategories = apiCategories

@@ -10,10 +10,9 @@ import {
 import { ProductCard } from "@/components/product/product-card";
 import { catalogApi } from "@/lib/api";
 import { productToMedicine, brandToTag } from "@/lib/adapters";
-import { getHomeData } from "@/lib/home";
 import { useCategories } from "@/hooks/use-categories";
 import { cn } from "@/lib/utils";
-import type { ApiProduct, Medicine, BrandTag } from "@/types";
+import type { ApiProduct, ApiBrand, Medicine, BrandTag } from "@/types";
 
 const SORT_OPTIONS = [
   { label: "Newest", sort_by: "product_id", sort_dir: "desc" },
@@ -57,10 +56,12 @@ function ShopInner() {
   const [brands, setBrands] = useState<BrandTag[]>([]);
   const [showAllCategories, setShowAllCategories] = useState(false);
 
-  // Brand list — the Shop page has no brands endpoint of its own, so the home feed
-  // (already cached) is reused instead.
+  // Brand list for shop filters — calls dedicated /brands endpoint
   useEffect(() => {
-    getHomeData().then((home) => setBrands(home.brands.map(brandToTag))).catch(() => setBrands([]));
+    catalogApi
+      .brands<ApiBrand[]>()
+      .then((list) => setBrands((list || []).map(brandToTag)))
+      .catch(() => setBrands([]));
   }, []);
 
   // Local draft state for the price inputs (applied on "Apply" click, not on every keystroke)

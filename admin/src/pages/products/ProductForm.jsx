@@ -197,14 +197,14 @@ export default function ProductForm() {
           {tab === 'pricing' && (
             <div className="grid sm:grid-cols-3 gap-4 max-w-3xl">
               <Field label="MRP" required error={err.product_mrp}>
-                <Input type="number" step="0.01" value={form.product_mrp}
+                <Input type="number" step="any" min="0" inputMode="decimal" placeholder="0.00" value={form.product_mrp}
                   onChange={(e) => set('product_mrp', e.target.value)} />
               </Field>
               <Field label="Selling price" required error={err.product_sp}
                 hint={form.product_mrp && form.product_sp
                   ? `${(((form.product_mrp - form.product_sp) / form.product_mrp) * 100).toFixed(0)}% off`
                   : undefined}>
-                <Input type="number" step="0.01" value={form.product_sp}
+                <Input type="number" step="any" min="0" inputMode="decimal" placeholder="0.00" value={form.product_sp}
                   onChange={(e) => set('product_sp', e.target.value)} />
               </Field>
               <Field

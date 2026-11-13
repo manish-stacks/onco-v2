@@ -7,8 +7,9 @@ const redis = new Redis({
   db: parseInt(process.env.REDIS_DB || '0', 10),
   keyPrefix: process.env.REDIS_PREFIX || 'ohm:',
   retryStrategy: (times) => Math.min(times * 100, 3000),
-  maxRetriesPerRequest: 3,
-  enableOfflineQueue: true,
+  maxRetriesPerRequest: 1,
+  connectTimeout: 5000,
+  enableOfflineQueue: false,
 });
 
 let connected = false;

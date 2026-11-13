@@ -43,7 +43,7 @@ export default async function Home() {
   return (
     <>
       <Hero banners={home.banners} />
-      <CategoryGrid categories={categories} />
+      <CategoryGrid categories={home.categories} />
       <PromoBanners deals={home.deals} />
       <ProductRail title="Newly Added Medicines" medicines={featured.slice(0, 8)} href="/shop" />
       <WhyChooseUs />

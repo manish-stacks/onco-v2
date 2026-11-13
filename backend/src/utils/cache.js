@@ -2,51 +2,119 @@ const redis = require('../config/redis');
 const { CACHE_TTL } = require('../config/constants');
 
 /**
- * The app must not crash if Redis breaks — every function
- * swallows the error and returns data directly from the DB.
+ * In-memory fallback cache when Redis is down, disconnected, or local.
+ * Prevents hammering MySQL on repeated queries when Redis is unavailable.
  */
+const memoryCache = new Map();
 
-/** Cache-aside: check redis first, otherwise run fetchFn and store the result */
+function memGet(key) {
+  const item = memoryCache.get(key);
+  if (!item) return null;
+  if (Date.now() > item.expiresAt) {
+    memoryCache.delete(key);
+    return null;
+  }
+  return item.value;
+}
+
+function memSet(key, value, ttlSeconds = CACHE_TTL.MEDIUM) {
+  if (memoryCache.size > 2000) {
+    const firstKey = memoryCache.keys().next().value;
+    memoryCache.delete(firstKey);
+  }
+  memoryCache.set(key, {
+    value,
+    expiresAt: Date.now() + (ttlSeconds || 300) * 1000,
+  });
+}
+
+function memDel(...keys) {
+  keys.forEach((k) => memoryCache.delete(k));
+}
+
+function memDelByPrefix(prefix) {
+  for (const k of memoryCache.keys()) {
+    if (k.startsWith(prefix)) memoryCache.delete(k);
+  }
+}
+
+/** Cache-aside: check redis first, then memory fallback, otherwise run fetchFn and store the result */
 async function getOrSet(key, ttlSeconds, fetchFn) {
-  try {
-    const cached = await redis.get(key);
-    if (cached !== null) return JSON.parse(cached);
-  } catch (err) {
-    console.error('[cache] read fail', key, err.message);
+  const ttl = ttlSeconds || CACHE_TTL.MEDIUM;
+
+  // 1. Try memory cache first (0ms)
+  const memCached = memGet(key);
+  if (memCached !== null) return memCached;
+
+  // 2. Try Redis if connected
+  if (redis.isReady()) {
+    try {
+      const cached = await redis.get(key);
+      if (cached !== null) {
+        const parsed = JSON.parse(cached);
+        memSet(key, parsed, ttl);
+        return parsed;
+      }
+    } catch (err) {
+      // Redis error, continue to fetchFn
+    }
   }
 
+  // 3. Fetch fresh data
   const fresh = await fetchFn();
 
-  try {
-    await redis.set(key, JSON.stringify(fresh), 'EX', ttlSeconds || CACHE_TTL.MEDIUM);
-  } catch (err) {
-    console.error('[cache] write fail', key, err.message);
+  // 4. Populate memory cache and Redis
+  memSet(key, fresh, ttl);
+  if (redis.isReady()) {
+    try {
+      await redis.set(key, JSON.stringify(fresh), 'EX', ttl);
+    } catch {
+      /* redis write fail — ignored */
+    }
   }
   return fresh;
 }
 
 async function get(key) {
-  try {
-    const v = await redis.get(key);
-    return v === null ? null : JSON.parse(v);
-  } catch { return null; }
+  const memCached = memGet(key);
+  if (memCached !== null) return memCached;
+
+  if (redis.isReady()) {
+    try {
+      const v = await redis.get(key);
+      if (v !== null) {
+        const parsed = JSON.parse(v);
+        memSet(key, parsed, CACHE_TTL.MEDIUM);
+        return parsed;
+      }
+    } catch { return null; }
+  }
+  return null;
 }
 
 async function set(key, value, ttlSeconds = CACHE_TTL.MEDIUM) {
-  try { await redis.set(key, JSON.stringify(value), 'EX', ttlSeconds); } catch (err) {
-    console.error('[cache] set fail', key, err.message);
+  memSet(key, value, ttlSeconds);
+  if (redis.isReady()) {
+    try { await redis.set(key, JSON.stringify(value), 'EX', ttlSeconds); } catch (err) {
+      console.error('[cache] set fail', key, err.message);
+    }
   }
 }
 
 async function del(...keys) {
   if (!keys.length) return;
-  try { await redis.del(...keys); } catch (err) {
-    console.error('[cache] del fail', err.message);
+  memDel(...keys);
+  if (redis.isReady()) {
+    try { await redis.del(...keys); } catch (err) {
+      console.error('[cache] del fail', err.message);
+    }
   }
 }
 
 /** Delete every prefix* key via SCAN — does not use KEYS (prod safe) */
 async function delByPrefix(prefix) {
+  memDelByPrefix(prefix);
+  if (!redis.isReady()) return;
   try {
     const fullPrefix = `${redis.options.keyPrefix || ''}${prefix}`;
     const stream = redis.scanStream({ match: `${fullPrefix}*`, count: 200 });
